@@ -13,6 +13,14 @@ import { CustomerLayout } from './layouts/CustomerLayout.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { RegisterPage } from './pages/RegisterPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
+import { VehiclesPage } from './pages/VehiclesPage.js';
+import { VehicleTypesPage } from './pages/VehicleTypesPage.js';
+import { BrandsPage } from './pages/BrandsPage.js';
+import { ModelsPage } from './pages/ModelsPage.js';
+import { FuelTypesPage } from './pages/FuelTypesPage.js';
+import { CustomersPage } from './pages/CustomersPage.js';
+import { EmployeesPage } from './pages/EmployeesPage.js';
+import { SeasonalRatesPage } from './pages/SeasonalRatesPage.js';
 
 const StubPage: React.FC<{ title: string }> = ({ title }) => {
   return (
@@ -41,9 +49,15 @@ export const App: React.FC = () => {
             {/* Admin Portal */}
             <Route element={<AdminLayout />}>
               <Route path="/admin/dashboard" element={<DashboardPage />} />
-              <Route path="/admin/fleet" element={<StubPage title="Fleet Management" />} />
+              <Route path="/admin/vehicles" element={<VehiclesPage />} />
+              <Route path="/admin/vehicle-types" element={<VehicleTypesPage />} />
+              <Route path="/admin/brands" element={<BrandsPage />} />
+              <Route path="/admin/models" element={<ModelsPage />} />
+              <Route path="/admin/fuel-types" element={<FuelTypesPage />} />
+              <Route path="/admin/customers" element={<CustomersPage />} />
+              <Route path="/admin/employees" element={<EmployeesPage />} />
+              <Route path="/admin/seasonal-rates" element={<SeasonalRatesPage />} />
               <Route path="/admin/reservations" element={<StubPage title="Reservations Log" />} />
-              <Route path="/admin/customers" element={<StubPage title="Customer Accounts" />} />
               <Route path="/admin/settings" element={<StubPage title="System Settings" />} />
             </Route>
 

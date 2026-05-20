@@ -2,11 +2,16 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { LoginSchema, type LoginInput } from '@rent-car/common';
-import { useAuth } from '@/Infrastructure/auth.context.js';
-import { ShieldAlert, LogIn } from 'lucide-react';
+import { useAuth } from '../../Infrastructure/auth.context.js';
+import { Button } from '../components/ui/Button.js';
+import { Input } from '../components/ui/Input.js';
+import { FormField } from '../components/ui/FormField.js';
+import { ShieldAlert } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
+  const { t } = useTranslation();
   const { login } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
@@ -28,9 +33,9 @@ export const LoginPage: React.FC = () => {
     setError(null);
     setLoading(true);
     try {
-      await login(data.email, data.password);
-      const email = data.email.toLowerCase();
-      if (email.includes('admin')) {
+      const loggedInUser = await login(data.email, data.password);
+      const isStaff = loggedInUser?.role === 'ADMINISTRATOR' || loggedInUser?.role === 'AGENT' || loggedInUser?.role === 'INSPECTOR';
+      if (isStaff) {
         navigate('/admin/dashboard', { replace: true });
       } else {
         navigate('/customer/dashboard', { replace: true });
@@ -46,10 +51,10 @@ export const LoginPage: React.FC = () => {
     <div className="space-y-6">
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-extrabold tracking-tight text-fg-main">
-          Sign In
+          {t('auth.signIn')}
         </h2>
         <p className="text-xs text-fg-secondary">
-          Enter your credentials to access your FleetVault account
+          {t('auth.enterCredentials')}
         </p>
       </div>
 
@@ -61,68 +66,47 @@ export const LoginPage: React.FC = () => {
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">
-            Email Address
-          </label>
-          <input
+        <FormField
+          label={t('auth.emailAddress')}
+          required
+          error={errors.email?.message}
+        >
+          <Input
             type="email"
             placeholder="admin@fleetvault.com or customer@fleetvault.com"
             {...register('email')}
-            className={`w-full px-4 py-3 rounded-xl bg-bg-inset border text-sm text-fg-main placeholder:text-fg-tertiary focus:outline-none focus:ring-1 focus:ring-accent-primary transition-all ${
-              errors.email ? 'border-red-500/50' : 'border-border-surface/60'
-            }`}
           />
-          {errors.email && (
-            <p className="text-[10px] text-red-500 font-semibold mt-0.5">
-              {errors.email.message}
-            </p>
-          )}
-        </div>
+        </FormField>
 
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">
-            Password
-          </label>
-          <input
+        <FormField
+          label={t('auth.password')}
+          required
+          error={errors.password?.message}
+        >
+          <Input
             type="password"
             placeholder="••••••••"
             {...register('password')}
-            className={`w-full px-4 py-3 rounded-xl bg-bg-inset border text-sm text-fg-main placeholder:text-fg-tertiary focus:outline-none focus:ring-1 focus:ring-accent-primary transition-all ${
-              errors.password ? 'border-red-500/50' : 'border-border-surface/60'
-            }`}
           />
-          {errors.password && (
-            <p className="text-[10px] text-red-500 font-semibold mt-0.5">
-              {errors.password.message}
-            </p>
-          )}
-        </div>
+        </FormField>
 
-        <button
+        <Button
           type="submit"
-          disabled={loading}
-          className="w-full btn-primary h-12 flex items-center justify-center gap-2 text-sm mt-2 disabled:opacity-50 cursor-pointer"
+          className="w-full h-12 text-sm mt-2"
+          isLoading={loading}
         >
-          {loading ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-          ) : (
-            <>
-              <LogIn size={16} />
-              <span>Continue</span>
-            </>
-          )}
-        </button>
+          {t('auth.continue')}
+        </Button>
       </form>
 
       <div className="text-center pt-2">
         <span className="text-xs text-fg-tertiary">
-          Don't have an account?{' '}
+          {t('auth.dontHaveAccount')}{' '}
           <Link
             to="/register"
             className="text-accent-primary font-semibold hover:underline"
           >
-            Create an Account
+            {t('auth.createAccount')}
           </Link>
         </span>
       </div>

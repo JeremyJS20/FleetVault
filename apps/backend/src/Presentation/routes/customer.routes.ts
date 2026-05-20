@@ -1,0 +1,67 @@
+import { Router } from 'express';
+import { CatalogService } from '../../Application/services/catalog.service.js';
+import { authMiddleware } from '../../Application/middleware/auth.middleware.js';
+import { requireRole } from '../../Application/middleware/require-role.middleware.js';
+import { validateBody } from '../../Application/middleware/validation.middleware.js';
+import { CreateCustomerSchema, UpdateCustomerSchema } from '@rent-car/common';
+
+const router = Router();
+const service = new CatalogService();
+
+// GET /api/customers
+router.get('/', authMiddleware, async (req, res, next) => {
+  try {
+    const search = req.query.search?.toString();
+    const status = req.query.status?.toString();
+    const type = req.query.type?.toString();
+    const page = req.query.page ? Number(req.query.page) : undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+
+    const result = await service.listCustomers({ search, status, type, page, limit });
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/customers/:id
+router.get('/:id', authMiddleware, async (req, res, next) => {
+  try {
+    const item = await service.getCustomerById(req.params.id);
+    res.status(200).json({ success: true, data: item });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/customers
+router.post('/', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), validateBody(CreateCustomerSchema), async (req, res, next) => {
+  try {
+    const item = await service.createCustomer(req.body);
+    res.status(201).json({ success: true, data: item });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/customers/:id
+router.put('/:id', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), validateBody(UpdateCustomerSchema), async (req, res, next) => {
+  try {
+    const item = await service.updateCustomer(req.params.id, req.body);
+    res.status(200).json({ success: true, data: item });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/customers/:id/status
+router.patch('/:id/status', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), async (req, res, next) => {
+  try {
+    const item = await service.toggleCustomerStatus(req.params.id);
+    res.status(200).json({ success: true, data: item });
+  } catch (error) {
+    next(error);
+  }
+});
+
+export default router;

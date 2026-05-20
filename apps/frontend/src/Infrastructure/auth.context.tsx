@@ -12,12 +12,24 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User | null>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const normalizeUser = (user: any): User | null => {
+  if (!user) return null;
+  let role = user.role?.toUpperCase();
+  if (role === 'ADMIN') {
+    role = 'ADMINISTRATOR';
+  }
+  return {
+    ...user,
+    role,
+  };
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -31,7 +43,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     try {
       const data = await apiClient('/api/auth/me');
-      setUser(data.user);
+      // Backend returns { success: true, data: user }
+      setUser(normalizeUser(data.data));
     } catch (err) {
       console.error('Failed to restore auth session:', err);
       logout();
@@ -53,35 +66,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User | null> => {
     setIsLoading(true);
     try {
-      let data;
+      let tokenValue: string;
+      let refreshTokenValue: string | null = null;
+      let userValue: any;
       try {
-        data = await apiClient('/api/auth/login', {
+        const res = await apiClient('/api/auth/login', {
           method: 'POST',
           body: JSON.stringify({ email, password }),
         });
-      } catch (err) {
-        // Fallback for development testing
-        if (email.includes('admin') || email.includes('customer')) {
-          const role = email.includes('admin') ? 'admin' : 'customer';
-          data = {
-            accessToken: `mock-jwt-token-for-${role}`,
-            user: {
-              id: `mock-id-${role}`,
-              name: role === 'admin' ? 'System Administrator' : 'John Customer',
-              email: email,
-              role: role,
-            },
+        tokenValue = res.data.accessToken;
+        refreshTokenValue = res.data.refreshToken;
+        userValue = res.data.user;
+      } catch (err: any) {
+        // Fallback for development testing only if it is a network error (no status code)
+        if (!err.status && (email.includes('admin') || email.includes('customer'))) {
+          const role = email.includes('admin') ? 'ADMINISTRATOR' : 'CUSTOMER';
+          tokenValue = `mock-jwt-token-for-${role.toLowerCase()}`;
+          userValue = {
+            id: `mock-id-${role.toLowerCase()}`,
+            name: role === 'ADMINISTRATOR' ? 'System Administrator' : 'John Customer',
+            email: email,
+            role: role,
           };
         } else {
           throw err;
         }
       }
 
-      setAccessToken(data.accessToken);
-      setUser(data.user);
+      setAccessToken(tokenValue);
+      if (refreshTokenValue) {
+        localStorage.setItem('refresh_token', refreshTokenValue);
+      }
+      const normUser = normalizeUser(userValue);
+      setUser(normUser);
+      return normUser;
     } finally {
       setIsLoading(false);
     }
@@ -90,25 +111,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, password: string) => {
     setIsLoading(true);
     try {
-      let data;
+      let tokenValue: string | null = null;
+      let refreshTokenValue: string | null = null;
+      let userValue: any = null;
+
       try {
-        data = await apiClient('/api/auth/register', {
+        // 1. Call Backend Registration
+        const regRes = await apiClient('/api/auth/register', {
           method: 'POST',
           body: JSON.stringify({ name, email, password }),
         });
-      } catch (err) {
-        data = {
-          accessToken: 'mock-jwt-token-for-customer',
-          user: {
+
+        // 2. Automatically log in to get tokens
+        try {
+          const loginRes = await apiClient('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password }),
+          });
+          tokenValue = loginRes.data.accessToken;
+          refreshTokenValue = loginRes.data.refreshToken;
+          userValue = loginRes.data.user;
+        } catch (loginErr) {
+          // If login fails after registration, we still set registered user details
+          userValue = regRes.data.user;
+        }
+      } catch (err: any) {
+        // Mock fallback only if it is a network error (no status code)
+        if (!err.status) {
+          tokenValue = 'mock-jwt-token-for-customer';
+          userValue = {
             id: 'mock-id-customer',
             name: name,
             email: email,
-            role: 'customer',
-          },
-        };
+            role: 'CUSTOMER',
+          };
+        } else {
+          throw err;
+        }
       }
-      setAccessToken(data.accessToken);
-      setUser(data.user);
+
+      setAccessToken(tokenValue);
+      if (refreshTokenValue) {
+        localStorage.setItem('refresh_token', refreshTokenValue);
+      }
+      setUser(normalizeUser(userValue));
     } finally {
       setIsLoading(false);
     }
@@ -116,6 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     setAccessToken(null);
+    localStorage.removeItem('refresh_token');
     setUser(null);
     setIsLoading(false);
     fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});

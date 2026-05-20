@@ -36,7 +36,8 @@ export const CustomerLayout: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
-  if (user?.role === 'admin') {
+  const isStaff = user?.role === 'ADMINISTRATOR' || user?.role === 'AGENT' || user?.role === 'INSPECTOR';
+  if (isStaff) {
     return <Navigate to="/admin/dashboard" replace />;
   }
 

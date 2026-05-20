@@ -6,6 +6,7 @@ export const setAccessToken = (token: string | null) => {
     localStorage.setItem('access_token', token);
   } else {
     localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
   }
 };
 
@@ -57,15 +58,21 @@ export const apiClient = async (path: string, options: RequestOptions = {}): Pro
       if (!isRefreshing) {
         isRefreshing = true;
         try {
+          const refreshToken = localStorage.getItem('refresh_token');
           const refreshRes = await fetch('/api/auth/refresh', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
           });
 
           if (refreshRes.ok) {
-            const data = await refreshRes.json();
-            const newToken = data.accessToken;
+            const resData = await refreshRes.json();
+            const newToken = resData.data.accessToken;
+            const newRefreshToken = resData.data.refreshToken;
             setAccessToken(newToken);
+            if (newRefreshToken) {
+              localStorage.setItem('refresh_token', newRefreshToken);
+            }
             onRefreshed(newToken);
             isRefreshing = false;
           } else {
@@ -107,7 +114,9 @@ export const apiClient = async (path: string, options: RequestOptions = {}): Pro
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.message || `Request failed with status ${response.status}`);
+      const error = new Error(errData.message || errData.error || `Request failed with status ${response.status}`);
+      (error as any).status = response.status;
+      throw error;
     }
 
     if (response.status === 204) {

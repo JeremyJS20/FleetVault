@@ -1,5 +1,6 @@
 import React from 'react';
-import { useAuth } from '@/Infrastructure/auth.context.js';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../Infrastructure/auth.context.js';
 import { 
   TrendingUp, 
   Car, 
@@ -17,12 +18,9 @@ import {
   YAxis, 
   Tooltip 
 } from 'recharts';
-import { 
-  useReactTable, 
-  getCoreRowModel, 
-  flexRender, 
-  createColumnHelper 
-} from '@tanstack/react-table';
+import { ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '../components/ui/DataTable.js';
+import { Button } from '../components/ui/Button.js';
 
 const revenueData = [
   { month: 'Jan', revenue: 4200 },
@@ -51,31 +49,36 @@ const mockReservations: Reservation[] = [
 ];
 
 export const DashboardPage: React.FC = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'ADMINISTRATOR' || user?.role === 'AGENT';
 
-  const columnHelper = createColumnHelper<Reservation>();
-  const columns = [
-    columnHelper.accessor('id', {
-      header: 'Reservation ID',
-      cell: (info) => <span className="font-mono text-fg-secondary">#{info.getValue()}</span>,
-    }),
-    columnHelper.accessor('car', {
-      header: 'Vehicle',
-      cell: (info) => <span className="font-semibold text-fg-main">{info.getValue()}</span>,
-    }),
-    columnHelper.accessor(isAdmin ? 'customer' : 'startDate', {
-      header: isAdmin ? 'Customer' : 'Start Date',
-      cell: (info) => <span className="text-fg-secondary">{info.getValue()}</span>,
-    }),
-    columnHelper.accessor(isAdmin ? 'startDate' : 'endDate', {
-      header: isAdmin ? 'Start Date' : 'End Date',
-      cell: (info) => <span className="text-fg-secondary">{info.getValue()}</span>,
-    }),
-    columnHelper.accessor('status', {
-      header: 'Status',
+  const columns: ColumnDef<Reservation>[] = [
+    {
+      accessorKey: 'id',
+      header: t('dashboard.reservationId'),
+      cell: (info) => <span className="font-mono text-fg-secondary">#{info.getValue() as string}</span>,
+    },
+    {
+      accessorKey: 'car',
+      header: t('dashboard.vehicle'),
+      cell: (info) => <span className="font-semibold text-fg-main">{info.getValue() as string}</span>,
+    },
+    {
+      accessorKey: isAdmin ? 'customer' : 'startDate',
+      header: isAdmin ? t('dashboard.customer') : t('dashboard.startDate'),
+      cell: (info) => <span className="text-fg-secondary">{info.getValue() as string}</span>,
+    },
+    {
+      accessorKey: isAdmin ? 'startDate' : 'endDate',
+      header: isAdmin ? t('dashboard.startDate') : t('dashboard.endDate'),
+      cell: (info) => <span className="text-fg-secondary">{info.getValue() as string}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: t('common.status'),
       cell: (info) => {
-        const val = info.getValue();
+        const val = info.getValue() as string;
         const colors = 
           val === 'Active' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' :
           val === 'Pending' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
@@ -86,29 +89,24 @@ export const DashboardPage: React.FC = () => {
           </span>
         );
       },
-    }),
-    columnHelper.accessor('amount', {
-      header: 'Total Cost',
-      cell: (info) => <span className="font-mono font-bold text-fg-main">${info.getValue()}</span>,
-    }),
+    },
+    {
+      accessorKey: 'amount',
+      header: t('dashboard.totalCost'),
+      cell: (info) => <span className="font-mono font-bold text-fg-main">${info.getValue() as number}</span>,
+    },
   ];
 
-  const table = useReactTable({
-    data: mockReservations,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-in">
       <div>
         <h2 className="text-2xl font-extrabold tracking-tight text-fg-main">
-          Welcome back, {user?.name?.split(' ')[0] || 'User'}!
+          {t('dashboard.welcome')}, {user?.name?.split(' ')[0] || 'User'}!
         </h2>
         <p className="text-xs text-fg-secondary mt-1">
           {isAdmin 
-            ? 'Here is an overview of your fleet logistics, rentals, and operations metrics.' 
-            : 'Explore available vehicles, view your active bookings, or manage your rentals.'}
+            ? t('dashboard.overviewAdmin') 
+            : t('dashboard.overviewCustomer')}
         </p>
       </div>
 
@@ -117,7 +115,7 @@ export const DashboardPage: React.FC = () => {
           <>
             <div className="p-5 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md space-y-3 relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">Total Fleet Size</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">{t('dashboard.totalFleetSize')}</span>
                 <div className="p-2 rounded-xl bg-accent-primary/10 border border-accent-primary/20 text-accent-primary">
                   <Car size={16} />
                 </div>
@@ -132,7 +130,7 @@ export const DashboardPage: React.FC = () => {
 
             <div className="p-5 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md space-y-3 relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">Active Rentals</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">{t('dashboard.activeRentals')}</span>
                 <div className="p-2 rounded-xl bg-accent-primary/10 border border-accent-primary/20 text-accent-primary">
                   <Clock size={16} />
                 </div>
@@ -147,7 +145,7 @@ export const DashboardPage: React.FC = () => {
 
             <div className="p-5 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md space-y-3 relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">Monthly Revenue</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">{t('dashboard.monthlyRevenue')}</span>
                 <div className="p-2 rounded-xl bg-accent-primary/10 border border-accent-primary/20 text-accent-primary">
                   <DollarSign size={16} />
                 </div>
@@ -162,7 +160,7 @@ export const DashboardPage: React.FC = () => {
 
             <div className="p-5 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md space-y-3 relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">New Registrations</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">{t('dashboard.newRegistrations')}</span>
                 <div className="p-2 rounded-xl bg-accent-primary/10 border border-accent-primary/20 text-accent-primary">
                   <CheckCircle2 size={16} />
                 </div>
@@ -179,7 +177,7 @@ export const DashboardPage: React.FC = () => {
           <>
             <div className="p-5 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md space-y-3 relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">Active Bookings</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">{t('dashboard.activeBookings')}</span>
                 <div className="p-2 rounded-xl bg-accent-primary/10 border border-accent-primary/20 text-accent-primary">
                   <Car size={16} />
                 </div>
@@ -194,7 +192,7 @@ export const DashboardPage: React.FC = () => {
 
             <div className="p-5 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md space-y-3 relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">Total Bookings</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">{t('dashboard.totalBookings')}</span>
                 <div className="p-2 rounded-xl bg-accent-primary/10 border border-accent-primary/20 text-accent-primary">
                   <CalendarDays size={16} />
                 </div>
@@ -209,7 +207,7 @@ export const DashboardPage: React.FC = () => {
 
             <div className="p-5 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md space-y-3 relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">Rewards Program</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">{t('dashboard.rewardsProgram')}</span>
                 <div className="p-2 rounded-xl bg-accent-primary/10 border border-accent-primary/20 text-accent-primary">
                   <Award size={16} />
                 </div>
@@ -224,7 +222,7 @@ export const DashboardPage: React.FC = () => {
 
             <div className="p-5 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md space-y-3 relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">Total Invested</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">{t('dashboard.totalInvested')}</span>
                 <div className="p-2 rounded-xl bg-accent-primary/10 border border-accent-primary/20 text-accent-primary">
                   <DollarSign size={16} />
                 </div>
@@ -244,10 +242,10 @@ export const DashboardPage: React.FC = () => {
         <div className="lg:col-span-2 p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col justify-between">
           <div className="mb-4">
             <h3 className="text-sm font-bold text-fg-main uppercase tracking-wider">
-              {isAdmin ? 'System-Wide Revenue Growth' : 'Monthly Rental Usage'}
+              {isAdmin ? t('dashboard.revenueGrowth') : t('dashboard.rentalUsage')}
             </h3>
             <p className="text-xs text-fg-secondary mt-0.5">
-              Visualizing performance trends across the workspace.
+              {t('dashboard.visualizingTrends')}
             </p>
           </div>
           <div className="h-64 w-full">
@@ -271,30 +269,30 @@ export const DashboardPage: React.FC = () => {
         <div className="p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-bold text-fg-main uppercase tracking-wider mb-3">
-              Quick Actions
+              {t('dashboard.quickActions')}
             </h3>
             <div className="flex flex-col gap-2.5">
               {isAdmin ? (
                 <>
-                  <button className="btn-primary w-full text-xs h-11 min-h-0 rounded-xl cursor-pointer">Add New Vehicle</button>
-                  <button className="btn-ghost w-full text-xs h-11 min-h-0 rounded-xl cursor-pointer">Generate Invoices</button>
-                  <button className="btn-ghost w-full text-xs h-11 min-h-0 rounded-xl cursor-pointer">System Logs</button>
+                  <Button variant="primary" size="sm" className="w-full !h-11 !rounded-xl">{t('dashboard.addNewVehicle')}</Button>
+                  <Button variant="secondary" size="sm" className="w-full !h-11 !rounded-xl">{t('dashboard.generateInvoices')}</Button>
+                  <Button variant="secondary" size="sm" className="w-full !h-11 !rounded-xl">{t('dashboard.systemLogs')}</Button>
                 </>
               ) : (
                 <>
-                  <button className="btn-primary w-full text-xs h-11 min-h-0 rounded-xl cursor-pointer">Browse Vehicles</button>
-                  <button className="btn-ghost w-full text-xs h-11 min-h-0 rounded-xl cursor-pointer">View Loyalty Details</button>
-                  <button className="btn-ghost w-full text-xs h-11 min-h-0 rounded-xl cursor-pointer">Contact Support</button>
+                  <Button variant="primary" size="sm" className="w-full !h-11 !rounded-xl">{t('dashboard.browseVehicles')}</Button>
+                  <Button variant="secondary" size="sm" className="w-full !h-11 !rounded-xl">{t('dashboard.loyaltyDetails')}</Button>
+                  <Button variant="secondary" size="sm" className="w-full !h-11 !rounded-xl">{t('dashboard.contactSupport')}</Button>
                 </>
               )}
             </div>
           </div>
 
           <div className="mt-6 pt-4 border-t border-border-surface/40 space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-fg-tertiary block">System Health</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-fg-tertiary block">{t('dashboard.systemHealth')}</span>
             <div className="flex items-center gap-2 text-xs text-fg-secondary">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>All backend API nodes functional</span>
+              <span>{t('dashboard.allNodesFunctional')}</span>
             </div>
           </div>
         </div>
@@ -303,39 +301,17 @@ export const DashboardPage: React.FC = () => {
       <div className="p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md">
         <div className="mb-4">
           <h3 className="text-sm font-bold text-fg-main uppercase tracking-wider">
-            {isAdmin ? 'Recent Operations Log' : 'My Rental History'}
+            {isAdmin ? t('dashboard.recentOps') : t('dashboard.myHistory')}
           </h3>
           <p className="text-xs text-fg-secondary mt-0.5">
-            A comprehensive grid compiled using TanStack Table.
+            {t('dashboard.opsSummary')}
           </p>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              {table.getHeaderGroups().map(headerGroup => (
-                <tr key={headerGroup.id} className="border-b border-border-surface/60">
-                  {headerGroup.headers.map(header => (
-                    <th key={header.id} className="pb-3 font-bold uppercase tracking-wider text-fg-secondary">
-                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows.map(row => (
-                <tr key={row.id} className="border-b border-border-surface/40 hover:bg-bg-inset/40 transition-all">
-                  {row.getVisibleCells().map(cell => (
-                    <td key={cell.id} className="py-3.5">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={columns}
+          data={mockReservations}
+        />
       </div>
     </div>
   );

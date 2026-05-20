@@ -2,11 +2,16 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { CustomerRegisterSchema, type CustomerRegisterInput } from '@rent-car/common';
-import { useAuth } from '@/Infrastructure/auth.context.js';
-import { ShieldAlert, UserPlus } from 'lucide-react';
+import { useAuth } from '../../Infrastructure/auth.context.js';
+import { Button } from '../components/ui/Button.js';
+import { Input } from '../components/ui/Input.js';
+import { FormField } from '../components/ui/FormField.js';
+import { ShieldAlert } from 'lucide-react';
 
 export const RegisterPage: React.FC = () => {
+  const { t } = useTranslation();
   const { register: authRegister } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
@@ -50,13 +55,13 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
+    <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-2 animate-fade-in">
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-extrabold tracking-tight text-fg-main">
-          Create Account
+          {t('auth.createAccount')}
         </h2>
         <p className="text-xs text-fg-secondary">
-          Register to browse and reserve premium vehicles
+          {t('auth.register')}
         </p>
       </div>
 
@@ -69,190 +74,110 @@ export const RegisterPage: React.FC = () => {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">
-              Email Address
-            </label>
-            <input
+          <FormField label={t('auth.emailAddress')} required error={errors.email?.message}>
+            <Input
               type="email"
               placeholder="name@example.com"
               {...register('email')}
-              className={`w-full px-4 py-2.5 rounded-xl bg-bg-inset border text-xs text-fg-main focus:outline-none focus:ring-1 focus:ring-accent-primary transition-all ${
-                errors.email ? 'border-red-500/50' : 'border-border-surface/60'
-              }`}
             />
-            {errors.email && (
-              <p className="text-[9px] text-red-500 font-semibold">{errors.email.message}</p>
-            )}
-          </div>
+          </FormField>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">
-              Password
-            </label>
-            <input
+          <FormField label={t('auth.password')} required error={errors.password?.message}>
+            <Input
               type="password"
               placeholder="••••••••"
               {...register('password')}
-              className={`w-full px-4 py-2.5 rounded-xl bg-bg-inset border text-xs text-fg-main focus:outline-none focus:ring-1 focus:ring-accent-primary transition-all ${
-                errors.password ? 'border-red-500/50' : 'border-border-surface/60'
-              }`}
             />
-            {errors.password && (
-              <p className="text-[9px] text-red-500 font-semibold">{errors.password.message}</p>
-            )}
-          </div>
+          </FormField>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">
-              First Name
-            </label>
-            <input
+          <FormField label={t('auth.firstName')} required error={errors.firstName?.message}>
+            <Input
               type="text"
               placeholder="John"
               {...register('firstName')}
-              className={`w-full px-4 py-2.5 rounded-xl bg-bg-inset border text-xs text-fg-main focus:outline-none focus:ring-1 focus:ring-accent-primary transition-all ${
-                errors.firstName ? 'border-red-500/50' : 'border-border-surface/60'
-              }`}
             />
-            {errors.firstName && (
-              <p className="text-[9px] text-red-500 font-semibold">{errors.firstName.message}</p>
-            )}
-          </div>
+          </FormField>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">
-              Last Name
-            </label>
-            <input
+          <FormField label={t('auth.lastName')} required error={errors.lastName?.message}>
+            <Input
               type="text"
               placeholder="Doe"
               {...register('lastName')}
-              className={`w-full px-4 py-2.5 rounded-xl bg-bg-inset border text-xs text-fg-main focus:outline-none focus:ring-1 focus:ring-accent-primary transition-all ${
-                errors.lastName ? 'border-red-500/50' : 'border-border-surface/60'
-              }`}
             />
-            {errors.lastName && (
-              <p className="text-[9px] text-red-500 font-semibold">{errors.lastName.message}</p>
-            )}
-          </div>
+          </FormField>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">
-              National ID
-            </label>
-            <input
+          <FormField label={t('auth.nationalId')} required error={errors.nationalId?.message}>
+            <Input
               type="text"
               placeholder="ID Number"
               {...register('nationalId')}
-              className={`w-full px-4 py-2.5 rounded-xl bg-bg-inset border text-xs text-fg-main focus:outline-none focus:ring-1 focus:ring-accent-primary transition-all ${
-                errors.nationalId ? 'border-red-500/50' : 'border-border-surface/60'
-              }`}
             />
-            {errors.nationalId && (
-              <p className="text-[9px] text-red-500 font-semibold">{errors.nationalId.message}</p>
-            )}
-          </div>
+          </FormField>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">
-              Phone Number (Optional)
-            </label>
-            <input
+          <FormField label={t('auth.phone')}>
+            <Input
               type="text"
               placeholder="+1 (555) 123-4567"
               {...register('phone')}
-              className="w-full px-4 py-2.5 rounded-xl bg-bg-inset border border-border-surface/60 text-xs text-fg-main focus:outline-none focus:ring-1 focus:ring-accent-primary transition-all"
             />
-          </div>
+          </FormField>
         </div>
 
         <div className="p-3.5 rounded-xl bg-bg-inset border border-border-surface/40 space-y-3">
           <span className="text-[10px] font-bold uppercase tracking-widest text-accent-primary block">
-            Driver's License Details
+            {t('auth.licenseDetails')}
           </span>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="text-[9px] font-bold uppercase tracking-wider text-fg-secondary">
-                License Number
-              </label>
-              <input
+            <FormField label={t('auth.licenseNumber')} required error={errors.licenseNumber?.message}>
+              <Input
                 type="text"
                 placeholder="D1234567"
                 {...register('licenseNumber')}
-                className={`w-full px-3 py-2 rounded-lg bg-bg-card border text-xs text-fg-main focus:outline-none focus:ring-1 focus:ring-accent-primary transition-all ${
-                  errors.licenseNumber ? 'border-red-500/50' : 'border-border-surface/60'
-                }`}
+                className="!h-9 rounded-lg"
               />
-              {errors.licenseNumber && (
-                <p className="text-[8px] text-red-500 font-semibold">{errors.licenseNumber.message}</p>
-              )}
-            </div>
+            </FormField>
 
-            <div className="space-y-1">
-              <label className="text-[9px] font-bold uppercase tracking-wider text-fg-secondary">
-                Country
-              </label>
-              <input
+            <FormField label={t('auth.country')} required error={errors.licenseCountry?.message}>
+              <Input
                 type="text"
                 placeholder="Country"
                 {...register('licenseCountry')}
-                className={`w-full px-3 py-2 rounded-lg bg-bg-card border text-xs text-fg-main focus:outline-none focus:ring-1 focus:ring-accent-primary transition-all ${
-                  errors.licenseCountry ? 'border-red-500/50' : 'border-border-surface/60'
-                }`}
+                className="!h-9 rounded-lg"
               />
-              {errors.licenseCountry && (
-                <p className="text-[8px] text-red-500 font-semibold">{errors.licenseCountry.message}</p>
-              )}
-            </div>
+            </FormField>
 
-            <div className="space-y-1">
-              <label className="text-[9px] font-bold uppercase tracking-wider text-fg-secondary">
-                Expiry Date
-              </label>
-              <input
+            <FormField label={t('auth.expiryDate')} required error={errors.licenseExpDate?.message}>
+              <Input
                 type="date"
                 {...register('licenseExpDate')}
-                className={`w-full px-3 py-2 rounded-lg bg-bg-card border text-xs text-fg-main focus:outline-none focus:ring-1 focus:ring-accent-primary transition-all ${
-                  errors.licenseExpDate ? 'border-red-500/50' : 'border-border-surface/60'
-                }`}
+                className="!h-9 rounded-lg"
               />
-              {errors.licenseExpDate && (
-                <p className="text-[8px] text-red-500 font-semibold">{errors.licenseExpDate.message}</p>
-              )}
-            </div>
+            </FormField>
           </div>
         </div>
 
-        <button
+        <Button
           type="submit"
-          disabled={loading}
-          className="w-full btn-primary h-12 flex items-center justify-center gap-2 text-sm mt-2 disabled:opacity-50 cursor-pointer"
+          className="w-full h-12 text-sm mt-2"
+          isLoading={loading}
         >
-          {loading ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-          ) : (
-            <>
-              <UserPlus size={16} />
-              <span>Create Account</span>
-            </>
-          )}
-        </button>
+          {t('auth.createAccount')}
+        </Button>
       </form>
 
       <div className="text-center pt-2">
         <span className="text-xs text-fg-tertiary">
-          Already have an account?{' '}
+          {t('auth.alreadyHaveAccount')}{' '}
           <Link
             to="/login"
             className="text-accent-primary font-semibold hover:underline"
           >
-            Sign In
+            {t('auth.signIn')}
           </Link>
         </span>
       </div>
