@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LoginSchema, type LoginInput } from '@rent-car/common';
 import { useAuth } from '../../Infrastructure/auth.context.js';
@@ -14,8 +14,12 @@ export const LoginPage: React.FC = () => {
   const { t } = useTranslation();
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const from = (location.state as any)?.from || null;
+  const bookVehicleId = (location.state as any)?.bookVehicleId || null;
 
   const {
     register,
@@ -38,7 +42,11 @@ export const LoginPage: React.FC = () => {
       if (isStaff) {
         navigate('/admin/dashboard', { replace: true });
       } else {
-        navigate('/customer/dashboard', { replace: true });
+        if (from) {
+          navigate(from, { state: { bookVehicleId }, replace: true });
+        } else {
+          navigate('/customer/dashboard', { replace: true });
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');

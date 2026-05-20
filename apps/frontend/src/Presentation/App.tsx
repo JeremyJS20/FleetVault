@@ -8,6 +8,7 @@ import { AuthProvider } from '../Infrastructure/auth.context.js';
 import { AuthLayout } from './layouts/AuthLayout.js';
 import { AdminLayout } from './layouts/AdminLayout.js';
 import { CustomerLayout } from './layouts/CustomerLayout.js';
+import { PublicLayout } from './layouts/PublicLayout.js';
 
 // Pages
 import { LoginPage } from './pages/LoginPage.js';
@@ -21,6 +22,13 @@ import { FuelTypesPage } from './pages/FuelTypesPage.js';
 import { CustomersPage } from './pages/CustomersPage.js';
 import { EmployeesPage } from './pages/EmployeesPage.js';
 import { SeasonalRatesPage } from './pages/SeasonalRatesPage.js';
+import { CatalogPage } from './pages/CatalogPage.js';
+import { MyProfilePage } from './pages/MyProfilePage.js';
+import { MyRentalsPage } from './pages/MyRentalsPage.js';
+import { ReservationsPage } from './pages/ReservationsPage.js';
+import { InspectionsPage } from './pages/InspectionsPage.js';
+
+import { NetworkStatusProvider } from '../Infrastructure/network-status.js';
 
 const StubPage: React.FC<{ title: string }> = ({ title }) => {
   return (
@@ -37,42 +45,50 @@ export const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public/Auth Routes */}
-            <Route element={<AuthLayout />}>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/" element={<Navigate to="/login" replace />} />
-            </Route>
+        <NetworkStatusProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public Catalog Landing Page */}
+              <Route element={<PublicLayout />}>
+                <Route path="/" element={<CatalogPage />} />
+              </Route>
 
-            {/* Admin Portal */}
-            <Route element={<AdminLayout />}>
-              <Route path="/admin/dashboard" element={<DashboardPage />} />
-              <Route path="/admin/vehicles" element={<VehiclesPage />} />
-              <Route path="/admin/vehicle-types" element={<VehicleTypesPage />} />
-              <Route path="/admin/brands" element={<BrandsPage />} />
-              <Route path="/admin/models" element={<ModelsPage />} />
-              <Route path="/admin/fuel-types" element={<FuelTypesPage />} />
-              <Route path="/admin/customers" element={<CustomersPage />} />
-              <Route path="/admin/employees" element={<EmployeesPage />} />
-              <Route path="/admin/seasonal-rates" element={<SeasonalRatesPage />} />
-              <Route path="/admin/reservations" element={<StubPage title="Reservations Log" />} />
-              <Route path="/admin/settings" element={<StubPage title="System Settings" />} />
-            </Route>
+              {/* Public/Auth Routes */}
+              <Route element={<AuthLayout />}>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+              </Route>
 
-            {/* Customer Hub */}
-            <Route element={<CustomerLayout />}>
-              <Route path="/customer/dashboard" element={<DashboardPage />} />
-              <Route path="/customer/browse" element={<StubPage title="Browse Vehicle Catalog" />} />
-              <Route path="/customer/profile" element={<StubPage title="Customer Profile" />} />
-              <Route path="/customer/settings" element={<StubPage title="Account Settings" />} />
-            </Route>
+              {/* Admin Portal */}
+              <Route element={<AdminLayout />}>
+                <Route path="/admin/dashboard" element={<DashboardPage />} />
+                <Route path="/admin/vehicles" element={<VehiclesPage />} />
+                <Route path="/admin/vehicle-types" element={<VehicleTypesPage />} />
+                <Route path="/admin/brands" element={<BrandsPage />} />
+                <Route path="/admin/models" element={<ModelsPage />} />
+                <Route path="/admin/fuel-types" element={<FuelTypesPage />} />
+                <Route path="/admin/customers" element={<CustomersPage />} />
+                <Route path="/admin/employees" element={<EmployeesPage />} />
+                <Route path="/admin/seasonal-rates" element={<SeasonalRatesPage />} />
+                <Route path="/admin/reservations" element={<ReservationsPage />} />
+                <Route path="/admin/inspections" element={<InspectionsPage />} />
+                <Route path="/admin/settings" element={<StubPage title="System Settings" />} />
+              </Route>
 
-            {/* Catch-all Redirect */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </BrowserRouter>
+              {/* Customer Hub */}
+              <Route element={<CustomerLayout />}>
+                <Route path="/customer/dashboard" element={<DashboardPage />} />
+                <Route path="/customer/browse" element={<CatalogPage />} />
+                <Route path="/customer/reservations" element={<MyRentalsPage />} />
+                <Route path="/customer/profile" element={<MyProfilePage />} />
+                <Route path="/customer/settings" element={<StubPage title="Account Settings" />} />
+              </Route>
+
+              {/* Catch-all Redirect */}
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </NetworkStatusProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -1,5 +1,9 @@
 # RentCar Enterprise — Implementation Plan
 
+> [!IMPORTANT]
+> **Active Target: Phase 2 — Transaction MVP**
+> We are now ready to begin executing Phase 2. Please review the proposed changes and verification plan below.
+
 Full build-out from scaffolded hello-world to production system. 3 phases, each split into **Backend (BE)** and **Frontend (FE)** tracks that can run in parallel once API contracts are agreed.
 
 ---

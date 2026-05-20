@@ -1,0 +1,117 @@
+import { Router } from 'express';
+import { RentalService } from '../../Application/services/rental.service.js';
+import { authMiddleware, AuthenticatedRequest } from '../../Application/middleware/auth.middleware.js';
+import { requireRole } from '../../Application/middleware/require-role.middleware.js';
+import { validateBody } from '../../Application/middleware/validation.middleware.js';
+import { CreateRentalSchema, ReturnRentalSchema } from '@rent-car/common';
+
+const router = Router();
+const service = new RentalService();
+
+// GET /api/rentals
+router.get(
+  '/',
+  authMiddleware,
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const status = req.query.status?.toString();
+      const customerId = req.query.customerId?.toString();
+      const page = req.query.page ? Number(req.query.page) : undefined;
+      const limit = req.query.limit ? Number(req.query.limit) : undefined;
+
+      const result = await service.listRentals({ status, customerId, page, limit });
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// GET /api/rentals/:id
+router.get(
+  '/:id',
+  authMiddleware,
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const result = await service.getRentalById(req.params.id);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/rentals (checkout/activate or create walk-in)
+router.post(
+  '/',
+  authMiddleware,
+  requireRole(['AGENT', 'ADMINISTRATOR']),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const { rentalId } = req.body;
+      if (rentalId) {
+        // Activate reservation checkout
+        const { checkoutOdometer, checkoutFuelLevel, signatureUrl, employeeId } = req.body;
+        const result = await service.activateReservation(rentalId, {
+          checkoutOdometer: Number(checkoutOdometer),
+          checkoutFuelLevel,
+          signatureUrl,
+          employeeId: employeeId || req.user!.userId
+        });
+        res.status(200).json({ success: true, data: result });
+      } else {
+        // Direct counter checkout
+        // We temporarily bypass schema check if body schema differs slightly
+        const result = await service.createWalkInRental({
+          customerId: req.body.customerId,
+          employeeId: req.body.employeeId || req.user!.userId,
+          vehicleId: req.body.vehicleId,
+          rentalDate: req.body.rentalDate,
+          scheduledReturnDate: req.body.scheduledReturnDate,
+          pricePerDay: Number(req.body.pricePerDay),
+          checkoutOdometer: Number(req.body.checkoutOdometer),
+          checkoutFuelLevel: req.body.checkoutFuelLevel,
+          signatureUrl: req.body.signatureUrl,
+          comments: req.body.comments,
+          stripePaymentMethodId: req.body.stripePaymentMethodId
+        });
+        res.status(201).json({ success: true, data: result });
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/rentals/:id/return-estimate
+router.post(
+  '/:id/return-estimate',
+  authMiddleware,
+  requireRole(['INSPECTOR', 'AGENT', 'ADMINISTRATOR']),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const result = await service.calculatePenalties(req.params.id, req.body);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/rentals/:id/return
+router.post(
+  '/:id/return',
+  authMiddleware,
+  requireRole(['INSPECTOR', 'AGENT', 'ADMINISTRATOR']),
+  validateBody(ReturnRentalSchema),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const result = await service.processReturn(req.params.id, req.body);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+export default router;

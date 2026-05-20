@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CustomerRegisterSchema, type CustomerRegisterInput } from '@rent-car/common';
 import { useAuth } from '../../Infrastructure/auth.context.js';
@@ -12,10 +12,14 @@ import { ShieldAlert } from 'lucide-react';
 
 export const RegisterPage: React.FC = () => {
   const { t } = useTranslation();
-  const { register: authRegister } = useAuth();
+  const { registerCustomer } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const from = (location.state as any)?.from || null;
+  const bookVehicleId = (location.state as any)?.bookVehicleId || null;
 
   const defaultExpDate = new Date();
   defaultExpDate.setFullYear(defaultExpDate.getFullYear() + 5);
@@ -44,9 +48,12 @@ export const RegisterPage: React.FC = () => {
     setError(null);
     setLoading(true);
     try {
-      const fullName = `${data.firstName} ${data.lastName}`;
-      await authRegister(fullName, data.email, data.password);
-      navigate('/customer/dashboard', { replace: true });
+      await registerCustomer(data);
+      if (from) {
+        navigate(from, { state: { bookVehicleId }, replace: true });
+      } else {
+        navigate('/customer/dashboard', { replace: true });
+      }
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     } finally {

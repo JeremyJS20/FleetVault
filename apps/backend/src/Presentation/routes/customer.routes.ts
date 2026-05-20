@@ -1,12 +1,32 @@
 import { Router } from 'express';
 import { CatalogService } from '../../Application/services/catalog.service.js';
-import { authMiddleware } from '../../Application/middleware/auth.middleware.js';
+import { authMiddleware, AuthenticatedRequest } from '../../Application/middleware/auth.middleware.js';
 import { requireRole } from '../../Application/middleware/require-role.middleware.js';
 import { validateBody } from '../../Application/middleware/validation.middleware.js';
 import { CreateCustomerSchema, UpdateCustomerSchema } from '@rent-car/common';
 
 const router = Router();
 const service = new CatalogService();
+
+// GET /api/customers/me
+router.get('/me', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const item = await service.getCustomerByUserId(req.user!.userId);
+    res.status(200).json({ success: true, data: item });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/customers/me
+router.put('/me', authMiddleware, validateBody(UpdateCustomerSchema), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const item = await service.updateCustomerByUserId(req.user!.userId, req.body);
+    res.status(200).json({ success: true, data: item });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // GET /api/customers
 router.get('/', authMiddleware, async (req, res, next) => {

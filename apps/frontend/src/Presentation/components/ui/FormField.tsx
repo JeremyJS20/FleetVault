@@ -22,7 +22,7 @@ export const FormField: React.FC<FormFieldProps> = ({
           {label} {required ? <span className="text-red-500">*</span> : null}
         </label>
       ) : null}
-      {React.cloneElement(children, { error: !!error } as any)}
+      {React.cloneElement(children, { error: error || undefined } as any)}
       {error ? (
         <span className="text-[11px] font-medium text-red-500 mt-0.5">{error}</span>
       ) : null}

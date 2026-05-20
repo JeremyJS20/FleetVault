@@ -11,7 +11,8 @@
     "customers": "Customers",
     "employees": "Employees",
     "pricing": "Pricing & Rates",
-    "seasonalRates": "Seasonal Rates"
+    "seasonalRates": "Seasonal Rates",
+    "inspections": "Inspections Audit"
   },
   "common": {
     "actions": "Actions",

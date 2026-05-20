@@ -853,4 +853,169 @@ export class CatalogService {
       data: { status: newStatus }
     });
   }
+
+  // ==========================================
+  // PUBLIC CATALOG SEARCH
+  // ==========================================
+  async searchCatalogVehicles(query: {
+    typeId?: string;
+    brandId?: string;
+    fuelTypeId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    seats?: number;
+  }) {
+    const where: any = {
+      status: 'AVAILABLE'
+    };
+
+    if (query.typeId) where.vehicleTypeId = query.typeId;
+    if (query.brandId) where.brandId = query.brandId;
+    if (query.fuelTypeId) where.fuelTypeId = query.fuelTypeId;
+
+    // Check for date conflicts
+    if (query.dateFrom && query.dateTo) {
+      const start = new Date(query.dateFrom);
+      const end = new Date(query.dateTo);
+
+      const overlappingRentals = await prisma.rental.findMany({
+        where: {
+          status: { in: ['PENDING', 'ACTIVE'] },
+          rentalDate: { lte: end },
+          scheduledReturnDate: { gte: start }
+        },
+        select: { vehicleId: true }
+      });
+
+      const bookedVehicleIds = overlappingRentals.map(r => r.vehicleId);
+      if (bookedVehicleIds.length > 0) {
+        where.id = { notIn: bookedVehicleIds };
+      }
+    }
+
+    const vehicles = await prisma.vehicle.findMany({
+      where,
+      include: {
+        vehicleType: true,
+        brand: true,
+        model: true,
+        fuelType: true
+      },
+      orderBy: { brand: { name: 'asc' } }
+    });
+
+    // Calculate dynamic pricing
+    const seasonal = await this.getSeasonalMultiplier(query.dateFrom, query.dateTo);
+
+    const baseRates: Record<string, number> = {
+      sedan: 45.0,
+      suv: 75.0,
+      truck: 85.0
+    };
+
+    return vehicles.map(v => {
+      const typeName = v.vehicleType.name.toLowerCase();
+      const baseDailyRate = baseRates[typeName] || 50.0;
+      const calculatedDailyRate = parseFloat((baseDailyRate * seasonal.multiplier).toFixed(2));
+
+      return {
+        id: v.id,
+        description: v.description,
+        plateNumber: v.plateNumber,
+        imageUrl: v.imageUrl,
+        odometer: v.odometer,
+        vehicleType: { id: v.vehicleType.id, name: v.vehicleType.name },
+        brand: { id: v.brand.id, name: v.brand.name },
+        model: { id: v.model.id, name: v.model.name },
+        fuelType: { id: v.fuelType.id, name: v.fuelType.name },
+        baseDailyRate,
+        calculatedDailyRate,
+        hasSeasonalRate: seasonal.hasSeasonalRate,
+        seasonalMultiplier: seasonal.multiplier,
+        seasonalRateName: seasonal.name
+      };
+    });
+  }
+
+  async getCatalogVehicleDetail(id: string, dateFrom?: string, dateTo?: string) {
+    const v = await prisma.vehicle.findUnique({
+      where: { id },
+      include: {
+        vehicleType: true,
+        brand: true,
+        model: true,
+        fuelType: true
+      }
+    });
+
+    if (!v) throw new NotFoundError('Vehicle not found');
+
+    const seasonal = await this.getSeasonalMultiplier(dateFrom, dateTo);
+
+    const baseRates: Record<string, number> = {
+      sedan: 45.0,
+      suv: 75.0,
+      truck: 85.0
+    };
+
+    const typeName = v.vehicleType.name.toLowerCase();
+    const baseDailyRate = baseRates[typeName] || 50.0;
+    const calculatedDailyRate = parseFloat((baseDailyRate * seasonal.multiplier).toFixed(2));
+
+    return {
+      id: v.id,
+      description: v.description,
+      plateNumber: v.plateNumber,
+      imageUrl: v.imageUrl,
+      odometer: v.odometer,
+      vehicleType: { id: v.vehicleType.id, name: v.vehicleType.name },
+      brand: { id: v.brand.id, name: v.brand.name },
+      model: { id: v.model.id, name: v.model.name },
+      fuelType: { id: v.fuelType.id, name: v.fuelType.name },
+      baseDailyRate,
+      calculatedDailyRate,
+      hasSeasonalRate: seasonal.hasSeasonalRate,
+      seasonalMultiplier: seasonal.multiplier,
+      seasonalRateName: seasonal.name
+    };
+  }
+
+  private async getSeasonalMultiplier(dateFromStr?: string, dateToStr?: string) {
+    if (!dateFromStr || !dateToStr) {
+      return { multiplier: 1.0, hasSeasonalRate: false, name: null };
+    }
+
+    const start = new Date(dateFromStr);
+    const end = new Date(dateToStr);
+
+    const activeRate = await prisma.seasonalRate.findFirst({
+      where: {
+        status: 'ACTIVE',
+        startDate: { lte: end },
+        endDate: { gte: start }
+      },
+      orderBy: { multiplier: 'desc' }
+    });
+
+    if (activeRate) {
+      return {
+        multiplier: activeRate.multiplier,
+        hasSeasonalRate: activeRate.multiplier > 1.0,
+        name: activeRate.name
+      };
+    }
+
+    return { multiplier: 1.0, hasSeasonalRate: false, name: null };
+  }
+
+  async getCustomerByUserId(userId: string) {
+    const item = await prisma.customer.findUnique({ where: { userId } });
+    if (!item) throw new NotFoundError('Customer profile not found for this user');
+    return item;
+  }
+
+  async updateCustomerByUserId(userId: string, input: UpdateCustomerInput) {
+    const profile = await this.getCustomerByUserId(userId);
+    return await this.updateCustomer(profile.id, input);
+  }
 }

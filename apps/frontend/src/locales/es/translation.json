@@ -11,7 +11,8 @@
     "customers": "Clientes",
     "employees": "Empleados",
     "pricing": "Precios y Tarifas",
-    "seasonalRates": "Tarifas Estacionales"
+    "seasonalRates": "Tarifas Estacionales",
+    "inspections": "Auditoría de Inspecciones"
   },
   "common": {
     "actions": "Acciones",

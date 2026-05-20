@@ -8,6 +8,11 @@ import vehicleRouter from './vehicle.routes.js';
 import customerRouter from './customer.routes.js';
 import employeeRouter from './employee.routes.js';
 import seasonalRateRouter from './seasonal-rate.routes.js';
+import uploadRouter from './upload.routes.js';
+import catalogRouter from './catalog.routes.js';
+import reservationRouter from './reservation.routes.js';
+import inspectionRouter from './inspection.routes.js';
+import rentalRouter from './rental.routes.js';
 
 const router = Router();
 
@@ -20,5 +25,10 @@ router.use('/vehicles', vehicleRouter);
 router.use('/customers', customerRouter);
 router.use('/employees', employeeRouter);
 router.use('/seasonal-rates', seasonalRateRouter);
+router.use('/uploads', uploadRouter);
+router.use('/catalog', catalogRouter);
+router.use('/reservations', reservationRouter);
+router.use('/inspections', inspectionRouter);
+router.use('/rentals', rentalRouter);
 
 export default router;

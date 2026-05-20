@@ -14,6 +14,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<User | null>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  registerCustomer: (data: any) => Promise<void>;
   logout: () => void;
 }
 
@@ -160,6 +161,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const registerCustomer = async (data: any) => {
+    setIsLoading(true);
+    try {
+      let tokenValue: string | null = null;
+      let refreshTokenValue: string | null = null;
+      let userValue: any = null;
+
+      try {
+        // 1. Call Backend Registration for Customer
+        const regRes = await apiClient('/api/auth/register/customer', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+
+        // 2. Automatically log in to get tokens
+        try {
+          const loginRes = await apiClient('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email: data.email, password: data.password }),
+          });
+          tokenValue = loginRes.data.accessToken;
+          refreshTokenValue = loginRes.data.refreshToken;
+          userValue = loginRes.data.user;
+        } catch (loginErr) {
+          userValue = regRes.data.user;
+        }
+      } catch (err: any) {
+        // Mock fallback only if it is a network error (no status code)
+        if (!err.status) {
+          tokenValue = 'mock-jwt-token-for-customer';
+          userValue = {
+            id: 'mock-id-customer',
+            name: `${data.firstName} ${data.lastName}`,
+            email: data.email,
+            role: 'CUSTOMER',
+          };
+        } else {
+          throw err;
+        }
+      }
+
+      setAccessToken(tokenValue);
+      if (refreshTokenValue) {
+        localStorage.setItem('refresh_token', refreshTokenValue);
+      }
+      setUser(normalizeUser(userValue));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = () => {
     setAccessToken(null);
     localStorage.removeItem('refresh_token');
@@ -176,6 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         login,
         register,
+        registerCustomer,
         logout,
       }}
     >

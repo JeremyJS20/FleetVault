@@ -16,7 +16,8 @@ import {
   Layers,
   Droplet,
   Percent,
-  Languages
+  Languages,
+  ClipboardCheck
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -36,8 +37,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
   const customerLinks = [
     { to: '/customer/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
     { to: '/customer/browse', labelKey: 'nav.vehicles', icon: Search },
+    { to: '/customer/reservations', labelKey: 'nav.fleet', icon: Calendar },
     { to: '/customer/profile', labelKey: 'nav.people', icon: UserIcon },
-    { to: '/customer/settings', labelKey: 'common.actions', icon: Settings },
   ];
 
   const adminGroups = [
@@ -46,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
       links: [
         { to: '/admin/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
         { to: '/admin/reservations', labelKey: 'nav.fleet', icon: Calendar },
+        { to: '/admin/inspections', labelKey: 'nav.inspections', icon: ClipboardCheck },
       ]
     },
     {

@@ -32,7 +32,8 @@ export const AuthLayout: React.FC = () => {
   }
 
   if (isAuthenticated) {
-    if (user?.role === 'admin') {
+    const isStaff = user?.role === 'ADMINISTRATOR' || user?.role === 'AGENT' || user?.role === 'INSPECTOR';
+    if (isStaff) {
       return <Navigate to="/admin/dashboard" replace />;
     } else {
       return <Navigate to="/customer/dashboard" replace />;

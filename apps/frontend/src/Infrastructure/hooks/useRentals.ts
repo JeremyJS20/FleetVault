@@ -1,0 +1,124 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../api-client.js';
+
+export const useRentalsList = (params: { status?: string; customerId?: string; page?: number; limit?: number }) => {
+  const requestParams: Record<string, string> = {};
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== '') {
+      requestParams[key] = String(val);
+    }
+  });
+
+  return useQuery({
+    queryKey: ['rentals', params],
+    queryFn: async () => {
+      const res = await apiClient('/api/rentals', { params: requestParams });
+      return res.data as { items: any[]; total: number; page: number; limit: number; pages: number };
+    },
+  });
+};
+
+export const useRentalDetail = (id: string) => {
+  return useQuery({
+    queryKey: ['rental-detail', id],
+    queryFn: async () => {
+      const res = await apiClient(`/api/rentals/${id}`);
+      return res.data;
+    },
+    enabled: !!id,
+  });
+};
+
+export const useCreateRental = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      rentalId?: string; // set for activating reservation
+      customerId?: string;
+      employeeId?: string;
+      vehicleId?: string;
+      rentalDate?: string;
+      scheduledReturnDate?: string;
+      pricePerDay?: number;
+      checkoutOdometer?: number;
+      checkoutFuelLevel?: string;
+      signatureUrl: string;
+      comments?: string | null;
+      stripePaymentMethodId?: string;
+    }) => {
+      const res = await apiClient('/api/rentals', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rentals'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['my-reservations'] });
+    },
+  });
+};
+
+export const useRentalReturn = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: {
+      id: string;
+      data: {
+        actualReturnDate: string;
+        returnOdometer: number;
+        returnFuelLevel: string;
+        returnSignatureUrl: string;
+        comments?: string | null;
+        hasBrokenGlass: boolean;
+        damagedTiresCount: number;
+        hasNewScratches: boolean;
+      };
+    }) => {
+      const res = await apiClient(`/api/rentals/${id}/return`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      return res.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['rentals'] });
+      queryClient.invalidateQueries({ queryKey: ['rental-detail', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+    },
+  });
+};
+
+export const useRentalReturnEstimate = () => {
+  return useMutation({
+    mutationFn: async ({ id, data }: {
+      id: string;
+      data: {
+        actualReturnDate: string;
+        returnOdometer: number;
+        returnFuelLevel: string;
+        hasBrokenGlass: boolean;
+        damagedTiresCount: number;
+        hasNewScratches: boolean;
+      };
+    }) => {
+      const res = await apiClient(`/api/rentals/${id}/return-estimate`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      return res.data as {
+        baseCost: number;
+        lateHours: number;
+        lateFee: number;
+        fuelDifference: number;
+        fuelFee: number;
+        glassFee: number;
+        scratchesFee: number;
+        tiresFee: number;
+        totalDamageFee: number;
+        totalFinalCost: number;
+      };
+    },
+  });
+};
