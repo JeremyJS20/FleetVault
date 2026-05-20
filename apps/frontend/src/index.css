@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-base: var(--surface-base);
+  --color-bg-card: var(--surface-card);
+  --color-bg-elevated: var(--surface-elevated);
+  --color-bg-inset: var(--surface-inset);
+  --color-border-surface: var(--surface-border);
+  
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-primary-end: var(--accent-primary-end);
+  
+  --color-fg-main: var(--text-primary);
+  --color-fg-secondary: var(--text-secondary);
+  --color-fg-tertiary: var(--text-tertiary);
+  
+  --font-sans: "Satoshi", "DM Sans", "system-ui", "-apple-system", "sans-serif";
+  --font-mono: "JetBrains Mono", "Fira Code", "monospace";
+}
+
+:root {
+  /* Light theme variables */
+  --surface-base: #F0F4F8;
+  --surface-card: rgba(255, 255, 255, 0.82);
+  --surface-elevated: rgba(255, 255, 255, 0.92);
+  --surface-inset: rgba(27, 42, 74, 0.06);
+  --surface-border: rgba(27, 42, 74, 0.12);
+  --surface-overlay: rgba(27, 42, 74, 0.60);
+  
+  --accent-primary: #0E8E9A;
+  --accent-primary-end: #0D6B7A;
+  --accent-primary-glow: rgba(14, 142, 154, 0.15);
+  
+  --text-primary: #1B2A4A;
+  --text-secondary: #4B5563;
+  --text-tertiary: #9CA3AF;
+  --text-on-accent: #FFFFFF;
+}
+
+[data-theme="dark"] {
+  /* Dark theme overrides */
+  --surface-base: #0B0F19;
+  --surface-card: rgba(255, 255, 255, 0.05);
+  --surface-elevated: rgba(27, 42, 74, 0.50);
+  --surface-inset: rgba(255, 255, 255, 0.04);
+  --surface-border: rgba(255, 255, 255, 0.10);
+  --surface-overlay: rgba(5, 10, 25, 0.85);
+  
+  --accent-primary: #00B4D8;
+  --accent-primary-end: #0E8E9A;
+  --accent-primary-glow: rgba(0, 180, 216, 0.25);
+  
+  --text-primary: #F9FAFB;
+  --text-secondary: #9CA3AF;
+  --text-tertiary: #6B7280;
+  --text-on-accent: #0B0F19;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--surface-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+/* Glassmorphism custom classes */
+.glass-card {
+  background-color: var(--surface-card);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--surface-border);
+  border-radius: 16px;
+  padding: 32px;
+}
+
+/* Primary squircle tactile buttons */
+.btn-primary {
+  min-height: 64px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-primary-end));
+  color: var(--text-on-accent);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 32px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px 0 var(--accent-primary-glow);
+  cursor: pointer;
+  border: none;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px 0 var(--accent-primary-glow);
+}
+
+.btn-primary:active {
+  transform: scale(0.99);
+}
+
+/* Ghost button */
+.btn-ghost {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background-color: var(--surface-inset);
+  border: 1px solid var(--surface-border);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ghost:hover {
+  background-color: var(--surface-elevated);
+  color: var(--text-primary);
+}

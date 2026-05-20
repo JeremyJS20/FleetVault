@@ -1,0 +1,22 @@
+{
+  "name": "rent-car-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "npm run dev --workspace=apps/frontend",
+    "dev:backend": "npm run dev --workspace=apps/backend",
+    "build": "npm run build --workspace=packages/common && npm run build --workspace=apps/backend && npm run build --workspace=apps/frontend",
+    "postinstall": "prisma generate --schema=apps/backend/prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3",
+    "prisma": "^5.12.1"
+  }
+}

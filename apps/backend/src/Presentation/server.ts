@@ -1,0 +1,55 @@
+import 'dotenv/config';
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import { prisma } from '../Infrastructure/db.js';
+import { HealthStatusSchema } from '@rent-car/common';
+
+const app = express();
+const port = process.env.PORT || 3001;
+
+app.use(helmet());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://your-domain.com']
+    : ['http://localhost:5173'],
+  credentials: true,
+}));
+
+app.use(express.json());
+
+app.get('/api/health', async (req, res) => {
+  try {
+    // Basic connectivity check
+    await prisma.$queryRaw`SELECT 1`;
+    const payload = {
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: 'Connected',
+      message: 'Hello World from RentCar API!'
+    };
+    const result = HealthStatusSchema.safeParse(payload);
+    if (!result.success) {
+      return res.status(500).json({ success: false, error: 'Internal validation failed' });
+    }
+    return res.status(200).json({ success: true, data: result.data });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: 'Database connection failed',
+      details: err.message
+    });
+  }
+});
+
+const server = app.listen(port, () => {
+  console.log(`[Backend] Running on http://localhost:${port}`);
+});
+
+process.on('SIGTERM', () => {
+  server.close(() => {
+    prisma.$disconnect();
+    process.exit(0);
+  });
+});
