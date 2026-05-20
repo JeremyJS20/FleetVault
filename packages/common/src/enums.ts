@@ -1,0 +1,25 @@
+export const VehicleStatus = ['AVAILABLE', 'RENTED', 'UNDER_INSPECTION', 'MAINTENANCE', 'RETIRED'] as const;
+export const CleaningStatus = ['CLEAN', 'DIRTY'] as const;
+export const CustomerStatus = ['ACTIVE', 'SUSPENDED', 'BLACKLISTED'] as const;
+export const RentalStatus = ['PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED', 'NO_SHOW'] as const;
+export const InspectionStatus = ['PASSED', 'FLAGGED'] as const;
+export const FuelLevel = ['EMPTY', 'QUARTER', 'HALF', 'THREE_QUARTERS', 'FULL'] as const;
+export const WorkingShift = ['MORNING', 'AFTERNOON', 'NIGHT'] as const;
+export const CustomerType = ['INDIVIDUAL', 'CORPORATE'] as const;
+export const TransactionType = ['PRE_AUTH_HOLD', 'CHARGE', 'REFUND', 'PO_INVOICE'] as const;
+export const UserRole = ['CUSTOMER', 'INSPECTOR', 'AGENT', 'ADMINISTRATOR'] as const;
+export const EntityStatus = ['ACTIVE', 'INACTIVE'] as const;
+export const TireCondition = ['GOOD', 'WORN', 'DAMAGED', 'MISSING'] as const;
+
+export type VehicleStatusType = typeof VehicleStatus[number];
+export type CleaningStatusType = typeof CleaningStatus[number];
+export type CustomerStatusType = typeof CustomerStatus[number];
+export type RentalStatusType = typeof RentalStatus[number];
+export type InspectionStatusType = typeof InspectionStatus[number];
+export type FuelLevelType = typeof FuelLevel[number];
+export type WorkingShiftType = typeof WorkingShift[number];
+export type CustomerTypeType = typeof CustomerType[number];
+export type TransactionTypeType = typeof TransactionType[number];
+export type UserRoleType = typeof UserRole[number];
+export type EntityStatusType = typeof EntityStatus[number];
+export type TireConditionType = typeof TireCondition[number];

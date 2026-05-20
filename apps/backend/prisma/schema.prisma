@@ -8,8 +8,221 @@ datasource db {
 }
 
 model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  role         String    @default("CUSTOMER") // CUSTOMER, INSPECTOR, AGENT, ADMINISTRATOR
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  customer     Customer?
+  employee     Employee?
+}
+
+model VehicleType {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  status      String    @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  vehicles    Vehicle[]
+}
+
+model Brand {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  status    String    @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  models    Model[]
+  vehicles  Vehicle[]
+}
+
+model Model {
+  id        String    @id @default(uuid())
+  name      String
+  brandId   String
+  brand     Brand     @relation(fields: [brandId], references: [id])
+  status    String    @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  vehicles  Vehicle[]
+
+  @@unique([name, brandId])
+}
+
+model FuelType {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  status    String    @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  vehicles  Vehicle[]
+}
+
+model Vehicle {
+  id                      String       @id @default(uuid())
+  description             String?
+  chassisNumber           String       @unique
+  engineNumber            String       @unique
+  plateNumber             String       @unique
+  vehicleTypeId           String
+  vehicleType             VehicleType  @relation(fields: [vehicleTypeId], references: [id])
+  brandId                 String
+  brand                   Brand        @relation(fields: [brandId], references: [id])
+  modelId                 String
+  model                   Model        @relation(fields: [modelId], references: [id])
+  fuelTypeId              String
+  fuelType                FuelType     @relation(fields: [fuelTypeId], references: [id])
+  status                  String       @default("AVAILABLE") // AVAILABLE, RENTED, UNDER_INSPECTION, MAINTENANCE, RETIRED
+  cleaningStatus          String       @default("CLEAN") // CLEAN, DIRTY
+  imageUrl                String?
+  odometer                Float        @default(0)
+  lastMaintenanceOdometer Float        @default(0)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  rentals                 Rental[]
+  inspections             Inspection[]
+  gpsLogs                 GpsLog[]
+}
+
+model Customer {
+  id               String       @id @default(uuid())
+  name             String
+  nationalId       String       @unique
+  creditCardNumber String?
+  creditLimit      Float        @default(0)
+  type             String       @default("INDIVIDUAL") // INDIVIDUAL, CORPORATE
+  status           String       @default("ACTIVE") // ACTIVE, SUSPENDED, BLACKLISTED
+  licenseNumber    String
+  licenseCountry   String
+  licenseExpDate   DateTime
+  licensePhotoUrl  String?
+  userId           String?      @unique
+  user             User?        @relation(fields: [userId], references: [id])
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  rentals          Rental[]
+  inspections      Inspection[]
+}
+
+model Employee {
+  id                   String       @id @default(uuid())
+  name                 String
+  nationalId           String       @unique
+  commissionPercentage Float        @default(0)
+  hireDate             DateTime
+  shift                String       @default("MORNING") // MORNING, AFTERNOON, NIGHT
+  status               String       @default("ACTIVE") // ACTIVE, INACTIVE
+  userId               String?      @unique
+  user                 User?        @relation(fields: [userId], references: [id])
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  rentals              Rental[]
+  inspections          Inspection[]
+}
+
+model Inspection {
+  id                      String    @id @default(uuid())
+  rentalId                String?
+  rental                  Rental?   @relation(fields: [rentalId], references: [id])
+  vehicleId               String
+  vehicle                 Vehicle   @relation(fields: [vehicleId], references: [id])
+  customerId              String
+  customer                Customer  @relation(fields: [customerId], references: [id])
+  employeeId              String
+  employee                Employee  @relation(fields: [employeeId], references: [id])
+  hasScratches            Boolean   @default(false)
+  fuelGaugeLevel          String // EMPTY, QUARTER, HALF, THREE_QUARTERS, FULL
+  fuelGaugePhotoUrl       String
+  hasSpareTire            Boolean   @default(true)
+  hasJack                 Boolean   @default(true)
+  hasBrokenGlass          Boolean   @default(false)
+  tireConditionFrontLeft  String    @default("GOOD") // GOOD, WORN, DAMAGED, MISSING
+  tireConditionFrontRight String    @default("GOOD")
+  tireConditionRearLeft   String    @default("GOOD")
+  tireConditionRearRight  String    @default("GOOD")
+  odometer                Float
+  status                  String    @default("PASSED") // PASSED, FLAGGED
+  photoUrlsJson           String    @default("[]") // JSON serialized string array of additional photos
+  comments                String?
+  inspectionDate          DateTime  @default(now())
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+}
+
+model Rental {
+  id                    String              @id @default(uuid())
+  employeeId            String
+  employee              Employee            @relation(fields: [employeeId], references: [id])
+  customerId            String
+  customer              Customer            @relation(fields: [customerId], references: [id])
+  vehicleId             String
+  vehicle               Vehicle             @relation(fields: [vehicleId], references: [id])
+  rentalDate            DateTime
+  scheduledReturnDate   DateTime
+  actualReturnDate      DateTime?
+  pricePerDay           Float
+  checkoutOdometer      Float
+  returnOdometer        Float?
+  checkoutFuelLevel     String // EMPTY, QUARTER, HALF, THREE_QUARTERS, FULL
+  returnFuelLevel       String?
+  status                String              @default("PENDING") // PENDING, ACTIVE, COMPLETED, CANCELLED, NO_SHOW
+  comments              String?
+  signatureUrl          String?
+  returnSignatureUrl    String?
+  purchaseOrderNumber   String? // Corporate PO
+  stripePaymentIntentId String? // Pre-auth or upfront capture
+  contractPdfUrl        String?
+  totalCost             Float?
+  commissionAmount      Float?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  transactions          TransactionLedger[]
+  inspections           Inspection[]
+}
+
+model TransactionLedger {
+  id                    String   @id @default(uuid())
+  rentalId              String
+  rental                Rental   @relation(fields: [rentalId], references: [id])
+  amount                Float
+  type                  String // PRE_AUTH_HOLD, CHARGE, REFUND, PO_INVOICE
+  stripePaymentIntentId String?
+  purchaseOrderNumber   String?
+  stripeFee             Float?
+  comments              String?
+  createdAt             DateTime @default(now())
+}
+
+model GpsLog {
   id        String   @id @default(uuid())
-  email     String   @unique
-  role      String   @default("CUSTOMER")
-  createdAt DateTime @default(now())
+  vehicleId String
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+  latitude  Float
+  longitude Float
+  speedKmH  Float
+  heading   Float
+  timestamp DateTime @default(now())
+}
+
+model Geofence {
+  id              String   @id @default(uuid())
+  name            String
+  coordinatesJson String // stringified coordinate array e.g. [[lat, lng], [lat, lng], ...]
+  alertEmail      String
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SeasonalRate {
+  id         String   @id @default(uuid())
+  name       String
+  startDate  DateTime
+  endDate    DateTime
+  multiplier Float
+  status     String   @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }

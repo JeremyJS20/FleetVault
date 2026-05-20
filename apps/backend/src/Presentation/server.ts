@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import cors from 'cors';
 import { prisma } from '../Infrastructure/db.js';
 import { HealthStatusSchema } from '@rent-car/common';
+import apiRouter from './routes/index.js';
+import { errorHandler } from '../Application/middleware/error-handler.middleware.js';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -43,6 +45,12 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Mount all API routes
+app.use('/api', apiRouter);
+
+// Global Error Handler
+app.use(errorHandler);
+
 const server = app.listen(port, () => {
   console.log(`[Backend] Running on http://localhost:${port}`);
 });
@@ -53,3 +61,4 @@ process.on('SIGTERM', () => {
     process.exit(0);
   });
 });
+
