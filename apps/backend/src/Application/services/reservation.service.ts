@@ -38,7 +38,7 @@ export class ReservationService {
     }
 
     // License expiration check
-    if (new Date(customer.licenseExpDate) < now) {
+    if (customer.licenseExpDate && new Date(customer.licenseExpDate) < now) {
       throw new ValidationError('Your driver\'s license is expired. Please update your profile.');
     }
 

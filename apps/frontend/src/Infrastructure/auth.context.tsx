@@ -12,7 +12,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<User | null>;
+  login: (emailOrToken: string, passwordOrUser?: any, refreshToken?: string) => Promise<User | null>;
   register: (name: string, email: string, password: string) => Promise<void>;
   registerCustomer: (data: any) => Promise<void>;
   logout: () => void;
@@ -67,29 +67,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (email: string, password: string): Promise<User | null> => {
+  const login = async (emailOrToken: string, passwordOrUser?: any, refreshToken?: string): Promise<User | null> => {
     setIsLoading(true);
     try {
+      if (passwordOrUser && typeof passwordOrUser === 'object') {
+        const tokenValue = emailOrToken;
+        const userValue = passwordOrUser;
+        setAccessToken(tokenValue);
+        if (refreshToken) {
+          localStorage.setItem('refresh_token', refreshToken);
+        }
+        const normUser = normalizeUser(userValue);
+        setUser(normUser);
+        return normUser;
+      }
+
       let tokenValue: string;
       let refreshTokenValue: string | null = null;
       let userValue: any;
       try {
         const res = await apiClient('/api/auth/login', {
           method: 'POST',
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email: emailOrToken, password: passwordOrUser }),
         });
         tokenValue = res.data.accessToken;
         refreshTokenValue = res.data.refreshToken;
         userValue = res.data.user;
       } catch (err: any) {
         // Fallback for development testing only if it is a network error (no status code)
-        if (!err.status && (email.includes('admin') || email.includes('customer'))) {
-          const role = email.includes('admin') ? 'ADMINISTRATOR' : 'CUSTOMER';
+        if (!err.status && (emailOrToken.includes('admin') || emailOrToken.includes('customer'))) {
+          const role = emailOrToken.includes('admin') ? 'ADMINISTRATOR' : 'CUSTOMER';
           tokenValue = `mock-jwt-token-for-${role.toLowerCase()}`;
           userValue = {
             id: `mock-id-${role.toLowerCase()}`,
             name: role === 'ADMINISTRATOR' ? 'System Administrator' : 'John Customer',
-            email: email,
+            email: emailOrToken,
             role: role,
           };
         } else {

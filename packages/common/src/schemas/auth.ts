@@ -34,7 +34,14 @@ export const TokenPayloadSchema = z.object({
   role: z.enum(UserRole),
 });
 
+export const QuickRegisterSchema = z.object({
+  email: z.string().email('Invalid email'),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+});
+
 export type LoginInput = z.infer<typeof LoginSchema>;
 export type RegisterInput = z.infer<typeof RegisterSchema>;
 export type CustomerRegisterInput = z.infer<typeof CustomerRegisterSchema>;
 export type TokenPayload = z.infer<typeof TokenPayloadSchema>;
+export type QuickRegisterInput = z.infer<typeof QuickRegisterSchema>;

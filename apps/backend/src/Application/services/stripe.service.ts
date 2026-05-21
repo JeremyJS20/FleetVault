@@ -1,17 +1,21 @@
 import Stripe from 'stripe';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
-const stripe = stripeSecretKey ? new Stripe(stripeSecretKey, {
-  apiVersion: '2023-10-16' as any,
-}) : null;
+
+const isMockKey = !stripeSecretKey
+  || stripeSecretKey.includes('mock')
+  || stripeSecretKey.includes('placeholder')
+  || stripeSecretKey.includes('sk_test_...')
+  || stripeSecretKey === 'dummy';
+
+const stripe = !isMockKey ? new Stripe(stripeSecretKey) : null;
 
 export class StripeService {
   // Method to create a pre-auth payment intent hold
   async createPreAuthHold(amount: number, customerId?: string, metadata?: Record<string, string>) {
     const amountInCents = Math.round(amount * 100);
     
-    // In mock mode/testing, if no valid stripe key is provided or mock flag is active
-    if (!stripe || !stripeSecretKey || stripeSecretKey.startsWith('dummy') || stripeSecretKey.includes('sk_test_placeholder') || stripeSecretKey.includes('sk_test_...')) {
+    if (isMockKey || !stripe) {
       console.log(`[MOCK STRIPE] Created Pre-Auth Hold for $${amount}`);
       return {
         id: `mock_pi_${Math.random().toString(36).substring(7)}`,

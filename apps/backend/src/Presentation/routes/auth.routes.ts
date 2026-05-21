@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { validateBody } from '../../Application/middleware/validation.middleware.js';
 import { authMiddleware, AuthenticatedRequest } from '../../Application/middleware/auth.middleware.js';
-import { RegisterSchema, CustomerRegisterSchema, LoginSchema, RefreshTokenSchema } from '@rent-car/common';
+import { RegisterSchema, CustomerRegisterSchema, LoginSchema, RefreshTokenSchema, QuickRegisterSchema } from '@rent-car/common';
 import { AuthService } from '../../Application/services/auth.service.js';
 import { PrismaUserRepository } from '../../Infrastructure/repositories/prisma-user.repository.js';
 import { PrismaCustomerRepository } from '../../Infrastructure/repositories/prisma-customer.repository.js';
@@ -28,6 +28,25 @@ router.post('/register/customer', validateBody(CustomerRegisterSchema), async (r
   try {
     const result = await authService.registerCustomer(req.body);
     res.status(201).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /register/quick
+router.post('/register/quick', validateBody(QuickRegisterSchema), async (req, res, next) => {
+  try {
+    const result = await authService.quickRegister(req.body);
+    res.status(201).json({
+      success: true,
+      data: {
+        ...result,
+        user: {
+          ...result.user,
+          name: result.customer.name,
+        },
+      },
+    });
   } catch (error) {
     next(error);
   }

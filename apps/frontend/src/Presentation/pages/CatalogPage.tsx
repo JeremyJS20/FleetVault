@@ -1,18 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { usePublicVehicles, usePublicVehicleTypes, usePublicBrands } from '../../Infrastructure/hooks/usePublicCatalog.js';
 import { useCreateReservation } from '../../Infrastructure/hooks/useReservations.js';
 import { useAuth } from '../../Infrastructure/auth.context.js';
+import { useQuickRegister } from '../../Infrastructure/hooks/useQuickRegister.js';
 import { Button } from '../components/ui/Button.js';
 import { Input } from '../components/ui/Input.js';
 import { FormField } from '../components/ui/FormField.js';
 import { StripeCardForm } from '../components/ui/StripeCardForm.js';
+import { Toast } from '../components/ui/Toast.js';
 import { Search, Calendar, Shield, CreditCard, Check, Sparkles, AlertCircle } from 'lucide-react';
 
 export const CatalogPage: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { t } = useTranslation();
+  const { isAuthenticated, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Quick Signup modal state
+  const [quickSignupVehicle, setQuickSignupVehicle] = useState<any | null>(null);
+  const [quickFirstName, setQuickFirstName] = useState('');
+  const [quickLastName, setQuickLastName] = useState('');
+  const [quickEmail, setQuickEmail] = useState('');
+  const [quickError, setQuickError] = useState<string | null>(null);
+
+  // Toast state
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Hook for quick registration
+  const quickRegisterMutation = useQuickRegister();
 
   // Search filter states
   const [typeId, setTypeId] = useState('');
@@ -65,13 +82,46 @@ export const CatalogPage: React.FC = () => {
 
   const handleStartBooking = (vehicle: any) => {
     if (!isAuthenticated) {
-      navigate('/login', { state: { from: location.pathname, bookVehicleId: vehicle.id } });
+      setQuickSignupVehicle(vehicle);
       return;
     }
     setSelectedVehicle(vehicle);
     setBookingStep(1);
     setStripePaymentMethodId(null);
     setErrorMessage(null);
+  };
+
+  const handleQuickSignupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setQuickError(null);
+    try {
+      const res = await quickRegisterMutation.mutateAsync({
+        email: quickEmail,
+        firstName: quickFirstName,
+        lastName: quickLastName,
+      });
+
+      // Log in immediately via AuthContext
+      await login(res.accessToken, res.user, res.refreshToken);
+
+      // Toast success message notifying user that a temporary password was sent
+      setToastMessage(t('auth.tempPasswordNotice'));
+
+      // Close modal
+      const vehicle = quickSignupVehicle;
+      setQuickSignupVehicle(null);
+      setQuickFirstName('');
+      setQuickLastName('');
+      setQuickEmail('');
+
+      // Open reservation wizard
+      setSelectedVehicle(vehicle);
+      setBookingStep(1);
+      setStripePaymentMethodId(null);
+      setErrorMessage(null);
+    } catch (err: any) {
+      setQuickError(err.message || 'Failed to complete quick signup. Please try again.');
+    }
   };
 
   const calculateDays = () => {
@@ -86,6 +136,13 @@ export const CatalogPage: React.FC = () => {
       setErrorMessage('Please enter a valid credit card details');
       return;
     }
+
+    console.log("Booking details:", {
+      vehicleId: selectedVehicle.id,
+      rentalDate: dateFrom,
+      scheduledReturnDate: dateTo,
+      stripePaymentMethodId
+    });
 
     try {
       setErrorMessage(null);
@@ -251,7 +308,7 @@ export const CatalogPage: React.FC = () => {
       {selectedVehicle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-bg-inset/75 backdrop-blur-md animate-fade-in">
           <div className="bg-bg-card border border-border-surface/50 max-w-lg w-full rounded-3xl p-6 shadow-2xl relative space-y-6">
-            
+
             {/* Close button */}
             {bookingStep !== 3 && (
               <button
@@ -389,6 +446,97 @@ export const CatalogPage: React.FC = () => {
 
           </div>
         </div>
+      )}
+
+      {/* Quick Signup Modal */}
+      {quickSignupVehicle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-bg-inset/75 backdrop-blur-md animate-fade-in">
+          <form
+            onSubmit={handleQuickSignupSubmit}
+            className="bg-bg-card/70 border border-border-surface/40 backdrop-blur-xl max-w-md w-full rounded-3xl p-6 shadow-2xl relative space-y-6"
+          >
+            <button
+              type="button"
+              onClick={() => setQuickSignupVehicle(null)}
+              className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <div>
+              <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">
+                {t('auth.quickSignup')}
+              </span>
+              <h2 className="text-lg font-extrabold text-fg-main mt-1 uppercase">
+                {t('auth.createAccount')}
+              </h2>
+              <p className="text-xs text-fg-secondary mt-1">
+                {t('auth.quickSignupSubtitle')}
+              </p>
+            </div>
+
+            {quickError && (
+              <div className="p-3 rounded-xl bg-accent-error/15 border border-accent-error/20 text-accent-error text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {quickError}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <FormField label={t('auth.firstName')} required>
+                <Input
+                  type="text"
+                  placeholder="John"
+                  value={quickFirstName}
+                  onChange={(e) => setQuickFirstName(e.target.value)}
+                  required
+                />
+              </FormField>
+
+              <FormField label={t('auth.lastName')} required>
+                <Input
+                  type="text"
+                  placeholder="Doe"
+                  value={quickLastName}
+                  onChange={(e) => setQuickLastName(e.target.value)}
+                  required
+                />
+              </FormField>
+
+              <FormField label={t('auth.emailAddress')} required>
+                <Input
+                  type="email"
+                  placeholder="name@example.com"
+                  value={quickEmail}
+                  onChange={(e) => setQuickEmail(e.target.value)}
+                  required
+                />
+              </FormField>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => setQuickSignupVehicle(null)}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" isLoading={quickRegisterMutation.isPending}>
+                {t('auth.continue')}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Toast notifications */}
+      {toastMessage && (
+        <Toast
+          message={toastMessage}
+          type="success"
+          onClose={() => setToastMessage(null)}
+        />
       )}
 
     </div>

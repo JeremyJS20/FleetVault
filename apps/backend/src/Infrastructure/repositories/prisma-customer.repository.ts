@@ -20,14 +20,14 @@ export class PrismaCustomerRepository implements ICustomerRepository {
 
   async create(data: {
     name: string;
-    nationalId: string;
+    nationalId?: string | null;
     creditCardNumber?: string | null;
     creditLimit?: number;
     type?: string;
     status?: string;
-    licenseNumber: string;
-    licenseCountry: string;
-    licenseExpDate: Date;
+    licenseNumber?: string | null;
+    licenseCountry?: string | null;
+    licenseExpDate?: Date | null;
     licensePhotoUrl?: string | null;
     userId?: string | null;
   }): Promise<Customer> {

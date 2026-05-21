@@ -175,7 +175,12 @@
     "licenseDetails": "Detalles de Licencia de Conducir",
     "licenseNumber": "Número de Licencia",
     "country": "País",
-    "expiryDate": "Fecha de Vencimiento"
+    "expiryDate": "Fecha de Vencimiento",
+    "quickSignup": "Registro Rápido",
+    "quickSignupSubtitle": "Ingrese su nombre y correo electrónico para reservar este vehículo al instante. Se enviará una contraseña temporal a su correo.",
+    "tempPasswordNotice": "Se ha enviado una contraseña temporal a su dirección de correo electrónico.",
+    "profileIncompleteNotice": "¡Por favor complete los detalles de su licencia de conducir e identificación para garantizar un registro rápido en el mostrador del patio!",
+    "completeProfileLink": "Completar Detalles del Perfil"
   },
   "dashboard": {
     "welcome": "Bienvenido",

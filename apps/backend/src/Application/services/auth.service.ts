@@ -2,7 +2,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { IUserRepository, ICustomerRepository } from '../../Domain/repositories/index.js';
 import { ConflictError, ValidationError } from '../../Domain/errors/index.js';
-import { LoginInput, RegisterInput, CustomerRegisterInput, TokenPayload } from '@rent-car/common';
+import { LoginInput, RegisterInput, CustomerRegisterInput, TokenPayload, QuickRegisterInput } from '@rent-car/common';
+import { EmailService } from './email.service.js';
+
 
 export class AuthService {
   constructor(
@@ -69,7 +71,56 @@ export class AuthService {
       customer: {
         id: customer.id,
         name: customer.name,
-        nationalId: customer.nationalId,
+      },
+    };
+  }
+
+  async quickRegister(input: QuickRegisterInput) {
+    const existingUser = await this.userRepository.findByEmail(input.email);
+    if (existingUser) {
+      throw new ConflictError('Email already registered');
+    }
+
+    const tempPassword = Math.random().toString(36).slice(-10);
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    const user = await this.userRepository.create({
+      email: input.email,
+      passwordHash,
+      role: 'CUSTOMER',
+    });
+
+    const customer = await this.customerRepository.create({
+      name: `${input.firstName} ${input.lastName}`,
+      userId: user.id,
+    });
+
+    const emailService = new EmailService();
+    await emailService.sendTemporaryPassword(input.email, tempPassword);
+
+    const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-for-dev';
+    const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret-for-dev';
+
+    const payload: TokenPayload = {
+      userId: user.id,
+      email: user.email,
+      role: 'CUSTOMER',
+    };
+
+    const accessToken = jwt.sign(payload, jwtSecret, { expiresIn: '15m' });
+    const refreshToken = jwt.sign(payload, jwtRefreshSecret, { expiresIn: '7d' });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      customer: {
+        id: customer.id,
+        name: customer.name,
       },
     };
   }

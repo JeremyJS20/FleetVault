@@ -175,7 +175,12 @@
     "licenseDetails": "Driver's License Details",
     "licenseNumber": "License Number",
     "country": "Country",
-    "expiryDate": "Expiry Date"
+    "expiryDate": "Expiry Date",
+    "quickSignup": "Quick Signup",
+    "quickSignupSubtitle": "Enter your name and email to book this vehicle instantly. A temporary password will be sent to your email.",
+    "tempPasswordNotice": "A temporary password has been sent to your email address.",
+    "profileIncompleteNotice": "Please complete your driver's license and ID details to ensure a fast pickup counter check-in at the yard!",
+    "completeProfileLink": "Complete Profile Details"
   },
   "dashboard": {
     "welcome": "Welcome back",

@@ -1,4 +1,14 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { resolve, dirname } from 'path';
+
+// Resolve root .env regardless of CWD (backend CWD is apps/backend, but .env is in monorepo root)
+// src/Presentation -> src -> backend -> apps -> rent-car (root)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const envPath = resolve(__dirname, '../../../../.env');
+dotenv.config({ path: envPath });
+console.log(`[ENV] Loading .env from: ${envPath}`);
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';

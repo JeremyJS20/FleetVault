@@ -26,6 +26,23 @@ export interface ReturnCalculations {
 }
 
 export class RentalService {
+  private validateCustomerProfileComplete(customer: any, scheduledReturnDate: Date) {
+    const missingFields: string[] = [];
+    if (!customer.nationalId) missingFields.push('nationalId');
+    if (!customer.licenseNumber) missingFields.push('licenseNumber');
+    if (!customer.licenseCountry) missingFields.push('licenseCountry');
+    if (!customer.licenseExpDate) missingFields.push('licenseExpDate');
+
+    if (missingFields.length > 0) {
+      throw new ValidationError(`Customer profile is incomplete. Missing fields: ${missingFields.join(', ')}`);
+    }
+
+    const expDate = new Date(customer.licenseExpDate);
+    if (expDate <= scheduledReturnDate) {
+      throw new ValidationError(`Customer driver's license will expire before or on the scheduled return date (License expires: ${expDate.toLocaleDateString()}, Scheduled Return: ${scheduledReturnDate.toLocaleDateString()})`);
+    }
+  }
+
   async activateReservation(rentalId: string, input: {
     checkoutOdometer: number;
     checkoutFuelLevel: string;
@@ -34,7 +51,7 @@ export class RentalService {
   }) {
     const rental = await prisma.rental.findUnique({
       where: { id: rentalId },
-      include: { vehicle: true }
+      include: { vehicle: true, customer: true }
     });
 
     if (!rental) {
@@ -44,6 +61,12 @@ export class RentalService {
     if (rental.status !== 'PENDING') {
       throw new ValidationError(`Cannot activate reservation in ${rental.status} status`);
     }
+
+    if (!rental.customer) {
+      throw new NotFoundError('Customer not found for this reservation');
+    }
+
+    this.validateCustomerProfileComplete(rental.customer, rental.scheduledReturnDate);
 
     if (input.checkoutOdometer < rental.vehicle.odometer) {
       throw new ValidationError(`Checkout odometer cannot be less than current vehicle odometer (${rental.vehicle.odometer})`);
@@ -99,6 +122,8 @@ export class RentalService {
     const customer = await prisma.customer.findUnique({ where: { id: input.customerId } });
     if (!customer) throw new NotFoundError('Customer not found');
     if (customer.status !== 'ACTIVE') throw new ValidationError('Customer profile is suspended');
+
+    this.validateCustomerProfileComplete(customer, end);
 
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));

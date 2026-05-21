@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useRentalsList, useCreateRental, useRentalReturn, useRentalReturnEstimate } from '../../Infrastructure/hooks/useRentals.js';
 import { useVehicles } from '../../Infrastructure/hooks/useCatalog.js';
-import { useCustomers } from '../../Infrastructure/hooks/useCatalog.js';
+import { useCustomers, useUpdateCustomer } from '../../Infrastructure/hooks/useCatalog.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
 import { Input } from '../components/ui/Input.js';
@@ -30,6 +30,13 @@ export const ReservationsPage: React.FC = () => {
   const [checkoutFuelLevel, setCheckoutFuelLevel] = useState('FULL');
   const [checkoutSignature, setCheckoutSignature] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  // Counter edits for incomplete customer profiles
+  const [counterNationalId, setCounterNationalId] = useState('');
+  const [counterLicenseNumber, setCounterLicenseNumber] = useState('');
+  const [counterLicenseCountry, setCounterLicenseCountry] = useState('');
+  const [counterLicenseExpDate, setCounterLicenseExpDate] = useState('');
+  const [isUpdatingCustomer, setIsUpdatingCustomer] = useState(false);
 
   // Returns Wizard State
   const [returnRental, setReturnRental] = useState<any | null>(null);
@@ -66,6 +73,13 @@ export const ReservationsPage: React.FC = () => {
   const createRentalMutation = useCreateRental();
   const returnRentalMutation = useRentalReturn();
   const estimateReturnMutation = useRentalReturnEstimate();
+  const updateCustomerMutation = useUpdateCustomer();
+
+  const isCheckoutCustomerProfileIncomplete = 
+    !checkoutRental?.customer.nationalId || 
+    !checkoutRental?.customer.licenseNumber || 
+    !checkoutRental?.customer.licenseCountry || 
+    !checkoutRental?.customer.licenseExpDate;
 
   const handleStartCheckout = (rental: any) => {
     setCheckoutRental(rental);
@@ -74,13 +88,61 @@ export const ReservationsPage: React.FC = () => {
     setCheckoutFuelLevel('FULL');
     setCheckoutSignature(null);
     setCheckoutError(null);
+
+    setCounterNationalId(rental.customer.nationalId || '');
+    setCounterLicenseNumber(rental.customer.licenseNumber || '');
+    setCounterLicenseCountry(rental.customer.licenseCountry || '');
+    setCounterLicenseExpDate(
+      rental.customer.licenseExpDate 
+        ? new Date(rental.customer.licenseExpDate).toISOString().split('T')[0] 
+        : ''
+    );
   };
 
-  const handleNextCheckoutStep = () => {
+  const handleNextCheckoutStep = async () => {
     setCheckoutError(null);
     if (checkoutStep === 2) {
+      if (isCheckoutCustomerProfileIncomplete) {
+        if (!counterNationalId || !counterLicenseNumber || !counterLicenseCountry || !counterLicenseExpDate) {
+          setCheckoutError("All driving credential fields are required to complete the customer's profile.");
+          return;
+        }
+
+        setIsUpdatingCustomer(true);
+        try {
+          const updatedCustomer = await updateCustomerMutation.mutateAsync({
+            id: checkoutRental.customer.id,
+            data: {
+              ...checkoutRental.customer,
+              nationalId: counterNationalId,
+              licenseNumber: counterLicenseNumber,
+              licenseCountry: counterLicenseCountry,
+              licenseExpDate: new Date(counterLicenseExpDate).toISOString(),
+            },
+          });
+
+          setCheckoutRental((prev: any) => ({
+            ...prev,
+            customer: {
+              ...prev.customer,
+              ...updatedCustomer,
+              nationalId: counterNationalId,
+              licenseNumber: counterLicenseNumber,
+              licenseCountry: counterLicenseCountry,
+              licenseExpDate: new Date(counterLicenseExpDate).toISOString(),
+            },
+          }));
+        } catch (err: any) {
+          setCheckoutError(err.message || 'Failed to update customer credentials at the counter.');
+          setIsUpdatingCustomer(false);
+          return;
+        } finally {
+          setIsUpdatingCustomer(false);
+        }
+      }
+
       // Check license expiration
-      const expDate = new Date(checkoutRental.customer.licenseExpDate);
+      const expDate = new Date(counterLicenseExpDate);
       if (expDate < new Date()) {
         setCheckoutError("Customer's driver's license is expired. Cannot authorize checkout!");
         return;
@@ -415,32 +477,90 @@ export const ReservationsPage: React.FC = () => {
             {checkoutStep === 2 && (
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-3">
-                  <span className="text-[10px] text-fg-tertiary font-bold block uppercase leading-none">Registered Credentials</span>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <span className="text-fg-tertiary block text-[10px]">License Number</span>
-                      <span className="text-fg-main font-bold font-mono">{checkoutRental.customer.licenseNumber}</span>
+                  <span className="text-[10px] text-fg-tertiary font-bold block uppercase leading-none">
+                    {isCheckoutCustomerProfileIncomplete ? "Complete Customer Profile at Counter" : "Registered Credentials"}
+                  </span>
+                  
+                  {isCheckoutCustomerProfileIncomplete ? (
+                    <div className="space-y-3">
+                      <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 text-[10px] text-amber-200">
+                        The customer's profile is missing some driving credentials. Please fill them in below.
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <FormField label="National ID / Passport" required>
+                          <Input
+                            type="text"
+                            placeholder="e.g. ID-12345678"
+                            value={counterNationalId}
+                            onChange={(e) => setCounterNationalId(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+
+                        <FormField label="Driver's License Number" required>
+                          <Input
+                            type="text"
+                            placeholder="e.g. DL-987654321"
+                            value={counterLicenseNumber}
+                            onChange={(e) => setCounterLicenseNumber(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+
+                        <FormField label="License Country" required>
+                          <Input
+                            type="text"
+                            placeholder="e.g. United States"
+                            value={counterLicenseCountry}
+                            onChange={(e) => setCounterLicenseCountry(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+
+                        <FormField label="License Expiry Date" required>
+                          <Input
+                            type="date"
+                            value={counterLicenseExpDate}
+                            onChange={(e) => setCounterLicenseExpDate(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-fg-tertiary block text-[10px]">Expiration Date</span>
-                      <span className={`font-bold ${new Date(checkoutRental.customer.licenseExpDate) < new Date() ? 'text-accent-error' : 'text-emerald-500'}`}>
-                        {new Date(checkoutRental.customer.licenseExpDate).toLocaleDateString()}
-                      </span>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-fg-tertiary block text-[10px]">License Number</span>
+                        <span className="text-fg-main font-bold font-mono">{checkoutRental.customer.licenseNumber}</span>
+                      </div>
+                      <div>
+                        <span className="text-fg-tertiary block text-[10px]">Expiration Date</span>
+                        <span className={`font-bold ${new Date(checkoutRental.customer.licenseExpDate) < new Date() ? 'text-accent-error' : 'text-emerald-500'}`}>
+                          {new Date(checkoutRental.customer.licenseExpDate).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-fg-tertiary block text-[10px]">License Country</span>
+                        <span className="text-fg-main font-bold">{checkoutRental.customer.licenseCountry || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-fg-tertiary block text-[10px]">National ID / Passport</span>
+                        <span className="text-fg-main font-bold">{checkoutRental.customer.nationalId}</span>
+                      </div>
+                      <div>
+                        <span className="text-fg-tertiary block text-[10px]">Profile Status</span>
+                        <span className="text-emerald-500 font-bold uppercase">{checkoutRental.customer.status}</span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-fg-tertiary block text-[10px]">National ID / Passport</span>
-                      <span className="text-fg-main font-bold">{checkoutRental.customer.nationalId}</span>
-                    </div>
-                    <div>
-                      <span className="text-fg-tertiary block text-[10px]">Profile Status</span>
-                      <span className="text-emerald-500 font-bold uppercase">{checkoutRental.customer.status}</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="secondary" onClick={() => setCheckoutStep(1)}>Back</Button>
-                  <Button onClick={handleNextCheckoutStep}>Next: Vehicle Odometer</Button>
+                  <Button onClick={handleNextCheckoutStep} isLoading={isUpdatingCustomer}>
+                    {isCheckoutCustomerProfileIncomplete ? "Save & Continue" : "Next: Vehicle Odometer"}
+                  </Button>
                 </div>
               </div>
             )}

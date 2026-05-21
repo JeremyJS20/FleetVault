@@ -89,14 +89,14 @@ model Vehicle {
 model Customer {
   id               String       @id @default(uuid())
   name             String
-  nationalId       String       @unique
+  nationalId       String?      @unique
   creditCardNumber String?
   creditLimit      Float        @default(0)
   type             String       @default("INDIVIDUAL") // INDIVIDUAL, CORPORATE
   status           String       @default("ACTIVE") // ACTIVE, SUSPENDED, BLACKLISTED
-  licenseNumber    String
-  licenseCountry   String
-  licenseExpDate   DateTime
+  licenseNumber    String?
+  licenseCountry   String?
+  licenseExpDate   DateTime?
   licensePhotoUrl  String?
   userId           String?      @unique
   user             User?        @relation(fields: [userId], references: [id])

@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { apiClient } from '../../Infrastructure/api-client.js';
 import { useOwnReservations, useCancelReservation } from '../../Infrastructure/hooks/useReservations.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
-import { Calendar, Trash2, ShieldAlert, FileText } from 'lucide-react';
+import { Calendar, Trash2, ShieldAlert, FileText, AlertCircle } from 'lucide-react';
 
 export const MyRentalsPage: React.FC = () => {
+  const { t } = useTranslation();
 
   // Queries & Mutations
   const { data: bookings = [], isLoading, refetch } = useOwnReservations();
@@ -13,6 +17,33 @@ export const MyRentalsPage: React.FC = () => {
   // Cancellation Modal state
   const [cancellingBooking, setCancellingBooking] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Profile status check
+  const [profile, setProfile] = useState<any | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await apiClient('/api/customers/me');
+        if (res.data) {
+          setProfile(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to load profile for verification:', err);
+      } finally {
+        setIsProfileLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  const isProfileComplete = !!(
+    profile?.nationalId &&
+    profile?.licenseNumber &&
+    profile?.licenseCountry &&
+    profile?.licenseExpDate
+  );
 
   const checkLateCancellation = (rentalDateStr: string) => {
     const rentalDate = new Date(rentalDateStr);
@@ -53,6 +84,21 @@ export const MyRentalsPage: React.FC = () => {
           Review your upcoming rentals, billing ledgers, and download signed contracts.
         </p>
       </div>
+
+      {!isProfileLoading && !isProfileComplete && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 backdrop-blur-md text-amber-200 text-xs font-semibold flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg animate-fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 shrink-0 text-amber-400 animate-pulse" />
+            <span>{t('auth.profileIncompleteNotice')}</span>
+          </div>
+          <Link
+            to="/customer/profile"
+            className="text-amber-400 hover:text-amber-300 font-bold underline transition-colors shrink-0"
+          >
+            {t('auth.completeProfileLink')} &rarr;
+          </Link>
+        </div>
+      )}
 
       {bookings.length === 0 ? (
         <div className="text-center py-20 p-6 rounded-2xl border border-dashed border-border-surface/40 bg-bg-surface/10">
