@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Power } from 'lucide-react';
 import { useAuth } from '../../Infrastructure/auth.context.js';
+import { formatCurrency } from '@rent-car/common';
 import {
   useVehicleTypes,
   useCreateVehicleType,
@@ -47,12 +48,14 @@ export const VehicleTypesPage: React.FC = () => {
   // Form states
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [baseDailyRate, setBaseDailyRate] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const handleOpenCreate = () => {
     setName('');
     setDescription('');
+    setBaseDailyRate(0);
     setEditingItem(null);
     setFormError(null);
     setIsFormOpen(true);
@@ -61,6 +64,7 @@ export const VehicleTypesPage: React.FC = () => {
   const handleOpenEdit = (item: any) => {
     setName(item.name);
     setDescription(item.description || '');
+    setBaseDailyRate(item.baseDailyRate || 0);
     setEditingItem(item);
     setFormError(null);
     setIsFormOpen(true);
@@ -69,7 +73,7 @@ export const VehicleTypesPage: React.FC = () => {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setFormError('Name is required');
+      setFormError(t('vehicleTypes.validationNameRequired'));
       return;
     }
 
@@ -77,18 +81,18 @@ export const VehicleTypesPage: React.FC = () => {
       if (editingItem) {
         await updateMutation.mutateAsync({
           id: editingItem.id,
-          data: { name, description },
+          data: { name, description, baseDailyRate },
         });
-        setToast({ message: 'Vehicle type updated successfully', type: 'success' });
+        setToast({ message: t('vehicleTypes.updatedSuccess'), type: 'success' });
       } else {
         await createMutation.mutateAsync({
-          data: { name, description },
+          data: { name, description, baseDailyRate },
         });
-        setToast({ message: 'Vehicle type created successfully', type: 'success' });
+        setToast({ message: t('vehicleTypes.createdSuccess'), type: 'success' });
       }
       setIsFormOpen(false);
     } catch (err: any) {
-      setFormError(err.message || 'Operation failed');
+      setFormError(err.message || t('common.operationFailed'));
     }
   };
 
@@ -101,10 +105,10 @@ export const VehicleTypesPage: React.FC = () => {
     if (!confirmItem) return;
     try {
       await toggleStatusMutation.mutateAsync({ id: confirmItem.id });
-      setToast({ message: 'Status updated successfully', type: 'success' });
+      setToast({ message: t('common.statusUpdated'), type: 'success' });
       setIsConfirmOpen(false);
     } catch (err: any) {
-      setToast({ message: err.message || 'Failed to update status', type: 'error' });
+      setToast({ message: err.message || t('common.statusUpdateFailed'), type: 'error' });
     }
   };
 
@@ -118,6 +122,11 @@ export const VehicleTypesPage: React.FC = () => {
       accessorKey: 'description',
       header: t('vehicleTypes.description'),
       cell: (info) => <span className="text-fg-secondary">{info.getValue() as string || '—'}</span>,
+    },
+    {
+      accessorKey: 'baseDailyRate',
+      header: t('vehicleTypes.baseDailyRate'),
+      cell: (info) => <span className="font-mono text-xs">{formatCurrency(info.getValue() as number || 0)}</span>,
     },
     {
       accessorKey: 'status',
@@ -191,8 +200,8 @@ export const VehicleTypesPage: React.FC = () => {
         onClose={() => setIsFormOpen(false)}
         title={editingItem ? t('vehicleTypes.editTitle') : t('vehicleTypes.createTitle')}
       >
-        <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
-          <FormField label={t('vehicleTypes.name')} required error={formError && !name ? 'Name is required' : undefined}>
+        <form onSubmit={handleFormSubmit} className="flex flex-col gap-6">
+          <FormField label={t('vehicleTypes.name')} required error={formError && !name ? t('vehicleTypes.validationNameRequired') : undefined}>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -205,6 +214,16 @@ export const VehicleTypesPage: React.FC = () => {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t('vehicleTypes.placeholderDesc')}
+            />
+          </FormField>
+
+          <FormField label={t('vehicleTypes.baseDailyRate')}>
+            <Input
+              type="number"
+              min={0}
+              step={100}
+              value={baseDailyRate}
+              onChange={(e) => setBaseDailyRate(Number(e.target.value))}
             />
           </FormField>
 
@@ -230,8 +249,8 @@ export const VehicleTypesPage: React.FC = () => {
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleConfirmToggle}
-        title="Toggle Status"
-        message={`Are you sure you want to change the status of ${confirmItem?.name}?`}
+        title={t('common.toggleStatus')}
+        message={t('common.confirmStatusChangeMsg', { name: confirmItem?.name })}
         isLoading={toggleStatusMutation.isPending}
       />
 

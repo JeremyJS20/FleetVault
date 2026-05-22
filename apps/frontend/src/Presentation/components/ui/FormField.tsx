@@ -18,13 +18,13 @@ export const FormField: React.FC<FormFieldProps> = ({
   return (
     <div className={`flex flex-col gap-1.5 w-full ${className}`}>
       {label ? (
-        <label className="text-xs font-semibold text-fg-secondary">
-          {label} {required ? <span className="text-red-500">*</span> : null}
+        <label className="text-sm font-semibold text-fg-secondary truncate w-full" title={label}>
+          {label} {required ? <span className="text-red-500 shrink-0">*</span> : null}
         </label>
       ) : null}
       {React.cloneElement(children, { error: error || undefined } as any)}
       {error ? (
-        <span className="text-[11px] font-medium text-red-500 mt-0.5">{error}</span>
+        <span className="text-xs font-medium text-red-500 mt-0.5">{error}</span>
       ) : null}
     </div>
   );

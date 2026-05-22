@@ -60,8 +60,18 @@ export interface VehicleType {
   id: string;
   name: string;
   description?: string | null;
+  baseDailyRate: number;
   status: string;
   createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface FeeConfig {
+  id: string;
+  key: string;
+  label: string;
+  amount: number;
+  description?: string | null;
   updatedAt: Date;
 }
 

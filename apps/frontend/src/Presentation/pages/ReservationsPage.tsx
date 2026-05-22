@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRentalsList, useCreateRental, useRentalReturn, useRentalReturnEstimate } from '../../Infrastructure/hooks/useRentals.js';
 import { useVehicles } from '../../Infrastructure/hooks/useCatalog.js';
 import { useCustomers, useUpdateCustomer } from '../../Infrastructure/hooks/useCatalog.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
+import { formatCurrency } from '@rent-car/common';
 import { Input } from '../components/ui/Input.js';
 import { FormField } from '../components/ui/FormField.js';
 import { SignaturePad } from '../components/ui/SignaturePad.js';
+import { Elements } from '@stripe/react-stripe-js';
+import { stripePromise } from '../../Infrastructure/stripe.js';
 import { StripeCardForm } from '../components/ui/StripeCardForm.js';
 import { 
   Calendar, Check, User, Sparkles, Play, 
@@ -14,6 +18,7 @@ import {
 } from 'lucide-react';
 
 export const ReservationsPage: React.FC = () => {
+  const { t } = useTranslation();
 
   // Filters state
   const [status, setStatus] = useState<string>('');
@@ -63,6 +68,25 @@ export const ReservationsPage: React.FC = () => {
   const [walkinSignature, setWalkinSignature] = useState<string | null>(null);
   const [walkinError, setWalkinError] = useState<string | null>(null);
 
+  const anyModalOpen = checkoutRental || returnRental || isWalkinOpen;
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setCheckoutRental(null);
+        setReturnRental(null);
+        setIsWalkinOpen(false);
+      }
+    };
+    if (anyModalOpen) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleEscape);
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [anyModalOpen]);
+
   // Populate helper lists
   const { data: vehiclesData } = useVehicles({});
   const { data: customersData } = useCustomers({});
@@ -104,7 +128,7 @@ export const ReservationsPage: React.FC = () => {
     if (checkoutStep === 2) {
       if (isCheckoutCustomerProfileIncomplete) {
         if (!counterNationalId || !counterLicenseNumber || !counterLicenseCountry || !counterLicenseExpDate) {
-          setCheckoutError("All driving credential fields are required to complete the customer's profile.");
+          setCheckoutError(t('common.operationFailed'));
           return;
         }
 
@@ -133,7 +157,7 @@ export const ReservationsPage: React.FC = () => {
             },
           }));
         } catch (err: any) {
-          setCheckoutError(err.message || 'Failed to update customer credentials at the counter.');
+          setCheckoutError(err.message || t('common.operationFailed'));
           setIsUpdatingCustomer(false);
           return;
         } finally {
@@ -144,19 +168,19 @@ export const ReservationsPage: React.FC = () => {
       // Check license expiration
       const expDate = new Date(counterLicenseExpDate);
       if (expDate < new Date()) {
-        setCheckoutError("Customer's driver's license is expired. Cannot authorize checkout!");
+        setCheckoutError(t('common.operationFailed'));
         return;
       }
     }
     if (checkoutStep === 3) {
       if (checkoutOdometer < checkoutRental.vehicle.odometer) {
-        setCheckoutError(`Odometer reading cannot be less than current odometer (${checkoutRental.vehicle.odometer})`);
+        setCheckoutError(t('common.operationFailed'));
         return;
       }
     }
     if (checkoutStep === 4) {
       if (!checkoutSignature) {
-        setCheckoutError("Customer hand signature is required.");
+        setCheckoutError(t('common.operationFailed'));
         return;
       }
     }
@@ -175,7 +199,7 @@ export const ReservationsPage: React.FC = () => {
       setCheckoutStep(5); // success
       refetch();
     } catch (err: any) {
-      setCheckoutError(err.message || 'Failed to authorize rental checkout contract.');
+      setCheckoutError(err.message || t('common.operationFailed'));
     }
   };
 
@@ -196,7 +220,7 @@ export const ReservationsPage: React.FC = () => {
   const handleEstimateReturn = async () => {
     setReturnError(null);
     if (returnOdometer < returnRental.checkoutOdometer) {
-      setReturnError(`Return odometer cannot be less than checkout odometer (${returnRental.checkoutOdometer})`);
+      setReturnError(t('common.operationFailed'));
       return;
     }
 
@@ -215,13 +239,13 @@ export const ReservationsPage: React.FC = () => {
       setEstimateData(data);
       setReturnStep(2); // Step 2: show breakdown & calculations
     } catch (err: any) {
-      setReturnError(err.message || 'Failed to estimate return costs.');
+      setReturnError(err.message || t('common.operationFailed'));
     }
   };
 
   const handleConfirmReturn = async () => {
     if (!returnSignature) {
-      setReturnError('Return checkout hand signature is required.');
+      setReturnError(t('common.operationFailed'));
       return;
     }
 
@@ -251,11 +275,11 @@ export const ReservationsPage: React.FC = () => {
   const handleCreateWalkin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!walkinCustomer || !walkinVehicle || !walkinStart || !walkinEnd || !walkinCardToken || !walkinSignature) {
-      setWalkinError('All fields, card pre-auth, and signatures are required.');
+      setWalkinError(t('common.operationFailed'));
       return;
     }
     if (walkinOdometer < 0) {
-      setWalkinError('Starting odometer is required.');
+      setWalkinError(t('common.operationFailed'));
       return;
     }
 
@@ -282,7 +306,7 @@ export const ReservationsPage: React.FC = () => {
       setWalkinSignature(null);
       refetch();
     } catch (err: any) {
-      setWalkinError(err.message || 'Failed to complete walk-in booking.');
+      setWalkinError(err.message || t('common.operationFailed'));
     }
   };
 
@@ -292,16 +316,16 @@ export const ReservationsPage: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-extrabold tracking-tight text-fg-main uppercase">
-            Rental Operations Desk
+            {t('reservations.title')}
           </h2>
           <p className="text-xs text-fg-secondary mt-1">
-            Checkout pending reservations, return active contracts, and book walk-in customers.
+            {t('reservations.subtitle')}
           </p>
         </div>
 
         <Button onClick={() => setIsWalkinOpen(true)} className="flex items-center gap-2">
           <Sparkles className="w-4 h-4" />
-          Walk-in Rental Checkout
+          {t('reservations.walkinBooking')}
         </Button>
       </div>
 
@@ -314,7 +338,7 @@ export const ReservationsPage: React.FC = () => {
               status === '' ? 'bg-accent-primary text-white' : 'text-fg-secondary bg-bg-inset border border-border-surface/20'
             }`}
           >
-            All Contracts
+            {t('reservations.allContracts')}
           </button>
           <button
             onClick={() => { setStatus('PENDING'); setPage(1); }}
@@ -322,7 +346,7 @@ export const ReservationsPage: React.FC = () => {
               status === 'PENDING' ? 'bg-accent-primary text-white' : 'text-fg-secondary bg-bg-inset border border-border-surface/20'
             }`}
           >
-            Pending Reservations
+            {t('reservations.pendingReservations')}
           </button>
           <button
             onClick={() => { setStatus('ACTIVE'); setPage(1); }}
@@ -330,7 +354,7 @@ export const ReservationsPage: React.FC = () => {
               status === 'ACTIVE' ? 'bg-accent-primary text-white' : 'text-fg-secondary bg-bg-inset border border-border-surface/20'
             }`}
           >
-            Active Rentals
+            {t('reservations.activeRentals')}
           </button>
           <button
             onClick={() => { setStatus('COMPLETED'); setPage(1); }}
@@ -338,7 +362,7 @@ export const ReservationsPage: React.FC = () => {
               status === 'COMPLETED' ? 'bg-accent-primary text-white' : 'text-fg-secondary bg-bg-inset border border-border-surface/20'
             }`}
           >
-            Completed
+            {t('reservations.completed')}
           </button>
         </div>
 
@@ -354,11 +378,11 @@ export const ReservationsPage: React.FC = () => {
       {isRentalsLoading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <div className="w-8 h-8 rounded-full border-2 border-accent-primary/20 border-t-accent-primary animate-spin" />
-          <span className="text-xs text-fg-tertiary font-bold tracking-wider">LOADING CONTRACTS...</span>
+          <span className="text-xs text-fg-tertiary font-bold tracking-wider">{t('reservations.loading')}</span>
         </div>
       ) : rentals.length === 0 ? (
         <div className="text-center py-20 p-6 rounded-2xl border border-dashed border-border-surface/40 bg-bg-surface/10">
-          <p className="text-sm font-bold text-fg-secondary">No contracts found</p>
+          <p className="text-sm font-bold text-fg-secondary">{t('reservations.noContracts')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
@@ -368,24 +392,24 @@ export const ReservationsPage: React.FC = () => {
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-xl bg-bg-inset border border-border-surface/40 p-1 flex items-center justify-center shrink-0">
                   <img
-                    src={r.vehicle.photoUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=400'}
+                    src={r.vehicle.imageUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=400'}
                     alt={r.vehicle.model.name}
                     className="max-h-full max-w-full object-contain"
                   />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-fg-tertiary font-bold leading-none">#{r.id.substring(0, 8)}</span>
+                    <span className="text-xs font-mono text-fg-tertiary font-bold leading-none">#{r.id.substring(0, 8)}</span>
                     <h3 className="text-sm font-extrabold text-fg-main uppercase">
                       {r.vehicle.brand.name} {r.vehicle.model.name}
                     </h3>
                     <StatusBadge status={r.status} />
                   </div>
-                  <p className="text-[10px] text-fg-tertiary mt-1.5 flex items-center gap-1 font-semibold uppercase">
+                  <p className="text-xs text-fg-tertiary mt-1.5 flex items-center gap-1 font-semibold uppercase">
                     <User className="w-3.5 h-3.5 text-accent-primary" />
-                    Customer: <span className="text-fg-secondary font-bold">{r.customer.name}</span>
+                    {t('reservations.customer')} <span className="text-fg-secondary font-bold">{r.customer.name}</span>
                   </p>
-                  <p className="text-[10px] text-fg-tertiary mt-1.5 flex items-center gap-1 font-semibold uppercase">
+                  <p className="text-xs text-fg-tertiary mt-1.5 flex items-center gap-1 font-semibold uppercase">
                     <Calendar className="w-3.5 h-3.5 text-accent-primary" />
                     {new Date(r.rentalDate).toLocaleDateString()} — {new Date(r.scheduledReturnDate).toLocaleDateString()}
                   </p>
@@ -394,16 +418,16 @@ export const ReservationsPage: React.FC = () => {
 
               <div className="flex gap-2">
                 {r.status === 'PENDING' && (
-                  <Button onClick={() => handleStartCheckout(r)} className="!h-8 text-[10px] uppercase font-bold tracking-widest px-4 rounded-lg flex items-center gap-1.5">
+                  <Button onClick={() => handleStartCheckout(r)} className="!h-8 text-xs uppercase font-bold tracking-widest px-4 rounded-lg flex items-center gap-1.5">
                     <Play className="w-3.5 h-3.5" />
-                    Checkout
+                    {t('reservations.checkout')}
                   </Button>
                 )}
 
                 {r.status === 'ACTIVE' && (
-                  <Button onClick={() => handleStartReturn(r)} className="!h-8 text-[10px] uppercase font-bold tracking-widest px-4 rounded-lg bg-emerald-500 border border-emerald-500 hover:bg-emerald-600 flex items-center gap-1.5">
+                  <Button onClick={() => handleStartReturn(r)} className="!h-8 text-xs uppercase font-bold tracking-widest px-4 rounded-lg bg-emerald-500 border border-emerald-500 hover:bg-emerald-600 flex items-center gap-1.5">
                     <CornerDownLeft className="w-3.5 h-3.5" />
-                    Return Vehicle
+                    {t('reservations.returnVehicle')}
                   </Button>
                 )}
               </div>
@@ -415,26 +439,26 @@ export const ReservationsPage: React.FC = () => {
 
       {/* 5-STEP RENTAL CHECKOUT STEPPER DIALOG */}
       {checkoutRental && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-bg-inset/75 backdrop-blur-md animate-fade-in">
-          <div className="bg-bg-card border border-border-surface/50 max-w-lg w-full rounded-3xl p-6 shadow-2xl relative space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in">
+          <div className="bg-bg-card border border-border-surface max-w-lg w-full rounded-3xl p-6 shadow-2xl backdrop-blur-2xl animate-slide-up relative space-y-6 max-h-[90vh] overflow-y-auto">
             
             {checkoutStep !== 5 && (
               <button
                 onClick={() => setCheckoutRental(null)}
-                className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer"
+                className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer z-10"
               >
                 ✕
               </button>
             )}
 
             <div>
-              <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">Checkout Contract Desk</span>
+              <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('reservations.checkoutContract')}</span>
               <h2 className="text-lg font-extrabold text-fg-main mt-1 uppercase">
-                {checkoutStep === 1 && '1. Verify Reservation'}
-                {checkoutStep === 2 && "2. Check Driver's License"}
-                {checkoutStep === 3 && '3. Check Odometer & Fuel'}
-                {checkoutStep === 4 && '4. Draw Customer Signature'}
-                {checkoutStep === 5 && 'Checkout Activated!'}
+                {checkoutStep === 1 && t('reservations.stepVerify')}
+                {checkoutStep === 2 && t('reservations.stepLicense')}
+                {checkoutStep === 3 && t('reservations.stepOdometer')}
+                {checkoutStep === 4 && t('reservations.stepSignature')}
+                {checkoutStep === 5 && t('reservations.stepActivated')}
               </h2>
             </div>
 
@@ -459,16 +483,16 @@ export const ReservationsPage: React.FC = () => {
               <div className="space-y-4">
                 <table className="w-full text-xs text-left border-collapse">
                   <tbody>
-                    <tr className="border-b border-white/5"><td className="py-2 text-fg-tertiary">Customer Name</td><td className="py-2 text-fg-main font-bold">{checkoutRental.customer.name}</td></tr>
-                    <tr className="border-b border-white/5"><td className="py-2 text-fg-tertiary">Vehicle Assigned</td><td className="py-2 text-fg-main font-bold">{checkoutRental.vehicle.brand.name} {checkoutRental.vehicle.model.name}</td></tr>
-                    <tr className="border-b border-white/5"><td className="py-2 text-fg-tertiary">Plate Number</td><td className="py-2 text-fg-main font-bold font-mono">{checkoutRental.vehicle.plateNumber}</td></tr>
-                    <tr className="border-b border-white/5"><td className="py-2 text-fg-tertiary">Rental dates</td><td className="py-2 text-fg-main">{new Date(checkoutRental.rentalDate).toLocaleDateString()} — {new Date(checkoutRental.scheduledReturnDate).toLocaleDateString()}</td></tr>
+                    <tr className="border-b border-white/5"><td className="py-2 text-fg-tertiary">{t('reservations.customerName')}</td><td className="py-2 text-fg-main font-bold">{checkoutRental.customer.name}</td></tr>
+                    <tr className="border-b border-white/5"><td className="py-2 text-fg-tertiary">{t('reservations.vehicleAssigned')}</td><td className="py-2 text-fg-main font-bold">{checkoutRental.vehicle.brand.name} {checkoutRental.vehicle.model.name}</td></tr>
+                    <tr className="border-b border-white/5"><td className="py-2 text-fg-tertiary">{t('reservations.plateNumber')}</td><td className="py-2 text-fg-main font-bold font-mono">{checkoutRental.vehicle.plateNumber}</td></tr>
+                    <tr className="border-b border-white/5"><td className="py-2 text-fg-tertiary">{t('reservations.rentalDates')}</td><td className="py-2 text-fg-main">{new Date(checkoutRental.rentalDate).toLocaleDateString()} — {new Date(checkoutRental.scheduledReturnDate).toLocaleDateString()}</td></tr>
                   </tbody>
                 </table>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setCheckoutRental(null)}>Cancel</Button>
-                  <Button onClick={() => setCheckoutStep(2)}>Next: Verify Credentials</Button>
+                  <Button variant="secondary" onClick={() => setCheckoutRental(null)}>{t('reservations.cancel')}</Button>
+                  <Button onClick={() => setCheckoutStep(2)}>{t('reservations.nextVerify')}</Button>
                 </div>
               </div>
             )}
@@ -477,48 +501,48 @@ export const ReservationsPage: React.FC = () => {
             {checkoutStep === 2 && (
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-3">
-                  <span className="text-[10px] text-fg-tertiary font-bold block uppercase leading-none">
-                    {isCheckoutCustomerProfileIncomplete ? "Complete Customer Profile at Counter" : "Registered Credentials"}
+                  <span className="text-xs text-fg-tertiary font-bold block uppercase leading-none">
+                    {isCheckoutCustomerProfileIncomplete ? t('reservations.completeProfile') : t('reservations.registeredCreds')}
                   </span>
                   
                   {isCheckoutCustomerProfileIncomplete ? (
                     <div className="space-y-3">
-                      <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 text-[10px] text-amber-200">
-                        The customer's profile is missing some driving credentials. Please fill them in below.
+                      <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 text-xs text-amber-200">
+                        {t('reservations.profileMissing')}
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <FormField label="National ID / Passport" required>
+                        <FormField label={t('reservations.nationalId')} required>
                           <Input
                             type="text"
-                            placeholder="e.g. ID-12345678"
+                            placeholder={t('customers.placeholderId')}
                             value={counterNationalId}
                             onChange={(e) => setCounterNationalId(e.target.value)}
                             className="!h-9 rounded-lg"
                           />
                         </FormField>
 
-                        <FormField label="Driver's License Number" required>
+                        <FormField label={t('reservations.driversLicense')} required>
                           <Input
                             type="text"
-                            placeholder="e.g. DL-987654321"
+                            placeholder={t('customers.placeholderLicense')}
                             value={counterLicenseNumber}
                             onChange={(e) => setCounterLicenseNumber(e.target.value)}
                             className="!h-9 rounded-lg"
                           />
                         </FormField>
 
-                        <FormField label="License Country" required>
+                        <FormField label={t('reservations.licenseCountry')} required>
                           <Input
                             type="text"
-                            placeholder="e.g. United States"
+                            placeholder={t('customers.placeholderCountry')}
                             value={counterLicenseCountry}
                             onChange={(e) => setCounterLicenseCountry(e.target.value)}
                             className="!h-9 rounded-lg"
                           />
                         </FormField>
 
-                        <FormField label="License Expiry Date" required>
+                        <FormField label={t('reservations.licenseExpiry')} required>
                           <Input
                             type="date"
                             value={counterLicenseExpDate}
@@ -531,25 +555,25 @@ export const ReservationsPage: React.FC = () => {
                   ) : (
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div>
-                        <span className="text-fg-tertiary block text-[10px]">License Number</span>
+                        <span className="text-fg-tertiary block text-xs">{t('reservations.licenseNumberLabel')}</span>
                         <span className="text-fg-main font-bold font-mono">{checkoutRental.customer.licenseNumber}</span>
                       </div>
                       <div>
-                        <span className="text-fg-tertiary block text-[10px]">Expiration Date</span>
+                        <span className="text-fg-tertiary block text-xs">{t('reservations.expirationDate')}</span>
                         <span className={`font-bold ${new Date(checkoutRental.customer.licenseExpDate) < new Date() ? 'text-accent-error' : 'text-emerald-500'}`}>
                           {new Date(checkoutRental.customer.licenseExpDate).toLocaleDateString()}
                         </span>
                       </div>
                       <div>
-                        <span className="text-fg-tertiary block text-[10px]">License Country</span>
+                        <span className="text-fg-tertiary block text-xs">{t('reservations.licenseCountryLabel')}</span>
                         <span className="text-fg-main font-bold">{checkoutRental.customer.licenseCountry || '—'}</span>
                       </div>
                       <div>
-                        <span className="text-fg-tertiary block text-[10px]">National ID / Passport</span>
+                        <span className="text-fg-tertiary block text-xs">{t('reservations.nationalIdLabel')}</span>
                         <span className="text-fg-main font-bold">{checkoutRental.customer.nationalId}</span>
                       </div>
                       <div>
-                        <span className="text-fg-tertiary block text-[10px]">Profile Status</span>
+                        <span className="text-fg-tertiary block text-xs">{t('reservations.profileStatus')}</span>
                         <span className="text-emerald-500 font-bold uppercase">{checkoutRental.customer.status}</span>
                       </div>
                     </div>
@@ -557,9 +581,9 @@ export const ReservationsPage: React.FC = () => {
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setCheckoutStep(1)}>Back</Button>
+                  <Button variant="secondary" onClick={() => setCheckoutStep(1)}>{t('reservations.back')}</Button>
                   <Button onClick={handleNextCheckoutStep} isLoading={isUpdatingCustomer}>
-                    {isCheckoutCustomerProfileIncomplete ? "Save & Continue" : "Next: Vehicle Odometer"}
+                    {isCheckoutCustomerProfileIncomplete ? t('reservations.saveContinue') : t('reservations.nextOdometer')}
                   </Button>
                 </div>
               </div>
@@ -568,11 +592,11 @@ export const ReservationsPage: React.FC = () => {
             {/* Step 3: Odometer & Fuel Check */}
             {checkoutStep === 3 && (
               <div className="space-y-4">
-                <div className="p-3.5 rounded-xl border border-white/5 bg-bg-inset text-[10px] text-fg-tertiary">
-                  Current vehicle odometer log: <strong>{checkoutRental.vehicle.odometer} km</strong>. Confirm keys checkout details below.
+                <div className="p-3.5 rounded-xl border border-white/5 bg-bg-inset text-xs text-fg-tertiary">
+                  {t('reservations.odometerInfo', { odometer: checkoutRental.vehicle.odometer })}
                 </div>
 
-                <FormField label="Current Checkout Odometer (km)" required>
+                <FormField label={t('reservations.checkoutOdometer')} required>
                   <Input
                     type="number"
                     value={checkoutOdometer}
@@ -581,23 +605,23 @@ export const ReservationsPage: React.FC = () => {
                   />
                 </FormField>
 
-                <FormField label="Checkout Fuel Level" required>
+                <FormField label={t('reservations.checkoutFuel')} required>
                   <select
                     value={checkoutFuelLevel}
                     onChange={(e) => setCheckoutFuelLevel(e.target.value)}
                     className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
                   >
-                    <option value="FULL">FULL</option>
-                    <option value="THREE_QUARTERS">THREE QUARTERS</option>
-                    <option value="HALF">HALF</option>
-                    <option value="QUARTER">QUARTER</option>
-                    <option value="EMPTY">EMPTY</option>
+                    <option value="FULL">{t('common.fuelFull')}</option>
+                    <option value="THREE_QUARTERS">{t('common.fuelThreeQuarters')}</option>
+                    <option value="HALF">{t('common.fuelHalf')}</option>
+                    <option value="QUARTER">{t('common.fuelQuarter')}</option>
+                    <option value="EMPTY">{t('common.fuelEmpty')}</option>
                   </select>
                 </FormField>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setCheckoutStep(2)}>Back</Button>
-                  <Button onClick={handleNextCheckoutStep}>Next: Signature</Button>
+                  <Button variant="secondary" onClick={() => setCheckoutStep(2)}>{t('reservations.back')}</Button>
+                  <Button onClick={handleNextCheckoutStep}>{t('reservations.nextSignature')}</Button>
                 </div>
               </div>
             )}
@@ -605,17 +629,17 @@ export const ReservationsPage: React.FC = () => {
             {/* Step 4: Draw Hand Signature */}
             {checkoutStep === 4 && (
               <div className="space-y-4">
-                <span className="text-xs font-semibold text-fg-secondary block">Collect Customer physical signature on checkout contract terms:</span>
+                <span className="text-xs font-semibold text-fg-secondary block">{t('reservations.signaturePrompt')}</span>
                 <SignaturePad onChange={setCheckoutSignature} />
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setCheckoutStep(3)}>Back</Button>
+                  <Button variant="secondary" onClick={() => setCheckoutStep(3)}>{t('reservations.back')}</Button>
                   <Button
                     onClick={handleConfirmCheckout}
                     isLoading={createRentalMutation.isPending}
                     disabled={!checkoutSignature}
                   >
-                    Authorize Checkout
+                    {t('reservations.authorizeCheckout')}
                   </Button>
                 </div>
               </div>
@@ -628,15 +652,15 @@ export const ReservationsPage: React.FC = () => {
                   <Check className="w-8 h-8" />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-base font-extrabold text-fg-main uppercase tracking-wider">Checkout Complete</h3>
+                  <h3 className="text-base font-extrabold text-fg-main uppercase tracking-wider">{t('reservations.checkoutComplete')}</h3>
                   <p className="text-xs text-fg-secondary max-w-sm">
-                    Vehicle status is now set to <strong>RENTED</strong>. The rental contract contract has successfully initiated. Hand the keys to the customer!
+                    {t('reservations.checkoutDesc')}
                   </p>
                 </div>
 
                 <div className="pt-4 w-full">
                   <Button className="w-full" onClick={() => setCheckoutRental(null)}>
-                    Dismiss
+                    {t('reservations.dismiss')}
                   </Button>
                 </div>
               </div>
@@ -648,25 +672,25 @@ export const ReservationsPage: React.FC = () => {
 
       {/* RENTAL RETURN CHECK-IN DIALOG */}
       {returnRental && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-bg-inset/75 backdrop-blur-md animate-fade-in">
-          <div className="bg-bg-card border border-border-surface/50 max-w-lg w-full rounded-3xl p-6 shadow-2xl relative space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in">
+          <div className="bg-bg-card border border-border-surface max-w-lg w-full rounded-3xl p-6 shadow-2xl backdrop-blur-2xl animate-slide-up relative space-y-6 max-h-[90vh] overflow-y-auto">
             
             {returnStep !== 4 && (
               <button
                 onClick={() => setReturnRental(null)}
-                className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer"
+                className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer z-10"
               >
                 ✕
               </button>
             )}
 
             <div>
-              <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest block font-sans">Return check-in desk</span>
+              <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest block font-sans">{t('reservations.returnDesk')}</span>
               <h2 className="text-lg font-extrabold text-fg-main mt-1 uppercase">
-                {returnStep === 1 && '1. Check-in Parameters'}
-                {returnStep === 2 && '2. Penalty Breakdown'}
-                {returnStep === 3 && '3. Draw Return Signature'}
-                {returnStep === 4 && 'Return Finalized!'}
+                {returnStep === 1 && t('reservations.stepReturnParams')}
+                {returnStep === 2 && t('reservations.stepPenalty')}
+                {returnStep === 3 && t('reservations.stepReturnSignature')}
+                {returnStep === 4 && t('reservations.stepFinalized')}
               </h2>
             </div>
 
@@ -680,12 +704,12 @@ export const ReservationsPage: React.FC = () => {
             {/* Step 1: Return check-in logs */}
             {returnStep === 1 && (
               <div className="space-y-4">
-                <div className="p-3 rounded-xl bg-bg-inset text-[10px] text-fg-tertiary">
-                  Checkout details: Odometer <strong>{returnRental.checkoutOdometer} km</strong>. Fuel Level: <strong>{returnRental.checkoutFuelLevel}</strong>.
+                <div className="p-3 rounded-xl bg-bg-inset text-xs text-fg-tertiary">
+                  {t('reservations.checkoutDetails', { odometer: returnRental.checkoutOdometer, fuelLevel: returnRental.checkoutFuelLevel })}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField label="Return Odometer (km)" required>
+                  <FormField label={t('reservations.returnOdometer')} required>
                     <Input
                       type="number"
                       value={returnOdometer}
@@ -694,23 +718,23 @@ export const ReservationsPage: React.FC = () => {
                     />
                   </FormField>
 
-                  <FormField label="Return Fuel Level" required>
+                  <FormField label={t('reservations.returnFuel')} required>
                     <select
                       value={returnFuelLevel}
                       onChange={(e) => setReturnFuelLevel(e.target.value)}
                       className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
                     >
-                      <option value="FULL">FULL</option>
-                      <option value="THREE_QUARTERS">THREE QUARTERS</option>
-                      <option value="HALF">HALF</option>
-                      <option value="QUARTER">QUARTER</option>
-                      <option value="EMPTY">EMPTY</option>
+                      <option value="FULL">{t('common.fuelFull')}</option>
+                      <option value="THREE_QUARTERS">{t('common.fuelThreeQuarters')}</option>
+                      <option value="HALF">{t('common.fuelHalf')}</option>
+                      <option value="QUARTER">{t('common.fuelQuarter')}</option>
+                      <option value="EMPTY">{t('common.fuelEmpty')}</option>
                     </select>
                   </FormField>
                 </div>
 
                 <div className="p-4 rounded-xl border border-border-surface/30 space-y-3 bg-bg-surface/10">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-accent-primary block">Inspect Damage / Incidents</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-accent-primary block">{t('reservations.inspectDamage')}</span>
                   
                   <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
                     <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
@@ -720,7 +744,7 @@ export const ReservationsPage: React.FC = () => {
                         onChange={(e) => setHasBrokenGlass(e.target.checked)}
                         className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
                       />
-                      Broken Glass
+                      {t('reservations.brokenGlass')}
                     </label>
 
                     <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
@@ -730,11 +754,11 @@ export const ReservationsPage: React.FC = () => {
                         onChange={(e) => setHasNewScratches(e.target.checked)}
                         className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
                       />
-                      New Scratches
+                      {t('reservations.newScratches')}
                     </label>
                   </div>
 
-                  <FormField label="Damaged / Missing Tires Count">
+                  <FormField label={t('reservations.damagedTires')}>
                     <input
                       type="number"
                       min={0}
@@ -747,14 +771,14 @@ export const ReservationsPage: React.FC = () => {
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setReturnRental(null)}>Cancel</Button>
+                  <Button variant="secondary" onClick={() => setReturnRental(null)}>{t('reservations.cancel')}</Button>
                   <Button
                     onClick={handleEstimateReturn}
                     isLoading={estimateReturnMutation.isPending}
                     className="flex items-center gap-1.5"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
-                    Estimate Penalty Fees
+                    {t('reservations.estimatePenalty')}
                   </Button>
                 </div>
               </div>
@@ -765,36 +789,36 @@ export const ReservationsPage: React.FC = () => {
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-2 text-xs">
                   <div className="flex justify-between text-fg-tertiary">
-                    <span>Base Rental Contract Cost</span>
-                    <span className="font-mono text-fg-main font-semibold">${estimateData.baseCost.toFixed(2)}</span>
+                    <span>{t('reservations.baseCost')}</span>
+                    <span className="font-mono text-fg-main font-semibold">{formatCurrency(estimateData.baseCost)}</span>
                   </div>
                   {estimateData.lateFee > 0 && (
                     <div className="flex justify-between text-accent-error">
-                      <span>Late Return fee ({estimateData.lateHours.toFixed(1)} hrs late)</span>
-                      <span className="font-mono font-bold">${estimateData.lateFee.toFixed(2)}</span>
+                      <span>{t('reservations.lateFee', { hours: estimateData.lateHours.toFixed(1) })}</span>
+                      <span className="font-mono font-bold">{formatCurrency(estimateData.lateFee)}</span>
                     </div>
                   )}
                   {estimateData.fuelFee > 0 && (
                     <div className="flex justify-between text-accent-error">
-                      <span>Refueling Penalty ({estimateData.fuelDifference} steps missing)</span>
-                      <span className="font-mono font-bold">${estimateData.fuelFee.toFixed(2)}</span>
+                      <span>{t('reservations.refuelPenalty', { steps: estimateData.fuelDifference })}</span>
+                      <span className="font-mono font-bold">{formatCurrency(estimateData.fuelFee)}</span>
                     </div>
                   )}
                   {estimateData.totalDamageFee > 0 && (
                     <div className="flex justify-between text-accent-error">
-                      <span>Inspection Damage Penalty</span>
-                      <span className="font-mono font-bold">${estimateData.totalDamageFee.toFixed(2)}</span>
+                      <span>{t('reservations.damagePenalty')}</span>
+                      <span className="font-mono font-bold">{formatCurrency(estimateData.totalDamageFee)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-sm font-bold text-fg-main border-t border-white/10 pt-2.5">
-                    <span>Final Contract Cost:</span>
-                    <span className="font-mono">${estimateData.totalFinalCost.toFixed(2)}</span>
+                    <span>{t('reservations.finalCost')}</span>
+                    <span className="font-mono">{formatCurrency(estimateData.totalFinalCost)}</span>
                   </div>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setReturnStep(1)}>Back</Button>
-                  <Button onClick={() => setReturnStep(3)}>Next: Return Signature</Button>
+                  <Button variant="secondary" onClick={() => setReturnStep(1)}>{t('reservations.back')}</Button>
+                  <Button onClick={() => setReturnStep(3)}>{t('reservations.nextSignature')}</Button>
                 </div>
               </div>
             )}
@@ -802,17 +826,17 @@ export const ReservationsPage: React.FC = () => {
             {/* Step 3: Draw Hand Signature return */}
             {returnStep === 3 && (
               <div className="space-y-4">
-                <span className="text-xs font-semibold text-fg-secondary block">Collect Customer physical signature on final check-in invoice:</span>
+                <span className="text-xs font-semibold text-fg-secondary block">{t('reservations.returnSignaturePrompt')}</span>
                 <SignaturePad onChange={setReturnSignature} />
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setReturnStep(2)}>Back</Button>
+                  <Button variant="secondary" onClick={() => setReturnStep(2)}>{t('reservations.back')}</Button>
                   <Button
                     onClick={handleConfirmReturn}
                     isLoading={returnRentalMutation.isPending}
                     disabled={!returnSignature}
                   >
-                    Confirm Return Check-In
+                    {t('reservations.confirmReturn')}
                   </Button>
                 </div>
               </div>
@@ -825,15 +849,15 @@ export const ReservationsPage: React.FC = () => {
                   <Check className="w-8 h-8" />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-base font-extrabold text-fg-main uppercase tracking-wider">Return Finalized</h3>
+                  <h3 className="text-base font-extrabold text-fg-main uppercase tracking-wider">{t('reservations.returnFinalized')}</h3>
                   <p className="text-xs text-fg-secondary max-w-sm">
-                    Pre-auth hold has been captured. Vehicle status is now set to <strong>UNDER INSPECTION</strong> or <strong>MAINTENANCE</strong> and needs a physical detail checklist audit.
+                    {t('reservations.returnDesc')}
                   </p>
                 </div>
 
                 <div className="pt-4 w-full">
                   <Button className="w-full" onClick={() => setReturnRental(null)}>
-                    Dismiss
+                    {t('reservations.dismiss')}
                   </Button>
                 </div>
               </div>
@@ -845,18 +869,18 @@ export const ReservationsPage: React.FC = () => {
 
       {/* WALK-IN DIALOG OVERLAY */}
       {isWalkinOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-bg-inset/75 backdrop-blur-md animate-fade-in">
-          <div className="bg-bg-card border border-border-surface/50 max-w-lg w-full rounded-3xl p-6 shadow-2xl relative space-y-5 overflow-y-auto max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in">
+          <div className="bg-bg-card border border-border-surface max-w-lg w-full rounded-3xl p-6 shadow-2xl backdrop-blur-2xl animate-slide-up relative space-y-5 overflow-y-auto max-h-[90vh]">
             <button
               onClick={() => setIsWalkinOpen(false)}
-              className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer"
+              className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer z-10"
             >
               ✕
             </button>
 
             <div>
-              <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">Counter Desk</span>
-              <h2 className="text-lg font-extrabold text-fg-main mt-0.5 uppercase">Counter Walk-In Rental</h2>
+              <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('reservations.counterDesk')}</span>
+              <h2 className="text-lg font-extrabold text-fg-main mt-0.5 uppercase">{t('reservations.counterWalkin')}</h2>
             </div>
 
             {walkinError && (
@@ -867,21 +891,21 @@ export const ReservationsPage: React.FC = () => {
 
             <form onSubmit={handleCreateWalkin} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <FormField label="Select Active Customer" required>
+                <FormField label={t('reservations.selectCustomer')} required>
                   <select
                     value={walkinCustomer}
                     onChange={(e) => setWalkinCustomer(e.target.value)}
                     className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none"
                     required
                   >
-                    <option value="">Choose Customer</option>
+                    <option value="">{t('reservations.chooseCustomer')}</option>
                     {activeCustomers.map((c: any) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </FormField>
 
-                <FormField label="Select Available Vehicle" required>
+                <FormField label={t('reservations.selectVehicle')} required>
                   <select
                     value={walkinVehicle}
                     onChange={(e) => {
@@ -897,7 +921,7 @@ export const ReservationsPage: React.FC = () => {
                     className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none"
                     required
                   >
-                    <option value="">Choose Car</option>
+                    <option value="">{t('reservations.chooseCar')}</option>
                     {availableVehicles.map((v: any) => (
                       <option key={v.id} value={v.id}>{v.brand.name} {v.model.name} ({v.plateNumber})</option>
                     ))}
@@ -906,7 +930,7 @@ export const ReservationsPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <FormField label="Rental Start Date" required>
+                <FormField label={t('reservations.rentalStart')} required>
                   <Input
                     type="date"
                     value={walkinStart}
@@ -916,7 +940,7 @@ export const ReservationsPage: React.FC = () => {
                   />
                 </FormField>
 
-                <FormField label="Scheduled Return Date" required>
+                <FormField label={t('reservations.returnDate')} required>
                   <Input
                     type="date"
                     value={walkinEnd}
@@ -928,7 +952,7 @@ export const ReservationsPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                <FormField label="Starting Odometer (km)" required>
+                <FormField label={t('reservations.startOdometer')} required>
                   <Input
                     type="number"
                     value={walkinOdometer}
@@ -938,21 +962,21 @@ export const ReservationsPage: React.FC = () => {
                   />
                 </FormField>
 
-                <FormField label="Starting Fuel" required>
+                <FormField label={t('reservations.startFuel')} required>
                   <select
                     value={walkinFuel}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setWalkinFuel(e.target.value)}
                     className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none"
                   >
-                    <option value="FULL">FULL</option>
-                    <option value="THREE_QUARTERS">THREE QUARTERS</option>
-                    <option value="HALF">HALF</option>
-                    <option value="QUARTER">QUARTER</option>
-                    <option value="EMPTY">EMPTY</option>
+                    <option value="FULL">{t('common.fuelFull')}</option>
+                    <option value="THREE_QUARTERS">{t('common.fuelThreeQuarters')}</option>
+                    <option value="HALF">{t('common.fuelHalf')}</option>
+                    <option value="QUARTER">{t('common.fuelQuarter')}</option>
+                    <option value="EMPTY">{t('common.fuelEmpty')}</option>
                   </select>
                 </FormField>
 
-                <FormField label="Daily Rate ($)" required>
+                <FormField label={t('reservations.dailyRate')} required>
                   <Input
                     type="number"
                     value={walkinRate}
@@ -964,23 +988,25 @@ export const ReservationsPage: React.FC = () => {
               </div>
 
               <div className="border-t border-border-surface/15 pt-4">
-                <span className="text-[10px] font-bold text-accent-primary uppercase tracking-widest block mb-2">Credit Card Details (Authorization)</span>
-                <StripeCardForm onCardComplete={setWalkinCardToken} />
+                <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block mb-2">{t('reservations.cardDetails')}</span>
+                <Elements stripe={stripePromise}>
+                  <StripeCardForm onCardComplete={setWalkinCardToken} />
+                </Elements>
               </div>
 
               <div className="border-t border-border-surface/15 pt-4">
-                <span className="text-[10px] font-bold text-accent-primary uppercase tracking-widest block mb-2">Customer hand checkout Signature</span>
+                <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block mb-2">{t('reservations.customerSignature')}</span>
                 <SignaturePad onChange={setWalkinSignature} />
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
-                <Button type="button" variant="secondary" onClick={() => setIsWalkinOpen(false)}>Cancel</Button>
+                <Button type="button" variant="secondary" onClick={() => setIsWalkinOpen(false)}>{t('reservations.cancel')}</Button>
                 <Button
                   type="submit"
                   isLoading={createRentalMutation.isPending}
                   disabled={!walkinCardToken || !walkinSignature}
                 >
-                  Create Walk-In Contract
+                  {t('reservations.createContract')}
                 </Button>
               </div>
             </form>

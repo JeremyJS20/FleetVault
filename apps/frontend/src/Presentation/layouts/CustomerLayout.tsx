@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/Infrastructure/auth.context.js';
+import { useTranslation } from 'react-i18next';
 import { Sidebar } from './Sidebar.js';
 import { Sun, Moon, Bell } from 'lucide-react';
 
 export const CustomerLayout: React.FC = () => {
+  const { t } = useTranslation();
   const { user, isAuthenticated, isLoading } = useAuth();
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const localTheme = localStorage.getItem('theme');
@@ -26,7 +28,7 @@ export const CustomerLayout: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-bg-base">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-accent-primary border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-xs font-mono text-fg-secondary">Verifying credentials...</span>
+          <span className="text-xs font-mono text-fg-secondary">{t('common.verifyingCredentials')}</span>
         </div>
       </div>
     );
@@ -55,7 +57,7 @@ export const CustomerLayout: React.FC = () => {
         <header className="h-16 px-8 border-b border-border-surface/40 bg-bg-card/20 backdrop-blur-md flex items-center justify-between shrink-0">
           <div>
             <h1 className="text-sm font-semibold tracking-wide text-fg-main uppercase">
-              Customer Hub
+              {t('nav.customerHub')}
             </h1>
           </div>
 
@@ -69,7 +71,7 @@ export const CustomerLayout: React.FC = () => {
             <button
               onClick={toggleTheme}
               className="p-2 hover:bg-bg-inset border border-transparent hover:border-border-surface/20 rounded-xl text-fg-secondary hover:text-fg-main transition-all cursor-pointer"
-              aria-label="Toggle Theme"
+              aria-label={t('common.toggleTheme')}
             >
               {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
             </button>

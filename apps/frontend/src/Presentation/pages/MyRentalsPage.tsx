@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../../Infrastructure/api-client.js';
 import { useOwnReservations, useCancelReservation } from '../../Infrastructure/hooks/useReservations.js';
+import { FormModal } from '../components/ui/FormModal.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
 import { Calendar, Trash2, ShieldAlert, FileText, AlertCircle } from 'lucide-react';
+import { formatCurrency } from '@rent-car/common';
 
 export const MyRentalsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -60,7 +62,7 @@ export const MyRentalsPage: React.FC = () => {
       setCancellingBooking(null);
       refetch();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to cancel the booking. Please contact support.');
+      setErrorMsg(err.message || t('common.operationFailed'));
     }
   };
 
@@ -68,7 +70,7 @@ export const MyRentalsPage: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <div className="w-8 h-8 rounded-full border-2 border-accent-primary/20 border-t-accent-primary animate-spin" />
-        <span className="text-xs text-fg-tertiary font-bold tracking-wider">LOADING BOOKINGS...</span>
+        <span className="text-xs text-fg-tertiary font-bold tracking-wider">{t('myRentals.loading')}</span>
       </div>
     );
   }
@@ -78,10 +80,10 @@ export const MyRentalsPage: React.FC = () => {
       {/* Page Header */}
       <div>
         <h2 className="text-2xl font-extrabold tracking-tight text-fg-main uppercase">
-          My Reservations & Contracts
+          {t('myRentals.title')}
         </h2>
         <p className="text-xs text-fg-secondary mt-1">
-          Review your upcoming rentals, billing ledgers, and download signed contracts.
+          {t('myRentals.subtitle')}
         </p>
       </div>
 
@@ -102,8 +104,8 @@ export const MyRentalsPage: React.FC = () => {
 
       {bookings.length === 0 ? (
         <div className="text-center py-20 p-6 rounded-2xl border border-dashed border-border-surface/40 bg-bg-surface/10">
-          <p className="text-sm font-bold text-fg-secondary">No reservations found</p>
-          <p className="text-xs text-fg-tertiary mt-1">Head over to the vehicle search page to book your first car!</p>
+          <p className="text-sm font-bold text-fg-secondary">{t('myRentals.noReservations')}</p>
+          <p className="text-xs text-fg-tertiary mt-1">{t('myRentals.browsePrompt')}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -115,7 +117,7 @@ export const MyRentalsPage: React.FC = () => {
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-xl bg-bg-inset border border-border-surface/40 p-2 flex items-center justify-center shrink-0">
                     <img
-                      src={booking.vehicle.photoUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=400'}
+                      src={booking.vehicle.imageUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=400'}
                       alt={booking.vehicle.model.name}
                       className="max-h-full max-w-full object-contain filter drop-shadow-md"
                     />
@@ -128,17 +130,17 @@ export const MyRentalsPage: React.FC = () => {
                       <StatusBadge status={booking.status} />
                     </div>
                     
-                    <p className="text-[10px] text-fg-tertiary mt-1.5 flex items-center gap-1 font-semibold uppercase">
+                    <p className="text-xs text-fg-tertiary mt-1.5 flex items-center gap-1 font-semibold uppercase">
                       <Calendar className="w-3 h-3 text-accent-primary" />
                       {new Date(booking.rentalDate).toLocaleDateString()} — {new Date(booking.scheduledReturnDate).toLocaleDateString()}
                     </p>
 
                     <div className="flex gap-4 mt-2">
-                      <span className="text-[10px] text-fg-secondary font-bold font-mono">
-                        Plate: <span className="text-fg-main">{booking.vehicle.plateNumber}</span>
+                      <span className="text-xs text-fg-secondary font-bold font-mono">
+                        {t('myRentals.plate')} <span className="text-fg-main">{booking.vehicle.plateNumber}</span>
                       </span>
-                      <span className="text-[10px] text-fg-secondary font-bold font-mono">
-                        Total Charge: <span className="text-fg-main">${booking.totalCost?.toFixed(2) || '0.00'}</span>
+                      <span className="text-xs text-fg-secondary font-bold font-mono">
+                        {t('myRentals.totalCharge')} <span className="text-fg-main">{formatCurrency(booking.totalCost || 0)}</span>
                       </span>
                     </div>
                   </div>
@@ -150,21 +152,21 @@ export const MyRentalsPage: React.FC = () => {
                     <Button
                       variant="secondary"
                       onClick={() => setCancellingBooking(booking)}
-                      className="!h-8 text-[10px] uppercase font-bold tracking-widest px-3 border border-red-500/30 text-red-500 hover:bg-red-500/10 rounded-lg"
+                      className="!h-8 text-xs uppercase font-bold tracking-widest px-3 border border-red-500/30 text-red-500 hover:bg-red-500/10 rounded-lg"
                     >
                       <Trash2 className="w-3.5 h-3.5 mr-1 inline" />
-                      Cancel Booking
+                      {t('myRentals.cancelBooking')}
                     </Button>
                   )}
 
                   {booking.status === 'COMPLETED' && (
                     <Button
                       variant="secondary"
-                      className="!h-8 text-[10px] uppercase font-bold tracking-widest px-3 rounded-lg flex items-center gap-1"
+                      className="!h-8 text-xs uppercase font-bold tracking-widest px-3 rounded-lg flex items-center gap-1"
                       onClick={() => alert('Downloading PDF contract... (Functionality stub)')}
                     >
                       <FileText className="w-3.5 h-3.5" />
-                      Contract PDF
+                      {t('myRentals.contractPdf')}
                     </Button>
                   )}
                 </div>
@@ -177,12 +179,11 @@ export const MyRentalsPage: React.FC = () => {
 
       {/* Cancel Warning Modal dialog */}
       {cancellingBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-bg-inset/75 backdrop-blur-md animate-fade-in">
-          <div className="bg-bg-card border border-border-surface/50 max-w-sm w-full rounded-2xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-red-500">
-              <ShieldAlert className="w-6 h-6 shrink-0" />
-              <h3 className="text-base font-extrabold uppercase">Confirm Cancellation</h3>
-            </div>
+        <FormModal isOpen={!!cancellingBooking} onClose={() => setCancellingBooking(null)} title={t('myRentals.cancelTitle')}>
+          <div className="flex items-center gap-3 text-red-500 mb-4">
+            <ShieldAlert className="w-6 h-6 shrink-0" />
+            <span className="text-sm font-bold uppercase text-fg-main">{t('myRentals.cancelTitle')}</span>
+          </div>
 
             {errorMsg && (
               <div className="p-2.5 rounded-lg bg-accent-error/15 border border-accent-error/20 text-accent-error text-xs font-semibold">
@@ -191,7 +192,7 @@ export const MyRentalsPage: React.FC = () => {
             )}
 
             <p className="text-xs text-fg-secondary">
-              Are you sure you want to cancel your reservation for the{' '}
+              {t('myRentals.cancelQuestion')}{' '}
               <strong className="text-fg-main uppercase">
                 {cancellingBooking.vehicle.brand.name} {cancellingBooking.vehicle.model.name}
               </strong>
@@ -199,32 +200,31 @@ export const MyRentalsPage: React.FC = () => {
             </p>
 
             {checkLateCancellation(cancellingBooking.rentalDate) ? (
-              <div className="p-3 rounded-xl border border-red-500/25 bg-red-500/5 text-[10px] text-fg-secondary">
-                <span className="font-bold text-red-500 block uppercase mb-1">Warning: Late Cancellation Fee Applies</span>
-                Because this cancellation is requested <strong className="text-fg-main">less than 24 hours</strong> before the scheduled pickup, you will be charged a penalty fee of 1 full day of the rental rate (<strong>${cancellingBooking.pricePerDay.toFixed(2)}</strong>) captured from your pre-authorized card.
+              <div className="p-3 rounded-xl border border-red-500/25 bg-red-500/5 text-xs text-fg-secondary">
+                <span className="font-bold text-red-500 block uppercase mb-1">{t('myRentals.lateFeeWarning')}</span>
+                {t('myRentals.lateFeeDesc', { price: formatCurrency(cancellingBooking.pricePerDay) })}
               </div>
             ) : (
-              <div className="p-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 text-[10px] text-fg-secondary">
-                <span className="font-bold text-emerald-500 block uppercase mb-1">Free Cancellation Available</span>
-                Your cancellation notice is more than 24 hours. Your Stripe card pre-authorization hold will be released immediately with <strong>no fees charged</strong>.
+              <div className="p-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 text-xs text-fg-secondary">
+                <span className="font-bold text-emerald-500 block uppercase mb-1">{t('myRentals.freeCancellation')}</span>
+                {t('myRentals.freeCancelDesc')}
               </div>
             )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" onClick={() => setCancellingBooking(null)}>
-                Keep Booking
+                {t('myRentals.keepBooking')}
               </Button>
               <Button
                 onClick={handleConfirmCancel}
                 isLoading={cancelMutation.isPending}
                 className="bg-red-500 border border-red-500 text-white hover:bg-red-600"
               >
-                Confirm Cancel
+                {t('myRentals.confirmCancel')}
               </Button>
             </div>
 
-          </div>
-        </div>
+        </FormModal>
       )}
 
     </div>

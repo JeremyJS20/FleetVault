@@ -907,15 +907,8 @@ export class CatalogService {
     // Calculate dynamic pricing
     const seasonal = await this.getSeasonalMultiplier(query.dateFrom, query.dateTo);
 
-    const baseRates: Record<string, number> = {
-      sedan: 45.0,
-      suv: 75.0,
-      truck: 85.0
-    };
-
     return vehicles.map(v => {
-      const typeName = v.vehicleType.name.toLowerCase();
-      const baseDailyRate = baseRates[typeName] || 50.0;
+      const baseDailyRate = v.vehicleType.baseDailyRate || 0;
       const calculatedDailyRate = parseFloat((baseDailyRate * seasonal.multiplier).toFixed(2));
 
       return {
@@ -952,14 +945,7 @@ export class CatalogService {
 
     const seasonal = await this.getSeasonalMultiplier(dateFrom, dateTo);
 
-    const baseRates: Record<string, number> = {
-      sedan: 45.0,
-      suv: 75.0,
-      truck: 85.0
-    };
-
-    const typeName = v.vehicleType.name.toLowerCase();
-    const baseDailyRate = baseRates[typeName] || 50.0;
+    const baseDailyRate = v.vehicleType.baseDailyRate || 0;
     const calculatedDailyRate = parseFloat((baseDailyRate * seasonal.multiplier).toFixed(2));
 
     return {

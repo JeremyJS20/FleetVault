@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { LoginSchema, type LoginInput } from '@rent-car/common';
 import { useAuth } from '../../Infrastructure/auth.context.js';
 import { useTranslation } from 'react-i18next';
-import { Languages, Sun, Moon, LogOut, Compass, LogIn } from 'lucide-react';
+import { Languages, Sun, Moon, LogOut, Compass, LogIn, AlertCircle } from 'lucide-react';
+import { FormModal } from '../components/ui/FormModal.js';
+import { Button } from '../components/ui/Button.js';
+import { Input } from '../components/ui/Input.js';
+import { FormField } from '../components/ui/FormField.js';
 
 export const PublicLayout: React.FC = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, login, logout } = useAuth();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
@@ -37,6 +44,37 @@ export const PublicLayout: React.FC = () => {
       navigate('/admin/dashboard');
     } else {
       navigate('/customer/dashboard');
+    }
+  };
+
+  // Login modal state
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const {
+    register: loginRegister,
+    handleSubmit: handleLoginSubmit,
+    formState: { errors: loginErrors },
+  } = useForm<LoginInput>({
+    resolver: zodResolver(LoginSchema),
+    defaultValues: { email: '', password: '' },
+  });
+
+  const onLogin = async (data: LoginInput) => {
+    setLoginError(null);
+    setLoginLoading(true);
+    try {
+      const loggedInUser = await login(data.email, data.password);
+      const isStaff = loggedInUser?.role === 'ADMINISTRATOR' || loggedInUser?.role === 'AGENT' || loggedInUser?.role === 'INSPECTOR';
+      if (isStaff) {
+        navigate('/admin/dashboard', { replace: true });
+      }
+      setShowLoginModal(false);
+    } catch (err: any) {
+      setLoginError(err.message || 'Invalid email or password');
+    } finally {
+      setLoginLoading(false);
     }
   };
 
@@ -93,7 +131,7 @@ export const PublicLayout: React.FC = () => {
             <button
               onClick={toggleTheme}
               className="p-2 rounded-xl hover:bg-bg-inset border border-transparent hover:border-border-surface/20 text-fg-secondary hover:text-fg-main transition-all cursor-pointer"
-              aria-label="Toggle Theme"
+              aria-label={t('common.toggleTheme')}
             >
               {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
             </button>
@@ -117,19 +155,13 @@ export const PublicLayout: React.FC = () => {
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <Link
-                  to="/login"
-                  className="text-xs font-bold text-fg-secondary hover:text-fg-main px-3 py-2 transition-colors flex items-center gap-1.5"
+                <button
+                  onClick={() => setShowLoginModal(true)}
+                  className="text-xs font-bold text-fg-secondary hover:text-fg-main px-3 py-2 transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <LogIn size={14} />
                   {t('auth.signIn')}
-                </Link>
-                <Link
-                  to="/register"
-                  className="h-9 px-4 rounded-xl bg-gradient-to-r from-accent-primary to-accent-primary-end text-white text-xs font-bold uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all shadow-md flex items-center justify-center"
-                >
-                  {t('auth.createAccount')}
-                </Link>
+                </button>
               </div>
             )}
           </div>
@@ -142,9 +174,56 @@ export const PublicLayout: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="w-full py-6 border-t border-border-surface/40 text-center text-[10px] font-mono tracking-widest text-fg-tertiary uppercase">
+      <footer className="w-full py-6 border-t border-border-surface/40 text-center text-xs font-mono tracking-widest text-fg-tertiary uppercase">
         FleetVault Enterprise · Neo-Minimalist Liquid Glass System
       </footer>
+
+      {/* Login Modal */}
+      {showLoginModal && (
+        <FormModal isOpen={showLoginModal} onClose={() => { setShowLoginModal(false); setLoginError(null); }} title={t('auth.signIn')}>
+          <p className="text-xs text-fg-secondary mb-4">{t('auth.enterCredentials')}</p>
+          <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-6">
+
+            {loginError && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-500 flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <FormField label={t('auth.emailAddress')} required error={loginErrors.email?.message}>
+                <Input
+                  type="email"
+                  placeholder="name@example.com"
+                  {...loginRegister('email')}
+                />
+              </FormField>
+
+              <FormField label={t('auth.password')} required error={loginErrors.password?.message}>
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  {...loginRegister('password')}
+                />
+              </FormField>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => { setShowLoginModal(false); setLoginError(null); }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" isLoading={loginLoading}>
+                {t('auth.continue')}
+              </Button>
+            </div>
+          </form>
+        </FormModal>
+      )}
     </div>
   );
 };

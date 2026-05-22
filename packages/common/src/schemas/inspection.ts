@@ -30,7 +30,7 @@ export const CreateInspectionSchema = z.object({
   rentalId: z.string().optional().nullable(),
   vehicleId: z.string().min(1, 'Vehicle is required'),
   customerId: z.string().min(1, 'Customer is required'),
-  employeeId: z.string().min(1, 'Inspector is required'),
+  employeeId: z.string().optional(),
   hasScratches: z.boolean(),
   fuelGaugeLevel: z.enum(FuelLevel),
   fuelGaugePhotoUrl: z.string().url('Mandatory fuel gauge photo URL is required'),

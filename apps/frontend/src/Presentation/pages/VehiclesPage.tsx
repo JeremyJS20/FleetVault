@@ -129,13 +129,13 @@ export const VehiclesPage: React.FC = () => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chassisNumber.trim()) return setFormError('Chassis number is required');
-    if (!engineNumber.trim()) return setFormError('Engine number is required');
-    if (!plateNumber.trim()) return setFormError('Plate number is required');
-    if (!vehicleTypeId) return setFormError('Vehicle type selection is required');
-    if (!brandId) return setFormError('Brand selection is required');
-    if (!modelId) return setFormError('Model selection is required');
-    if (!fuelTypeId) return setFormError('Fuel type selection is required');
+    if (!chassisNumber.trim()) return setFormError(t('vehicles.validationChassisRequired'));
+    if (!engineNumber.trim()) return setFormError(t('vehicles.validationEngineRequired'));
+    if (!plateNumber.trim()) return setFormError(t('vehicles.validationPlateRequired'));
+    if (!vehicleTypeId) return setFormError(t('vehicles.validationTypeRequired'));
+    if (!brandId) return setFormError(t('vehicles.validationBrandRequired'));
+    if (!modelId) return setFormError(t('vehicles.validationModelRequired'));
+    if (!fuelTypeId) return setFormError(t('vehicles.validationFuelRequired'));
 
     const payload = {
       description,
@@ -158,16 +158,16 @@ export const VehiclesPage: React.FC = () => {
           id: editingItem.id,
           data: payload,
         });
-        setToast({ message: 'Vehicle updated successfully', type: 'success' });
+        setToast({ message: t('vehicles.updatedSuccess'), type: 'success' });
       } else {
         await createMutation.mutateAsync({
           data: payload,
         });
-        setToast({ message: 'Vehicle created successfully', type: 'success' });
+        setToast({ message: t('vehicles.createdSuccess'), type: 'success' });
       }
       setIsFormOpen(false);
     } catch (err: any) {
-      setFormError(err.message || 'Operation failed');
+      setFormError(err.message || t('common.operationFailed'));
     }
   };
 
@@ -180,10 +180,10 @@ export const VehiclesPage: React.FC = () => {
     if (!confirmItem) return;
     try {
       await toggleStatusMutation.mutateAsync({ id: confirmItem.id });
-      setToast({ message: 'Status updated successfully', type: 'success' });
+      setToast({ message: t('common.statusUpdated'), type: 'success' });
       setIsConfirmOpen(false);
     } catch (err: any) {
-      setToast({ message: err.message || 'Failed to update status', type: 'error' });
+      setToast({ message: err.message || t('common.statusUpdateFailed'), type: 'error' });
     }
   };
 
@@ -194,9 +194,9 @@ export const VehiclesPage: React.FC = () => {
         id: item.id,
         data: { cleaningStatus: nextCleaning },
       });
-      setToast({ message: 'Cleaning status updated successfully', type: 'success' });
+      setToast({ message: t('common.cleaningUpdated'), type: 'success' });
     } catch (err: any) {
-      setToast({ message: err.message || 'Failed to update cleaning', type: 'error' });
+      setToast({ message: err.message || t('common.cleaningUpdateFailed'), type: 'error' });
     }
   };
 
@@ -211,15 +211,15 @@ export const VehiclesPage: React.FC = () => {
             {item.imageUrl ? (
               <img src={item.imageUrl} alt={item.plateNumber} className="w-12 h-8 rounded-lg object-cover border border-surface-border" />
             ) : (
-              <div className="w-12 h-8 rounded-lg bg-surface-inset flex items-center justify-center text-[10px] font-bold text-fg-tertiary">
-                NO PIC
+              <div className="w-12 h-8 rounded-lg bg-surface-inset flex items-center justify-center text-xs font-bold text-fg-tertiary">
+                {t('vehicles.noPic')}
               </div>
             )}
             <div className="flex flex-col">
               <span className="font-bold text-fg-main">
                 {item.brand?.name} {item.model?.name}
               </span>
-              <span className="text-[10px] text-fg-secondary font-bold font-mono">
+              <span className="text-xs text-fg-secondary font-bold font-mono">
                 {item.plateNumber}
               </span>
             </div>
@@ -284,7 +284,7 @@ export const VehiclesPage: React.FC = () => {
                 size="sm"
                 className="!text-teal-500 hover:!bg-teal-500/10 !p-2.5 rounded-xl"
                 onClick={() => handleToggleCleaning(item)}
-                title={item.cleaningStatus === 'CLEAN' ? 'Mark Dirty' : 'Mark Clean'}
+                title={item.cleaningStatus === 'CLEAN' ? t('vehicles.markDirty') : t('vehicles.markClean')}
               >
                 <Sparkles size={15} />
               </Button>
@@ -333,7 +333,7 @@ export const VehiclesPage: React.FC = () => {
         onClose={() => setIsFormOpen(false)}
         title={editingItem ? t('vehicles.editTitle') : t('vehicles.createTitle')}
       >
-        <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleFormSubmit} className="flex flex-col gap-6">
           <div className="grid grid-cols-2 gap-4">
             <FormField label={t('vehicles.plateNumber')} required>
               <Input
@@ -426,11 +426,11 @@ export const VehiclesPage: React.FC = () => {
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
                 options={[
-                  { value: 'AVAILABLE', label: 'Available' },
-                  { value: 'RENTED', label: 'Rented' },
-                  { value: 'UNDER_INSPECTION', label: 'Under Inspection' },
-                  { value: 'MAINTENANCE', label: 'Maintenance' },
-                  { value: 'RETIRED', label: 'Retired' },
+                  { value: 'AVAILABLE', label: t('vehicles.available') },
+                  { value: 'RENTED', label: t('vehicles.rented') },
+                  { value: 'UNDER_INSPECTION', label: t('vehicles.underInspection') },
+                  { value: 'MAINTENANCE', label: t('vehicles.maintenance') },
+                  { value: 'RETIRED', label: t('vehicles.retired') },
                 ]}
               />
               <SelectField
@@ -438,8 +438,8 @@ export const VehiclesPage: React.FC = () => {
                 value={cleaningStatus}
                 onChange={(e) => setCleaningStatus(e.target.value)}
                 options={[
-                  { value: 'CLEAN', label: 'Clean' },
-                  { value: 'DIRTY', label: 'Dirty' },
+                  { value: 'CLEAN', label: t('vehicles.clean') },
+                  { value: 'DIRTY', label: t('vehicles.dirty') },
                 ]}
               />
             </div>
@@ -467,8 +467,8 @@ export const VehiclesPage: React.FC = () => {
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleConfirmToggle}
-        title="Retire/Activate Vehicle"
-        message={`Are you sure you want to change the status of vehicle ${confirmItem?.plateNumber}?`}
+        title={t('vehicles.retireActivateTitle')}
+        message={t('common.confirmStatusChangeMsg', { name: confirmItem?.plateNumber })}
         isLoading={toggleStatusMutation.isPending}
       />
 

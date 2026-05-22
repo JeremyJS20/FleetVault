@@ -99,3 +99,16 @@ export const useSeasonalRates = createListHook<any>('seasonal-rates', '/api/seas
 export const useCreateSeasonalRate = createMutationHook<any, any>('POST', () => '/api/seasonal-rates', ['seasonal-rates']);
 export const useUpdateSeasonalRate = createMutationHook<any, any>('PUT', (id) => `/api/seasonal-rates/${id}`, ['seasonal-rates']);
 export const useToggleSeasonalRateStatus = createMutationHook<void, any>('PATCH', (id) => `/api/seasonal-rates/${id}/status`, ['seasonal-rates']);
+
+// 9. Fee Config Hooks
+export const useFeeConfigs = () => {
+  return useQuery({
+    queryKey: ['fee-config'],
+    queryFn: async () => {
+      const res = await apiClient('/api/fee-config');
+      return res.data as any[];
+    },
+  });
+};
+
+export const useUpdateFeeConfig = createMutationHook<any, any>('PUT', (id) => `/api/fee-config/${id}`, ['fee-config']);

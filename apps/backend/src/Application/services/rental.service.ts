@@ -26,6 +26,15 @@ export interface ReturnCalculations {
 }
 
 export class RentalService {
+  private async loadFeeMap(): Promise<Record<string, number>> {
+    const fees = await prisma.feeConfig.findMany();
+    const map: Record<string, number> = {};
+    for (const fee of fees) {
+      map[fee.key] = fee.amount;
+    }
+    return map;
+  }
+
   private validateCustomerProfileComplete(customer: any, scheduledReturnDate: Date) {
     const missingFields: string[] = [];
     if (!customer.nationalId) missingFields.push('nationalId');
@@ -131,7 +140,9 @@ export class RentalService {
 
     const pricePerDay = input.pricePerDay;
     const totalCost = parseFloat((pricePerDay * days).toFixed(2));
-    const holdAmount = totalCost + 200.0;
+    const feeMap = await this.loadFeeMap();
+    const depositAmount = feeMap['SECURITY_DEPOSIT'] ?? 15000;
+    const holdAmount = totalCost + depositAmount;
 
     const result = await prisma.$transaction(async (tx) => {
       const vehicle = await tx.vehicle.findUnique({ where: { id: input.vehicleId } });
@@ -152,7 +163,7 @@ export class RentalService {
       });
       if (conflict) throw new ConflictError('Vehicle is booked for these dates');
 
-      return { vehicle, totalCost, holdAmount };
+      return { vehicle, totalCost, holdAmount, depositAmount };
     });
 
     // Stripe Hold
@@ -162,7 +173,12 @@ export class RentalService {
       vehiclePlate: result.vehicle.plateNumber,
       walkin: 'true'
     };
-    const hold = await stripeService.createPreAuthHold(result.holdAmount, undefined, metadata);
+    const hold = await stripeService.createPreAuthHold(
+      result.holdAmount,
+      customer.stripeCustomerId || undefined,
+      input.stripePaymentMethodId,
+      metadata
+    );
 
     return await prisma.$transaction(async (tx) => {
       const rental = await tx.rental.create({
@@ -197,7 +213,7 @@ export class RentalService {
           amount: result.holdAmount,
           type: 'PRE_AUTH_HOLD',
           stripePaymentIntentId: hold.id,
-          comments: `Counter pre-auth hold of $${result.holdAmount}`
+          comments: `Counter pre-auth hold of RD$${result.holdAmount} (Rent: RD$${result.totalCost} + Deposit: RD$${result.depositAmount})`
         }
       });
 
@@ -223,34 +239,41 @@ export class RentalService {
     }
 
     const actualReturn = new Date(returnInput.actualReturnDate);
+    const feeMap = await this.loadFeeMap();
 
     // 1. Base Rental cost
     const baseCost = rental.totalCost || 0.0;
 
-    // 2. Late fees: $30 per hour after scheduled return date (with 1 hour grace period)
+    // 2. Late fees
+    const lateFeePerHour = feeMap['LATE_FEE_PER_HOUR'] ?? 1500;
     let lateHours = 0;
     let lateFee = 0;
     if (actualReturn > rental.scheduledReturnDate) {
       const diffMs = actualReturn.getTime() - rental.scheduledReturnDate.getTime();
       lateHours = diffMs / (1000 * 60 * 60);
       if (lateHours > 1.0) {
-        lateFee = parseFloat((lateHours * 30.00).toFixed(2));
+        lateFee = parseFloat((lateHours * lateFeePerHour).toFixed(2));
       }
     }
 
-    // 3. Fuel Penalty: Refueling service flat fee of $30 + $25 per step missing
+    // 3. Fuel Penalty: Refueling service flat fee + per step missing
+    const fuelFlatFee = feeMap['FUEL_FLAT_FEE'] ?? 2000;
+    const fuelPerStep = feeMap['FUEL_PER_STEP'] ?? 1000;
     const checkoutVal = FUEL_VALUES[rental.checkoutFuelLevel] ?? 4;
     const returnVal = FUEL_VALUES[returnInput.returnFuelLevel] ?? 4;
     const fuelDifference = Math.max(0, checkoutVal - returnVal);
     let fuelFee = 0;
     if (fuelDifference > 0) {
-      fuelFee = 30.00 + (fuelDifference * 25.00);
+      fuelFee = fuelFlatFee + (fuelDifference * fuelPerStep);
     }
 
     // 4. Damage Fees
-    const glassFee = returnInput.hasBrokenGlass ? 300.00 : 0.0;
-    const scratchesFee = returnInput.hasNewScratches ? 150.00 : 0.0;
-    const tiresFee = (returnInput.damagedTiresCount || 0) * 100.00;
+    const glassFeeAmount = feeMap['GLASS_DAMAGE'] ?? 12000;
+    const scratchesFeeAmount = feeMap['SCRATCHES'] ?? 8000;
+    const tireFeeAmount = feeMap['TIRE_DAMAGE'] ?? 5000;
+    const glassFee = returnInput.hasBrokenGlass ? glassFeeAmount : 0.0;
+    const scratchesFee = returnInput.hasNewScratches ? scratchesFeeAmount : 0.0;
+    const tiresFee = (returnInput.damagedTiresCount || 0) * tireFeeAmount;
     const totalDamageFee = glassFee + scratchesFee + tiresFee;
 
     const totalFinalCost = parseFloat((baseCost + lateFee + fuelFee + totalDamageFee).toFixed(2));
@@ -299,7 +322,9 @@ export class RentalService {
       try {
         // Capture what is needed from pre-auth hold. Stripe capture allows capturing up to the authorized amount.
         // If final cost <= authorized, capture final cost. If final cost > authorized, capture full and charge extra.
-        const authAmount = (rental.totalCost || 0.0) + 200.0;
+        const feeMap = await this.loadFeeMap();
+        const depositAmount = feeMap['SECURITY_DEPOSIT'] ?? 15000;
+        const authAmount = (rental.totalCost || 0.0) + depositAmount;
         const captureAmount = Math.min(calcs.totalFinalCost, authAmount);
 
         await stripeService.capturePayment(rental.stripePaymentIntentId, captureAmount);
@@ -327,7 +352,7 @@ export class RentalService {
           amount: calcs.totalFinalCost,
           type: 'CHARGE',
           stripePaymentIntentId: rental.stripePaymentIntentId,
-          comments: `Final check-in charge of $${calcs.totalFinalCost} (Rent: $${calcs.baseCost}, Late Fee: $${calcs.lateFee}, Fuel Fee: $${calcs.fuelFee}, Damage Fee: $${calcs.totalDamageFee})`
+          comments: `Final check-in charge of RD$${calcs.totalFinalCost} (Rent: RD$${calcs.baseCost}, Late Fee: RD$${calcs.lateFee}, Fuel Fee: RD$${calcs.fuelFee}, Damage Fee: RD$${calcs.totalDamageFee})`
         }
       });
 
@@ -355,7 +380,7 @@ export class RentalService {
           returnFuelLevel: input.returnFuelLevel,
           returnSignatureUrl: input.returnSignatureUrl,
           totalCost: calcs.totalFinalCost,
-          comments: input.comments || `Returned successfully. Penalties applied: $${calcs.totalFinalCost - calcs.baseCost}`
+          comments: input.comments || `Returned successfully. Penalties applied: RD$${calcs.totalFinalCost - calcs.baseCost}`
         },
         include: {
           vehicle: true,

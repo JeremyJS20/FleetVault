@@ -4,6 +4,7 @@ import { authMiddleware, AuthenticatedRequest } from '../../Application/middlewa
 import { requireRole } from '../../Application/middleware/require-role.middleware.js';
 import { validateBody } from '../../Application/middleware/validation.middleware.js';
 import { CreateInspectionSchema } from '@rent-car/common';
+import { prisma } from '../../Infrastructure/db.js';
 
 const router = Router();
 const service = new InspectionService();
@@ -16,7 +17,15 @@ router.post(
   validateBody(CreateInspectionSchema),
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const result = await service.createInspection(req.body);
+      let employeeId = req.body.employeeId;
+      if (!employeeId) {
+        const employee = await prisma.employee.findFirst({ where: { userId: req.user!.userId } });
+        employeeId = employee?.id || req.user!.userId;
+      }
+      const result = await service.createInspection({
+        ...req.body,
+        employeeId,
+      });
       res.status(201).json({ success: true, data: result });
     } catch (error) {
       next(error);

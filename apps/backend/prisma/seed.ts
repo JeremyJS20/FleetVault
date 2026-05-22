@@ -19,6 +19,7 @@ async function main() {
   await prisma.vehicleType.deleteMany({});
   await prisma.fuelType.deleteMany({});
   await prisma.geofence.deleteMany({});
+  await prisma.feeConfig.deleteMany({});
   await prisma.seasonalRate.deleteMany({});
 
   console.log('Seeding reference tables...');
@@ -29,15 +30,24 @@ async function main() {
   const electric = await prisma.fuelType.create({ data: { name: 'Electric' } });
   const hybrid = await prisma.fuelType.create({ data: { name: 'Hybrid' } });
 
-  // Vehicle Types
+  // Vehicle Types (with DOP daily rates)
   const sedan = await prisma.vehicleType.create({
-    data: { name: 'Sedan', description: 'Standard 4-door passenger car' },
+    data: { name: 'Sedan', description: 'Standard 4-door passenger car', baseDailyRate: 2000 },
   });
   const suv = await prisma.vehicleType.create({
-    data: { name: 'SUV', description: 'Sport Utility Vehicle' },
+    data: { name: 'SUV', description: 'Sport Utility Vehicle', baseDailyRate: 3500 },
   });
   const truck = await prisma.vehicleType.create({
-    data: { name: 'Truck', description: 'Utility pickup truck' },
+    data: { name: 'Truck', description: 'Utility pickup truck', baseDailyRate: 4500 },
+  });
+  await prisma.vehicleType.create({
+    data: { name: 'Económico', description: 'Economy compact car', baseDailyRate: 1500 },
+  });
+  await prisma.vehicleType.create({
+    data: { name: 'Minivan', description: 'Family van', baseDailyRate: 5500 },
+  });
+  await prisma.vehicleType.create({
+    data: { name: 'De Lujo', description: 'Luxury vehicle', baseDailyRate: 8000 },
   });
 
   // Brands & Models
@@ -180,6 +190,19 @@ async function main() {
       lastMaintenanceOdometer: 0.0,
       imageUrl: 'https://images.unsplash.com/photo-1563720223185-11003d516935?w=500',
     },
+  });
+
+  console.log('Seeding Fee Config...');
+  await prisma.feeConfig.createMany({
+    data: [
+      { key: 'LATE_FEE_PER_HOUR', label: 'Late Return (per hour)', amount: 1500, description: 'Fee per hour after the scheduled return time (1h grace period)' },
+      { key: 'FUEL_FLAT_FEE', label: 'Fuel Service Charge', amount: 2000, description: 'Flat fee for refueling service when fuel is not returned full' },
+      { key: 'FUEL_PER_STEP', label: 'Fuel Per Step Missing', amount: 1000, description: 'Additional fee per fuel level step below the checkout level' },
+      { key: 'GLASS_DAMAGE', label: 'Broken Glass Damage', amount: 12000, description: 'Fee for broken windshield or window glass' },
+      { key: 'SCRATCHES', label: 'Scratch Damage', amount: 8000, description: 'Fee for new scratches found on return' },
+      { key: 'TIRE_DAMAGE', label: 'Per Tire Damaged', amount: 5000, description: 'Fee per damaged or missing tire' },
+      { key: 'SECURITY_DEPOSIT', label: 'Security Deposit', amount: 15000, description: 'Pre-auth hold deposit amount per rental' },
+    ],
   });
 
   console.log('Seeding Seasonal Rates...');

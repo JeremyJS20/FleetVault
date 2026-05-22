@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/Infrastructure/auth.context.js';
+import { useTranslation } from 'react-i18next';
 import { Sun, Moon } from 'lucide-react';
 
 export const AuthLayout: React.FC = () => {
+  const { t } = useTranslation();
   const { isAuthenticated, user, isLoading } = useAuth();
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const localTheme = localStorage.getItem('theme');
@@ -60,7 +62,7 @@ export const AuthLayout: React.FC = () => {
         <button
           onClick={toggleTheme}
           className="btn-ghost"
-          aria-label="Toggle Theme"
+          aria-label={t('common.toggleTheme')}
         >
           {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
         </button>
@@ -77,7 +79,7 @@ export const AuthLayout: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 max-w-5xl w-full mx-auto text-center py-6 border-t border-border-surface/40 mt-12 text-[10px] font-mono tracking-widest text-fg-tertiary uppercase">
+      <footer className="relative z-10 max-w-5xl w-full mx-auto text-center py-6 border-t border-border-surface/40 mt-12 text-xs font-mono tracking-widest text-fg-tertiary uppercase">
         FleetVault Enterprise · Neo-Minimalist Liquid Glass System
       </footer>
     </div>

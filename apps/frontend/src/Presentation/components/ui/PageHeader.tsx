@@ -14,7 +14,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, description, chil
           {title}
         </h1>
         {description ? (
-          <p className="text-sm font-semibold text-fg-secondary">
+          <p className="text-base font-semibold text-fg-secondary">
             {description}
           </p>
         ) : null}

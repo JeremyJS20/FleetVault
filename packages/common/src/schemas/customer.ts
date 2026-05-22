@@ -14,6 +14,7 @@ export const CustomerSchema = z.object({
   licenseExpDate: z.string(),
   licensePhotoUrl: z.string().nullable(),
   userId: z.string().nullable(),
+  stripeCustomerId: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -29,6 +30,7 @@ export const CreateCustomerSchema = z.object({
   licenseExpDate: z.string().refine((d) => new Date(d) > new Date(), 'License is expired'),
   licensePhotoUrl: z.string().url('Invalid photo URL').optional().nullable(),
   userId: z.string().optional().nullable(),
+  stripeCustomerId: z.string().optional().nullable(),
 });
 
 export const UpdateCustomerSchema = CreateCustomerSchema.partial().extend({

@@ -66,7 +66,7 @@ export const FuelTypesPage: React.FC = () => {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setFormError('Fuel type name is required');
+      setFormError(t('fuelTypes.validationNameRequired'));
       return;
     }
 
@@ -76,16 +76,16 @@ export const FuelTypesPage: React.FC = () => {
           id: editingItem.id,
           data: { name },
         });
-        setToast({ message: 'Fuel type updated successfully', type: 'success' });
+        setToast({ message: t('fuelTypes.updatedSuccess'), type: 'success' });
       } else {
         await createMutation.mutateAsync({
           data: { name },
         });
-        setToast({ message: 'Fuel type created successfully', type: 'success' });
+        setToast({ message: t('fuelTypes.createdSuccess'), type: 'success' });
       }
       setIsFormOpen(false);
     } catch (err: any) {
-      setFormError(err.message || 'Operation failed');
+      setFormError(err.message || t('common.operationFailed'));
     }
   };
 
@@ -98,10 +98,10 @@ export const FuelTypesPage: React.FC = () => {
     if (!confirmItem) return;
     try {
       await toggleStatusMutation.mutateAsync({ id: confirmItem.id });
-      setToast({ message: 'Status updated successfully', type: 'success' });
+      setToast({ message: t('common.statusUpdated'), type: 'success' });
       setIsConfirmOpen(false);
     } catch (err: any) {
-      setToast({ message: err.message || 'Failed to update status', type: 'error' });
+      setToast({ message: err.message || t('common.statusUpdateFailed'), type: 'error' });
     }
   };
 
@@ -183,8 +183,8 @@ export const FuelTypesPage: React.FC = () => {
         onClose={() => setIsFormOpen(false)}
         title={editingItem ? t('fuelTypes.editTitle') : t('fuelTypes.createTitle')}
       >
-        <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
-          <FormField label={t('fuelTypes.name')} required error={formError && !name ? 'Fuel type name is required' : undefined}>
+        <form onSubmit={handleFormSubmit} className="flex flex-col gap-6">
+          <FormField label={t('fuelTypes.name')} required error={formError && !name ? t('fuelTypes.validationNameRequired') : undefined}>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -214,8 +214,8 @@ export const FuelTypesPage: React.FC = () => {
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleConfirmToggle}
-        title="Toggle Status"
-        message={`Are you sure you want to change the status of ${confirmItem?.name}?`}
+        title={t('common.toggleStatus')}
+        message={t('common.confirmStatusChangeMsg', { name: confirmItem?.name })}
         isLoading={toggleStatusMutation.isPending}
       />
 

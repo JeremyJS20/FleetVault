@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from './Button.js';
 
 interface SignaturePadProps {
@@ -7,6 +8,7 @@ interface SignaturePadProps {
 }
 
 export const SignaturePad: React.FC<SignaturePadProps> = ({ onChange, height = 150 }) => {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEmpty, setIsEmpty] = useState(true);
@@ -126,7 +128,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ onChange, height = 1
         {isEmpty && (
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
             <span className="text-xs font-medium tracking-wide text-fg-tertiary select-none">
-              Sign here using mouse or touch
+              {t('signaturePad.placeholder')}
             </span>
           </div>
         )}
@@ -137,9 +139,9 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ onChange, height = 1
           type="button"
           variant="secondary"
           onClick={clearCanvas}
-          className="!h-7 text-[10px] uppercase font-bold tracking-widest rounded-lg px-3 bg-bg-surface/50 border border-border-surface/40 hover:bg-bg-surface text-fg-secondary"
+          className="!h-7 text-xs uppercase font-bold tracking-widest rounded-lg px-3 bg-bg-surface/50 border border-border-surface/40 hover:bg-bg-surface text-fg-secondary"
         >
-          Clear
+          {t('signaturePad.clear')}
         </Button>
       </div>
     </div>

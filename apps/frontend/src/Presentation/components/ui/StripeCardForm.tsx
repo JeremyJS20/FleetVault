@@ -1,110 +1,106 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { Button } from './Button.js';
 import { Input } from './Input.js';
 import { FormField } from './FormField.js';
-import { CreditCard, Calendar, Lock } from 'lucide-react';
+import { CreditCard, Lock } from 'lucide-react';
 
 interface StripeCardFormProps {
   onCardComplete: (stripePaymentMethodId: string | null) => void;
 }
 
+const CARD_ELEMENT_OPTIONS = {
+  style: {
+    base: {
+      fontSize: '14px',
+      fontFamily: 'inherit',
+      color: '#e2e8f0',
+      '::placeholder': { color: '#64748b' },
+    },
+    invalid: { color: '#ef4444' },
+  },
+};
+
 export const StripeCardForm: React.FC<StripeCardFormProps> = ({ onCardComplete }) => {
+  const { t } = useTranslation();
+  const stripe = useStripe();
+  const elements = useElements();
   const [name, setName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvc, setCvc] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [cardComplete, setCardComplete] = useState(false);
 
-  // Format Card Number (adds spaces every 4 digits)
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    let matches = value.match(/\d{4,16}/g);
-    let match = (matches && matches[0]) || '';
-    let parts = [];
+  React.useEffect(() => {
+    onCardComplete(null);
+  }, []);
 
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
-
-    if (parts.length > 0) {
-      const formatted = parts.join(' ');
-      setCardNumber(formatted);
-      validateCard(name, formatted, expiry, cvc);
+  const handleCardChange = (event: any) => {
+    setCardComplete(event.complete);
+    if (event.error) {
+      setError(event.error.message);
     } else {
-      setCardNumber(value);
-      onCardComplete(null);
+      setError(null);
     }
   };
 
-  // Format Expiry Date (MM/YY)
-  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value.length > 2) {
-      value = `${value.slice(0, 2)}/${value.slice(2, 4)}`;
-    }
-    setExpiry(value);
-    validateCard(name, cardNumber, value, cvc);
-  };
-
-  // Format CVC (max 4 digits)
-  const handleCvcChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
-    setCvc(value);
-    validateCard(name, cardNumber, expiry, value);
-  };
-
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setName(value);
-    validateCard(value, cardNumber, expiry, cvc);
-  };
-
-  const validateCard = (cName: string, cNum: string, cExp: string, cCvc: string) => {
-    const cleanNum = cNum.replace(/\s+/g, '');
-    const expParts = cExp.split('/');
-
-    if (!cName.trim()) {
-      onCardComplete(null);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    if (!name.trim()) {
+      setError('Cardholder name is required');
       return;
     }
 
-    if (cleanNum.length < 15 || cleanNum.length > 16) {
-      onCardComplete(null);
-      return;
-    }
-
-    if (expParts.length !== 2 || expParts[0].length !== 2 || expParts[1].length !== 2) {
-      onCardComplete(null);
-      return;
-    }
-
-    const month = parseInt(expParts[0]);
-    if (month < 1 || month > 12) {
-      onCardComplete(null);
-      return;
-    }
-
-    if (cCvc.length < 3) {
-      onCardComplete(null);
-      return;
-    }
-
+    setIsProcessing(true);
     setError(null);
-    // Card is valid, trigger callback with a mock Stripe payment method token
-    onCardComplete(`pm_mock_${Math.random().toString(36).substring(7)}`);
+
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) {
+      setError('Card element not found');
+      setIsProcessing(false);
+      return;
+    }
+
+    const { error: submitError, paymentMethod } = await stripe.createPaymentMethod({
+      type: 'card',
+      card: cardElement,
+      billing_details: { name: name.trim() },
+    });
+
+    if (submitError) {
+      setError(submitError.message || 'Card validation failed');
+      onCardComplete(null);
+      setIsProcessing(false);
+      return;
+    }
+
+    onCardComplete(paymentMethod.id);
+    setIsProcessing(false);
   };
 
   return (
-    <div className="p-5 rounded-2xl border border-border-surface/40 bg-bg-surface/30 backdrop-blur-md space-y-4">
+    <form onSubmit={handleSubmit} className="p-5 rounded-2xl border border-border-surface/40 bg-bg-surface/30 backdrop-blur-md space-y-4">
       <div className="flex items-center justify-between pb-2 border-b border-border-surface/20">
         <span className="text-xs font-bold uppercase tracking-widest text-accent-primary flex items-center gap-2">
           <CreditCard className="w-3.5 h-3.5" />
-          Secure Payment Details
+          {t('stripe.securePayment')}
         </span>
-        <div className="flex gap-1">
-          <span className="w-6 h-4 rounded bg-white/10 border border-white/20 flex items-center justify-center text-[7px] text-white/50 font-bold uppercase">Visa</span>
-          <span className="w-6 h-4 rounded bg-white/10 border border-white/20 flex items-center justify-center text-[7px] text-white/50 font-bold uppercase">MC</span>
-          <span className="w-6 h-4 rounded bg-white/10 border border-white/20 flex items-center justify-center text-[7px] text-white/50 font-bold uppercase">Amex</span>
-        </div>
+        <Lock className="w-3.5 h-3.5 text-fg-tertiary" />
+      </div>
+
+      <FormField label={t('stripe.cardholderName')} required>
+        <Input
+          type="text"
+          placeholder={t('stripe.cardholderPlaceholder')}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="!h-9 rounded-lg"
+        />
+      </FormField>
+
+      <div className="p-3 rounded-xl border border-border-surface/30 bg-bg-inset/50">
+        <CardElement options={CARD_ELEMENT_OPTIONS} onChange={handleCardChange} />
       </div>
 
       {error && (
@@ -113,62 +109,14 @@ export const StripeCardForm: React.FC<StripeCardFormProps> = ({ onCardComplete }
         </div>
       )}
 
-      <div className="space-y-3">
-        <FormField label="Cardholder Name" required>
-          <Input
-            type="text"
-            placeholder="Johnathan Doe"
-            value={name}
-            onChange={handleNameChange}
-            className="!h-9 rounded-lg"
-          />
-        </FormField>
-
-        <FormField label="Card Number" required>
-          <div className="relative">
-            <Input
-              type="text"
-              placeholder="4111 1111 1111 1111"
-              value={cardNumber}
-              onChange={handleCardNumberChange}
-              maxLength={19}
-              className="!h-9 rounded-lg pl-9"
-            />
-            <CreditCard className="absolute left-3 top-2.5 w-4 h-4 text-fg-tertiary" />
-          </div>
-        </FormField>
-
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Expiry Date" required>
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder="MM/YY"
-                value={expiry}
-                onChange={handleExpiryChange}
-                maxLength={5}
-                className="!h-9 rounded-lg pl-9"
-              />
-              <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-fg-tertiary" />
-            </div>
-          </FormField>
-
-          <FormField label="CVC" required>
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder="123"
-                value={cvc}
-                onChange={handleCvcChange}
-                maxLength={4}
-                className="!h-9 rounded-lg pl-9"
-              />
-              <Lock className="absolute left-3 top-2.5 w-4 h-4 text-fg-tertiary" />
-            </div>
-          </FormField>
-        </div>
-      </div>
-    </div>
+      <Button
+        type="submit"
+        isLoading={isProcessing}
+        disabled={!stripe || !cardComplete || !name.trim()}
+        className="w-full"
+      >
+        {t('stripe.confirmCard')}
+      </Button>
+    </form>
   );
 };
-export default StripeCardForm;

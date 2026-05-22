@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { validateBody } from '../../Application/middleware/validation.middleware.js';
 import { authMiddleware, AuthenticatedRequest } from '../../Application/middleware/auth.middleware.js';
-import { RegisterSchema, CustomerRegisterSchema, LoginSchema, RefreshTokenSchema, QuickRegisterSchema } from '@rent-car/common';
+import { RegisterSchema, CustomerRegisterSchema, LoginSchema, RefreshTokenSchema, QuickRegisterSchema, MagicLoginSchema } from '@rent-car/common';
 import { AuthService } from '../../Application/services/auth.service.js';
 import { PrismaUserRepository } from '../../Infrastructure/repositories/prisma-user.repository.js';
 import { PrismaCustomerRepository } from '../../Infrastructure/repositories/prisma-customer.repository.js';
@@ -37,6 +37,12 @@ router.post('/register/customer', validateBody(CustomerRegisterSchema), async (r
 router.post('/register/quick', validateBody(QuickRegisterSchema), async (req, res, next) => {
   try {
     const result = await authService.quickRegister(req.body);
+    if ('exists' in result) {
+      return res.status(200).json({
+        success: true,
+        data: result,
+      });
+    }
     res.status(201).json({
       success: true,
       data: {
@@ -45,6 +51,27 @@ router.post('/register/quick', validateBody(QuickRegisterSchema), async (req, re
           ...result.user,
           name: result.customer.name,
         },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /magic-login
+router.post('/magic-login', validateBody(MagicLoginSchema), async (req, res, next) => {
+  try {
+    const result = await authService.magicLogin(req.body.token);
+    const dbUser = await prisma.user.findUnique({
+      where: { id: result.user.id },
+      include: { customer: true, employee: true },
+    });
+    const name = dbUser?.customer?.name || dbUser?.employee?.name || result.user.email.split('@')[0];
+    res.status(200).json({
+      success: true,
+      data: {
+        ...result,
+        user: { ...result.user, name },
       },
     });
   } catch (error) {

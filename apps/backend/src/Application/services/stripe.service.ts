@@ -1,21 +1,37 @@
 import Stripe from 'stripe';
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
+function isMockEnvironment(): boolean {
+  const key = process.env.STRIPE_SECRET_KEY || '';
+  return !key
+    || key.includes('mock')
+    || key.includes('placeholder')
+    || key.includes('sk_test_...')
+    || key === 'dummy';
+}
 
-const isMockKey = !stripeSecretKey
-  || stripeSecretKey.includes('mock')
-  || stripeSecretKey.includes('placeholder')
-  || stripeSecretKey.includes('sk_test_...')
-  || stripeSecretKey === 'dummy';
-
-const stripe = !isMockKey ? new Stripe(stripeSecretKey) : null;
+function getStripe(): Stripe | null {
+  if (isMockEnvironment()) return null;
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}
 
 export class StripeService {
-  // Method to create a pre-auth payment intent hold
-  async createPreAuthHold(amount: number, customerId?: string, metadata?: Record<string, string>) {
-    const amountInCents = Math.round(amount * 100);
-    
-    if (isMockKey || !stripe) {
+  async attachPaymentMethod(customerId: string, paymentMethodId: string) {
+    const stripe = getStripe();
+    if (!stripe) {
+      console.log(`[MOCK STRIPE] Attached pm ${paymentMethodId} to customer ${customerId}`);
+      return { id: customerId };
+    }
+
+    try {
+      return await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
+    } catch (error: any) {
+      throw new Error(`Stripe attach payment method error: ${error.message}`);
+    }
+  }
+
+  async createPreAuthHold(amount: number, customerId?: string, paymentMethodId?: string, metadata?: Record<string, string>) {
+    const stripe = getStripe();
+    if (!stripe) {
       console.log(`[MOCK STRIPE] Created Pre-Auth Hold for $${amount}`);
       return {
         id: `mock_pi_${Math.random().toString(36).substring(7)}`,
@@ -24,23 +40,29 @@ export class StripeService {
       };
     }
 
-    try {
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: amountInCents,
-        currency: 'usd',
-        payment_method_types: ['card'],
-        capture_method: 'manual', // This creates the hold
-        customer: customerId,
-        metadata,
-      });
+    const amountInCents = Math.round(amount * 100);
 
+    try {
+      const params: Stripe.PaymentIntentCreateParams = {
+        amount: amountInCents,
+        currency: 'dop',
+        payment_method_types: ['card'],
+        capture_method: 'manual',
+        metadata,
+      };
+      if (customerId) params.customer = customerId;
+      if (paymentMethodId) {
+        params.payment_method = paymentMethodId;
+        params.confirm = true;
+      }
+
+      const paymentIntent = await stripe.paymentIntents.create(params);
       return paymentIntent;
     } catch (error: any) {
       throw new Error(`Stripe error: ${error.message}`);
     }
   }
 
-  // Method to capture payment on return
   async capturePayment(paymentIntentId: string, amount: number) {
     if (!paymentIntentId || paymentIntentId.startsWith('mock_pi_')) {
       console.log(`[MOCK STRIPE] Captured $${amount} on hold ${paymentIntentId}`);
@@ -50,6 +72,7 @@ export class StripeService {
       };
     }
 
+    const stripe = getStripe();
     if (!stripe) {
       throw new Error('Stripe is not configured, but a real PaymentIntent ID was provided');
     }
@@ -60,14 +83,12 @@ export class StripeService {
       const paymentIntent = await stripe.paymentIntents.capture(paymentIntentId, {
         amount_to_capture: amountInCents,
       });
-
       return paymentIntent;
     } catch (error: any) {
       throw new Error(`Stripe capture error: ${error.message}`);
     }
   }
 
-  // Method to cancel a hold
   async cancelHold(paymentIntentId: string) {
     if (!paymentIntentId || paymentIntentId.startsWith('mock_pi_')) {
       console.log(`[MOCK STRIPE] Cancelled hold ${paymentIntentId}`);
@@ -77,6 +98,7 @@ export class StripeService {
       };
     }
 
+    const stripe = getStripe();
     if (!stripe) {
       throw new Error('Stripe is not configured, but a real PaymentIntent ID was provided');
     }
@@ -89,9 +111,9 @@ export class StripeService {
     }
   }
 
-  // Method to create a stripe customer account
   async createCustomer(email: string, name: string) {
-    if (!stripe || !stripeSecretKey || stripeSecretKey.startsWith('dummy') || stripeSecretKey.includes('sk_test_placeholder') || stripeSecretKey.includes('sk_test_...')) {
+    const stripe = getStripe();
+    if (!stripe) {
       console.log(`[MOCK STRIPE] Created Stripe Customer for ${email}`);
       return {
         id: `mock_cus_${Math.random().toString(36).substring(7)}`,
@@ -99,6 +121,12 @@ export class StripeService {
     }
 
     try {
+      const existing = await stripe.customers.list({ email, limit: 1 });
+      if (existing.data.length > 0) {
+        console.log(`[STRIPE] Found existing customer for ${email}: ${existing.data[0].id}`);
+        return existing.data[0];
+      }
+
       const customer = await stripe.customers.create({
         email,
         name,
@@ -109,11 +137,9 @@ export class StripeService {
     }
   }
 
-  // Method to create an immediate charge
   async createCharge(amount: number, customerId?: string, metadata?: Record<string, any>) {
-    const amountInCents = Math.round(amount * 100);
-
-    if (!stripe || !stripeSecretKey || stripeSecretKey.startsWith('dummy') || stripeSecretKey.includes('sk_test_placeholder') || stripeSecretKey.includes('sk_test_...')) {
+    const stripe = getStripe();
+    if (!stripe) {
       console.log(`[MOCK STRIPE] Created Immediate Charge for $${amount}`);
       return {
         id: `mock_pi_${Math.random().toString(36).substring(7)}`,
@@ -121,16 +147,17 @@ export class StripeService {
       };
     }
 
+    const amountInCents = Math.round(amount * 100);
+
     try {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amountInCents,
-        currency: 'usd',
+        currency: 'dop',
         payment_method_types: ['card'],
         capture_method: 'automatic',
         customer: customerId,
         metadata,
       });
-
       return paymentIntent;
     } catch (error: any) {
       throw new Error(`Stripe charge error: ${error.message}`);

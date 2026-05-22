@@ -5,6 +5,7 @@ export const VehicleTypeSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().nullable(),
+  baseDailyRate: z.number(),
   status: z.enum(EntityStatus),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -13,6 +14,7 @@ export const VehicleTypeSchema = z.object({
 export const CreateVehicleTypeSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
+  baseDailyRate: z.number().optional(),
 });
 
 export const UpdateVehicleTypeSchema = CreateVehicleTypeSchema.partial();

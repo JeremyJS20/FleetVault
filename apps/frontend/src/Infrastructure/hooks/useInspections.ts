@@ -36,7 +36,7 @@ export const useCreateInspection = () => {
       rentalId?: string | null;
       vehicleId: string;
       customerId: string;
-      employeeId: string;
+      employeeId?: string;
       hasScratches: boolean;
       fuelGaugeLevel: string;
       fuelGaugePhotoUrl: string;

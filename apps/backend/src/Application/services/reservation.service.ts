@@ -90,13 +90,7 @@ export class ReservationService {
       }
 
       // Calculate dynamic price
-      const baseRates: Record<string, number> = {
-        sedan: 45.0,
-        suv: 75.0,
-        truck: 85.0
-      };
-      const typeName = vehicle.vehicleType.name.toLowerCase();
-      const baseDailyRate = baseRates[typeName] || 50.0;
+      const baseDailyRate = vehicle.vehicleType.baseDailyRate || 0;
 
       // Get seasonal multiplier
       const activeRate = await tx.seasonalRate.findFirst({
@@ -112,20 +106,28 @@ export class ReservationService {
       const pricePerDay = parseFloat((baseDailyRate * multiplier).toFixed(2));
       const totalEstimatedCost = parseFloat((pricePerDay * days).toFixed(2));
       
-      // Hold amount = Total rental estimate + $200 security deposit
-      const holdAmount = totalEstimatedCost + 200.0;
+      // Hold amount = Total rental estimate + security deposit
+      const depositConfig = await tx.feeConfig.findUnique({ where: { key: 'SECURITY_DEPOSIT' } });
+      const depositAmount = depositConfig?.amount ?? 15000;
+      const holdAmount = totalEstimatedCost + depositAmount;
 
       return {
         vehicle,
         pricePerDay,
         totalEstimatedCost,
+        depositAmount,
         holdAmount,
         multiplier,
         seasonalName: activeRate ? activeRate.name : null
       };
     });
 
-    // 5. Create pre-auth hold on card via Stripe
+    // 5. Attach payment method to Stripe customer (if real)
+    if (customer.stripeCustomerId && input.stripePaymentMethodId && !input.stripePaymentMethodId.startsWith('pm_mock_')) {
+      await stripeService.attachPaymentMethod(customer.stripeCustomerId, input.stripePaymentMethodId);
+    }
+
+    // 6. Create pre-auth hold on card via Stripe
     const metadata = {
       customerId: customer.id,
       customerName: customer.name,
@@ -133,7 +135,12 @@ export class ReservationService {
       dateRange: `${input.rentalDate} to ${input.scheduledReturnDate}`
     };
 
-    const holdResult = await stripeService.createPreAuthHold(result.holdAmount, undefined, metadata);
+    const holdResult = await stripeService.createPreAuthHold(
+      result.holdAmount,
+      customer.stripeCustomerId || undefined,
+      input.stripePaymentMethodId,
+      metadata
+    );
 
     // 6. Save pending rental and ledger inside a second transaction
     return await prisma.$transaction(async (tx) => {
@@ -168,7 +175,7 @@ export class ReservationService {
           amount: result.holdAmount,
           type: 'PRE_AUTH_HOLD',
           stripePaymentIntentId: holdResult.id,
-          comments: `Pre-auth hold of $${result.holdAmount} (Rent: $${result.totalEstimatedCost} + Deposit: $200)`
+          comments: `Pre-auth hold of RD$${result.holdAmount} (Rent: RD$${result.totalEstimatedCost} + Deposit: RD$${result.depositAmount})`
         }
       });
 
@@ -240,7 +247,7 @@ export class ReservationService {
             amount: penalty,
             type: 'CHARGE',
             stripePaymentIntentId: rental.stripePaymentIntentId,
-            comments: `Late cancellation charge (less than 24h notice): 1 day rate of $${penalty}`
+            comments: `Late cancellation charge (less than 24h notice): 1 day rate of RD$${penalty}`
           }
         });
 
@@ -249,7 +256,7 @@ export class ReservationService {
           data: {
             status: 'CANCELLED',
             totalCost: penalty,
-            comments: `Late cancellation penalty charged: $${penalty}`
+            comments: `Late cancellation penalty charged: RD$${penalty}`
           },
           include: {
             vehicle: true

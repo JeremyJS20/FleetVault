@@ -5,7 +5,7 @@ interface OfflineInspection {
   rentalId?: string | null;
   vehicleId: string;
   customerId: string;
-  employeeId: string;
+  employeeId?: string;
   hasScratches: boolean;
   fuelGaugeLevel: string;
   fuelGaugePhotoUrl: string; // Base64 or local URL representation

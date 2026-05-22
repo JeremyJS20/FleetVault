@@ -40,8 +40,13 @@ export const QuickRegisterSchema = z.object({
   lastName: z.string().min(1, 'Last name is required'),
 });
 
+export const MagicLoginSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+});
+
 export type LoginInput = z.infer<typeof LoginSchema>;
 export type RegisterInput = z.infer<typeof RegisterSchema>;
 export type CustomerRegisterInput = z.infer<typeof CustomerRegisterSchema>;
 export type TokenPayload = z.infer<typeof TokenPayloadSchema>;
 export type QuickRegisterInput = z.infer<typeof QuickRegisterSchema>;
+export type MagicLoginInput = z.infer<typeof MagicLoginSchema>;

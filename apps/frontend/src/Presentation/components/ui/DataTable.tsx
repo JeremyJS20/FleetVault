@@ -46,7 +46,7 @@ export function DataTable<TData>({
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-fg-secondary"
+                    className="px-6 py-4 text-sm font-bold uppercase tracking-wider text-fg-secondary"
                   >
                     {header.isPlaceholder
                       ? null
@@ -90,7 +90,7 @@ export function DataTable<TData>({
 
       {onPageChange && pageCount > 1 ? (
         <div className="flex items-center justify-between px-2">
-          <span className="text-xs font-semibold text-fg-secondary">
+          <span className="text-sm font-semibold text-fg-secondary">
             {t('common.pageOf', { current: pageIndex + 1, total: pageCount })}
           </span>
           <div className="flex items-center gap-2">

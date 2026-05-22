@@ -80,14 +80,14 @@ export const SeasonalRatesPage: React.FC = () => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return setFormError('Season name is required');
-    if (!startDate) return setFormError('Start date is required');
-    if (!endDate) return setFormError('End date is required');
+    if (!name.trim()) return setFormError(t('seasonalRates.validationNameRequired'));
+    if (!startDate) return setFormError(t('seasonalRates.validationStartRequired'));
+    if (!endDate) return setFormError(t('seasonalRates.validationEndRequired'));
     if (new Date(startDate) > new Date(endDate)) {
-      return setFormError('Start date cannot be after end date');
+      return setFormError(t('seasonalRates.validationStartBeforeEnd'));
     }
     if (multiplier <= 0) {
-      return setFormError('Multiplier must be greater than 0');
+      return setFormError(t('seasonalRates.validationMultiplierPositive'));
     }
 
     const payload = {
@@ -103,16 +103,16 @@ export const SeasonalRatesPage: React.FC = () => {
           id: editingItem.id,
           data: payload,
         });
-        setToast({ message: 'Seasonal rate updated successfully', type: 'success' });
+        setToast({ message: t('seasonalRates.updatedSuccess'), type: 'success' });
       } else {
         await createMutation.mutateAsync({
           data: payload,
         });
-        setToast({ message: 'Seasonal rate created successfully', type: 'success' });
+        setToast({ message: t('seasonalRates.createdSuccess'), type: 'success' });
       }
       setIsFormOpen(false);
     } catch (err: any) {
-      setFormError(err.message || 'Operation failed');
+      setFormError(err.message || t('common.operationFailed'));
     }
   };
 
@@ -125,10 +125,10 @@ export const SeasonalRatesPage: React.FC = () => {
     if (!confirmItem) return;
     try {
       await toggleStatusMutation.mutateAsync({ id: confirmItem.id });
-      setToast({ message: 'Status updated successfully', type: 'success' });
+      setToast({ message: t('common.statusUpdated'), type: 'success' });
       setIsConfirmOpen(false);
     } catch (err: any) {
-      setToast({ message: err.message || 'Failed to update status', type: 'error' });
+      setToast({ message: err.message || t('common.statusUpdateFailed'), type: 'error' });
     }
   };
 
@@ -225,7 +225,7 @@ export const SeasonalRatesPage: React.FC = () => {
         onClose={() => setIsFormOpen(false)}
         title={editingItem ? t('seasonalRates.editTitle') : t('seasonalRates.createTitle')}
       >
-        <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleFormSubmit} className="flex flex-col gap-6">
           <FormField label={t('seasonalRates.name')} required>
             <Input
               value={name}
@@ -283,8 +283,8 @@ export const SeasonalRatesPage: React.FC = () => {
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleConfirmToggle}
-        title="Change Seasonal Rate Status"
-        message={`Are you sure you want to change the status of ${confirmItem?.name}?`}
+        title={t('common.confirmStatusChange', { entity: 'Seasonal Rate' })}
+        message={t('common.confirmStatusChangeMsg', { name: confirmItem?.name })}
         isLoading={toggleStatusMutation.isPending}
       />
 

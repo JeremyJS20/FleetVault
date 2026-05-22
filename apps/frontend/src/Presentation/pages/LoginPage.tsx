@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LoginSchema, type LoginInput } from '@rent-car/common';
 import { useAuth } from '../../Infrastructure/auth.context.js';
@@ -49,7 +49,7 @@ export const LoginPage: React.FC = () => {
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password');
+      setError(err.message || t('auth.signInFailed'));
     } finally {
       setLoading(false);
     }
@@ -81,7 +81,7 @@ export const LoginPage: React.FC = () => {
         >
           <Input
             type="email"
-            placeholder="admin@fleetvault.com or customer@fleetvault.com"
+            placeholder={t('auth.emailAddress')}
             {...register('email')}
           />
         </FormField>
@@ -93,7 +93,7 @@ export const LoginPage: React.FC = () => {
         >
           <Input
             type="password"
-            placeholder="••••••••"
+            placeholder={t('auth.password')}
             {...register('password')}
           />
         </FormField>
@@ -109,20 +109,8 @@ export const LoginPage: React.FC = () => {
 
       <div className="text-center pt-2">
         <span className="text-xs text-fg-tertiary">
-          {t('auth.dontHaveAccount')}{' '}
-          <Link
-            to="/register"
-            className="text-accent-primary font-semibold hover:underline"
-          >
-            {t('auth.createAccount')}
-          </Link>
+          {t('auth.staffSignInOnly')}
         </span>
-      </div>
-
-      <div className="mt-4 p-3 rounded-xl bg-bg-inset border border-border-surface/40 text-[10px] font-mono text-fg-secondary space-y-1">
-        <div className="font-bold text-accent-primary">Development Logins:</div>
-        <div>Admin: <span className="text-fg-main">admin@example.com</span> (pw: 6+ chars)</div>
-        <div>Customer: <span className="text-fg-main">customer@example.com</span> (pw: 6+ chars)</div>
       </div>
     </div>
   );

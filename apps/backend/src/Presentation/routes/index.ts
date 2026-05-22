@@ -13,6 +13,8 @@ import catalogRouter from './catalog.routes.js';
 import reservationRouter from './reservation.routes.js';
 import inspectionRouter from './inspection.routes.js';
 import rentalRouter from './rental.routes.js';
+import feeConfigRouter from './fee-config.routes.js';
+import dashboardRouter from './dashboard.routes.js';
 
 const router = Router();
 
@@ -30,5 +32,7 @@ router.use('/catalog', catalogRouter);
 router.use('/reservations', reservationRouter);
 router.use('/inspections', inspectionRouter);
 router.use('/rentals', rentalRouter);
+router.use('/fee-config', feeConfigRouter);
+router.use('/dashboard', dashboardRouter);
 
 export default router;

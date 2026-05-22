@@ -48,7 +48,7 @@ export const MyProfilePage: React.FC = () => {
         }
       } catch (err: any) {
         console.error('Failed to load profile:', err);
-        setError('Failed to load your customer profile. Please make sure you have registered your profile.');
+        setError(t('common.operationFailed'));
       } finally {
         setIsLoading(false);
       }
@@ -82,7 +82,7 @@ export const MyProfilePage: React.FC = () => {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
-      setError(err.message || 'Failed to update profile. Please verify your fields.');
+      setError(err.message || t('common.operationFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -103,7 +103,7 @@ export const MyProfilePage: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <div className="w-8 h-8 rounded-full border-2 border-accent-primary/20 border-t-accent-primary animate-spin" />
-        <span className="text-xs text-fg-tertiary font-bold tracking-wider">LOADING PROFILE...</span>
+        <span className="text-xs text-fg-tertiary font-bold tracking-wider">{t('profile.loading')}</span>
       </div>
     );
   }
@@ -112,10 +112,10 @@ export const MyProfilePage: React.FC = () => {
     <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
       <div>
         <h2 className="text-2xl font-extrabold tracking-tight text-fg-main uppercase">
-          Profile Settings
+          {t('profile.title')}
         </h2>
         <p className="text-xs text-fg-secondary mt-1">
-          View and edit your personal information and driver credentials.
+          {t('profile.subtitle')}
         </p>
       </div>
 
@@ -145,7 +145,7 @@ export const MyProfilePage: React.FC = () => {
       {success && (
         <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-semibold flex items-center gap-2">
           <Check className="w-4 h-4 shrink-0" />
-          Profile updated successfully!
+          {t('profile.updateSuccess')}
         </div>
       )}
 
@@ -156,53 +156,53 @@ export const MyProfilePage: React.FC = () => {
           </div>
           <div>
             <h3 className="text-sm font-bold text-fg-main uppercase leading-none">{name || user?.name}</h3>
-            <span className="text-[10px] text-fg-tertiary font-semibold block mt-1.5 uppercase">
-              Account status: <span className={status === 'ACTIVE' ? 'text-emerald-500' : 'text-accent-error'}>{status}</span>
+            <span className="text-xs text-fg-tertiary font-semibold block mt-1.5 uppercase">
+              {t('profile.accountStatus')} <span className={status === 'ACTIVE' ? 'text-emerald-500' : 'text-accent-error'}>{status}</span>
             </span>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField label="Full Name" required>
+          <FormField label={t('profile.fullName')} required>
             <Input
               type="text"
               value={name}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-              placeholder="e.g. John Doe"
+              placeholder={t('customers.placeholderName')}
               className="!h-9 rounded-lg"
               required
             />
           </FormField>
 
-          <FormField label="National ID / Passport" required>
+          <FormField label={t('profile.nationalId')} required>
             <Input
               id="nationalId-input"
               type="text"
               value={nationalId}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNationalId(e.target.value)}
-              placeholder="e.g. ID-12345678"
+              placeholder={t('customers.placeholderId')}
               className="!h-9 rounded-lg"
               required
             />
           </FormField>
 
-          <FormField label="Phone Number" required>
+          <FormField label={t('profile.phoneNumber')} required>
             <Input
               type="tel"
               value={phone}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)}
-              placeholder="e.g. +1 555-0199"
+              placeholder={t('auth.phone')}
               className="!h-9 rounded-lg"
               required
             />
           </FormField>
 
-          <FormField label="Address" required>
+          <FormField label={t('profile.address')} required>
             <Input
               type="text"
               value={address}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddress(e.target.value)}
-              placeholder="e.g. 123 Luxury Ave, CA"
+              placeholder={t('profile.address')}
               className="!h-9 rounded-lg"
               required
             />
@@ -212,33 +212,33 @@ export const MyProfilePage: React.FC = () => {
         <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-4">
           <span className="text-xs font-bold uppercase tracking-widest text-accent-primary flex items-center gap-2">
             <Shield className="w-3.5 h-3.5" />
-            Driving Credentials
+            {t('profile.drivingCredentials')}
           </span>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <FormField label="Driver's License Number" required>
+            <FormField label={t('profile.licenseNumber')} required>
               <Input
                 type="text"
                 value={licenseNumber}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLicenseNumber(e.target.value)}
-                placeholder="e.g. DL-987654321"
+                placeholder={t('profile.licenseNumber')}
                 className="!h-9 rounded-lg bg-bg-surface/50"
                 required
               />
             </FormField>
 
-            <FormField label="License Country" required>
+            <FormField label={t('profile.licenseCountry')} required>
               <Input
                 type="text"
                 value={licenseCountry}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLicenseCountry(e.target.value)}
-                placeholder="e.g. United States"
+                placeholder={t('profile.licenseCountry')}
                 className="!h-9 rounded-lg bg-bg-surface/50"
                 required
               />
             </FormField>
 
-            <FormField label="License Expiry Date" required>
+            <FormField label={t('profile.licenseExpiry')} required>
               <Input
                 type="date"
                 value={licenseExpDate}
@@ -252,7 +252,7 @@ export const MyProfilePage: React.FC = () => {
 
         <div className="flex justify-end pt-2">
           <Button type="submit" isLoading={isSaving} className="px-6">
-            Save Changes
+            {t('profile.saveChanges')}
           </Button>
         </div>
       </form>

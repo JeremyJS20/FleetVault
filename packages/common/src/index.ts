@@ -15,4 +15,6 @@ export * from './schemas/transaction.js';
 export * from './schemas/seasonal-rate.js';
 export * from './schemas/gps.js';
 export * from './schemas/health.js';
+export * from './schemas/fee-config.js';
+export { formatCurrency } from './formatCurrency.js';
 

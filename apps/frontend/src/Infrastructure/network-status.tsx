@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { getQueuedInspections, syncQueuedInspections } from './offline-queue.js';
 import { apiClient } from './api-client.js';
@@ -14,6 +15,7 @@ interface NetworkStatusContextType {
 const NetworkStatusContext = createContext<NetworkStatusContextType | undefined>(undefined);
 
 export const NetworkStatusProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t } = useTranslation();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [queuedCount, setQueuedCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -58,20 +60,20 @@ export const NetworkStatusProvider: React.FC<{ children: React.ReactNode }> = ({
   const syncQueue = async () => {
     if (!isOnline || isSyncing) return;
     setIsSyncing(true);
-    setSyncStatusMsg('Syncing offline inspections...');
+    setSyncStatusMsg(t('network.syncing'));
 
     try {
       const result = await syncQueuedInspections(uploadInspection);
       await triggerQueueRefresh();
       if (result.count > 0) {
-        setSyncStatusMsg(`Successfully synced ${result.count} inspections!`);
+        setSyncStatusMsg(t('network.syncSuccess', { count: result.count }));
         setTimeout(() => setSyncStatusMsg(null), 3000);
       } else {
         setSyncStatusMsg(null);
       }
     } catch (err) {
       console.error('Sync failed:', err);
-      setSyncStatusMsg('Sync failed. Will retry later.');
+      setSyncStatusMsg(t('network.syncFailed'));
       setTimeout(() => setSyncStatusMsg(null), 4000);
     } finally {
       setIsSyncing(false);
@@ -122,8 +124,8 @@ export const NetworkStatusProvider: React.FC<{ children: React.ReactNode }> = ({
                 <WifiOff className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-fg-primary leading-none">Offline Mode</p>
-                <p className="text-[10px] text-fg-tertiary mt-1">Changes are saved locally and will sync when reconnected.</p>
+                <p className="text-xs font-bold text-fg-primary leading-none">{t('network.offlineMode')}</p>
+                <p className="text-[10px] text-fg-tertiary mt-1">{t('network.offlineDesc')}</p>
               </div>
             </div>
           )}
@@ -140,10 +142,10 @@ export const NetworkStatusProvider: React.FC<{ children: React.ReactNode }> = ({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-fg-primary leading-none">
-                  {syncStatusMsg || `${queuedCount} inspection(s) queued`}
+                  {syncStatusMsg || t('network.queuedCount', { count: queuedCount })}
                 </p>
                 <p className="text-[10px] text-fg-tertiary mt-1">
-                  {isSyncing ? 'Uploading records...' : isOnline ? 'Ready to sync connection restored.' : 'Waiting for network connection.'}
+                  {isSyncing ? t('network.uploading') : isOnline ? t('network.readyToSync') : t('network.waitingConnection')}
                 </p>
               </div>
               {isOnline && !isSyncing && (
@@ -151,7 +153,7 @@ export const NetworkStatusProvider: React.FC<{ children: React.ReactNode }> = ({
                   onClick={syncQueue}
                   className="px-2 py-1 text-[9px] font-bold tracking-wider uppercase border border-border-surface/40 rounded bg-bg-inset text-fg-secondary hover:bg-bg-surface"
                 >
-                  Sync
+                  {t('network.sync')}
                 </button>
               )}
             </div>

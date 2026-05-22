@@ -3,11 +3,16 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePublicVehicles, usePublicVehicleTypes, usePublicBrands } from '../../Infrastructure/hooks/usePublicCatalog.js';
 import { useCreateReservation } from '../../Infrastructure/hooks/useReservations.js';
+import { useFeeConfigs } from '../../Infrastructure/hooks/useCatalog.js';
 import { useAuth } from '../../Infrastructure/auth.context.js';
 import { useQuickRegister } from '../../Infrastructure/hooks/useQuickRegister.js';
+import { FormModal } from '../components/ui/FormModal.js';
 import { Button } from '../components/ui/Button.js';
 import { Input } from '../components/ui/Input.js';
+import { formatCurrency } from '@rent-car/common';
 import { FormField } from '../components/ui/FormField.js';
+import { Elements } from '@stripe/react-stripe-js';
+import { stripePromise } from '../../Infrastructure/stripe.js';
 import { StripeCardForm } from '../components/ui/StripeCardForm.js';
 import { Toast } from '../components/ui/Toast.js';
 import { Search, Calendar, Shield, CreditCard, Check, Sparkles, AlertCircle } from 'lucide-react';
@@ -24,6 +29,9 @@ export const CatalogPage: React.FC = () => {
   const [quickLastName, setQuickLastName] = useState('');
   const [quickEmail, setQuickEmail] = useState('');
   const [quickError, setQuickError] = useState<string | null>(null);
+  const [quickExistsEmail, setQuickExistsEmail] = useState<string | null>(null);
+  const [quickPassword, setQuickPassword] = useState('');
+  const [quickLoginLoading, setQuickLoginLoading] = useState(false);
 
   // Toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -55,11 +63,12 @@ export const CatalogPage: React.FC = () => {
 
   const { data: vehicleTypes = [] } = usePublicVehicleTypes();
   const { data: brands = [] } = usePublicBrands();
+  const { data: feeConfigs = [] } = useFeeConfigs();
 
   // Mutations
   const createReservationMutation = useCreateReservation();
 
-  // Auto-open booking flow if returning from login/register
+  // Auto-open booking flow if returning from login
   useEffect(() => {
     const state = location.state as any;
     if (state?.bookVehicleId && vehicles.length > 0) {
@@ -101,6 +110,11 @@ export const CatalogPage: React.FC = () => {
         lastName: quickLastName,
       });
 
+      if ('exists' in res) {
+        setQuickExistsEmail(res.email);
+        return;
+      }
+
       // Log in immediately via AuthContext
       await login(res.accessToken, res.user, res.refreshToken);
 
@@ -120,7 +134,31 @@ export const CatalogPage: React.FC = () => {
       setStripePaymentMethodId(null);
       setErrorMessage(null);
     } catch (err: any) {
-      setQuickError(err.message || 'Failed to complete quick signup. Please try again.');
+      setQuickError(err.message || t('common.operationFailed'));
+    }
+  };
+
+  const handleQuickLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setQuickError(null);
+    setQuickLoginLoading(true);
+    try {
+      await login(quickEmail, quickPassword);
+      const vehicle = quickSignupVehicle;
+      setQuickSignupVehicle(null);
+      setQuickFirstName('');
+      setQuickLastName('');
+      setQuickEmail('');
+      setQuickPassword('');
+      setQuickExistsEmail(null);
+      setSelectedVehicle(vehicle);
+      setBookingStep(1);
+      setStripePaymentMethodId(null);
+      setErrorMessage(null);
+    } catch (err: any) {
+      setQuickError(err.message || t('auth.signInFailed'));
+    } finally {
+      setQuickLoginLoading(false);
     }
   };
 
@@ -133,7 +171,7 @@ export const CatalogPage: React.FC = () => {
 
   const handleConfirmBooking = async () => {
     if (!stripePaymentMethodId) {
-      setErrorMessage('Please enter a valid credit card details');
+      setErrorMessage(t('catalog.cardDetailsRequired'));
       return;
     }
 
@@ -154,13 +192,13 @@ export const CatalogPage: React.FC = () => {
       });
       setBookingStep(3); // success
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to complete booking reservation. Please try again.');
+      setErrorMessage(err.message || t('common.operationFailed'));
     }
   };
 
   const days = calculateDays();
   const basePrice = selectedVehicle ? (selectedVehicle.calculatedDailyRate ?? selectedVehicle.baseDailyRate ?? 0) * days : 0;
-  const securityDeposit = 200;
+  const securityDeposit = (feeConfigs as any[]).find((f: any) => f.key === 'SECURITY_DEPOSIT')?.amount ?? 15000;
   const totalHold = basePrice + securityDeposit;
 
   return (
@@ -168,16 +206,16 @@ export const CatalogPage: React.FC = () => {
       {/* Page Header */}
       <div>
         <h2 className="text-2xl font-extrabold tracking-tight text-fg-main">
-          FIND YOUR PERFECT VEHICLE
+          {t('catalog.title')}
         </h2>
         <p className="text-xs text-fg-secondary mt-1">
-          Explore and rent from our premium fleet of vehicles with transparent pricing.
+          {t('catalog.subtitle')}
         </p>
       </div>
 
       {/* Advanced Filter Panel */}
       <form onSubmit={handleSearch} className="p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-        <FormField label="Pick-up Date">
+        <FormField label={t('catalog.pickupDate')}>
           <div className="relative">
             <Input
               type="date"
@@ -190,7 +228,7 @@ export const CatalogPage: React.FC = () => {
           </div>
         </FormField>
 
-        <FormField label="Drop-off Date">
+        <FormField label={t('catalog.dropoffDate')}>
           <div className="relative">
             <Input
               type="date"
@@ -203,26 +241,26 @@ export const CatalogPage: React.FC = () => {
           </div>
         </FormField>
 
-        <FormField label="Vehicle Category">
+        <FormField label={t('catalog.vehicleCategory')}>
           <select
             value={typeId}
             onChange={(e) => setTypeId(e.target.value)}
             className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
           >
-            <option value="">All Categories</option>
+            <option value="">{t('catalog.allCategories')}</option>
             {vehicleTypes.map((t: any) => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
         </FormField>
 
-        <FormField label="Brand">
+        <FormField label={t('catalog.brand')}>
           <select
             value={brandId}
             onChange={(e) => setBrandId(e.target.value)}
             className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
           >
-            <option value="">All Brands</option>
+            <option value="">{t('catalog.allBrands')}</option>
             {brands.map((b: any) => (
               <option key={b.id} value={b.id}>{b.name}</option>
             ))}
@@ -231,7 +269,7 @@ export const CatalogPage: React.FC = () => {
 
         <Button type="submit" className="w-full h-9 flex items-center justify-center gap-2">
           <Search size={14} />
-          Search
+          {t('catalog.search')}
         </Button>
       </form>
 
@@ -239,12 +277,12 @@ export const CatalogPage: React.FC = () => {
       {isVehiclesLoading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <div className="w-8 h-8 rounded-full border-2 border-accent-primary/20 border-t-accent-primary animate-spin" />
-          <span className="text-xs text-fg-tertiary font-bold tracking-wider">LOADING CATALOG...</span>
+          <span className="text-xs text-fg-tertiary font-bold tracking-wider">{t('catalog.loading')}</span>
         </div>
       ) : vehicles.length === 0 ? (
         <div className="text-center py-20 p-6 rounded-2xl border border-dashed border-border-surface/40 bg-bg-surface/10">
-          <p className="text-sm font-bold text-fg-secondary">No vehicles available matching filters</p>
-          <p className="text-xs text-fg-tertiary mt-1">Try selecting different dates or categories.</p>
+          <p className="text-sm font-bold text-fg-secondary">{t('catalog.noVehicles')}</p>
+          <p className="text-xs text-fg-tertiary mt-1">{t('catalog.tryDifferent')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -270,32 +308,32 @@ export const CatalogPage: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-y border-border-surface/15 py-3">
-                  <div className="text-[10px] text-fg-secondary flex items-center gap-1.5 font-semibold">
+                  <div className="text-xs text-fg-secondary flex items-center gap-1.5 font-semibold">
                     <span className="w-1.5 h-1.5 rounded-full bg-accent-primary" />
-                    Odometer: <span className="text-fg-main">{v.odometer?.toLocaleString() ?? '—'} km</span>
+                    {t('catalog.odometer')} <span className="text-fg-main">{v.odometer?.toLocaleString() ?? '—'} km</span>
                   </div>
-                  <div className="text-[10px] text-fg-secondary flex items-center gap-1.5 font-semibold">
+                  <div className="text-xs text-fg-secondary flex items-center gap-1.5 font-semibold">
                     <span className="w-1.5 h-1.5 rounded-full bg-accent-primary" />
-                    Fuel: <span className="text-fg-main uppercase">{v.fuelType.name}</span>
+                    {t('catalog.fuel')} <span className="text-fg-main uppercase">{v.fuelType.name}</span>
                   </div>
-                  <div className="text-[10px] text-fg-secondary flex items-center gap-1.5 font-semibold">
+                  <div className="text-xs text-fg-secondary flex items-center gap-1.5 font-semibold">
                     <span className="w-1.5 h-1.5 rounded-full bg-accent-primary" />
-                    Category: <span className="text-fg-main">{v.vehicleType.name}</span>
+                    {t('catalog.category')} <span className="text-fg-main">{v.vehicleType.name}</span>
                   </div>
-                  <div className="text-[10px] text-fg-secondary flex items-center gap-1.5 font-semibold">
+                  <div className="text-xs text-fg-secondary flex items-center gap-1.5 font-semibold">
                     <span className="w-1.5 h-1.5 rounded-full bg-accent-primary" />
-                    Brand: <span className="text-fg-main">{v.brand.name}</span>
+                    {t('catalog.brandLabel')} <span className="text-fg-main">{v.brand.name}</span>
                   </div>
                 </div>
 
-                {/* Price and rent action */}
+                {/* Price / Action area */}
                 <div className="flex items-center justify-between pt-1">
                   <div>
-                    <span className="text-xs text-fg-tertiary font-bold block uppercase leading-none">Daily Rate</span>
-                    <span className="text-lg font-mono font-black text-fg-main">${(v.calculatedDailyRate ?? v.baseDailyRate ?? 0).toFixed(2)}</span>
+                    <span className="text-lg font-extrabold text-fg-main font-mono">{formatCurrency(v.calculatedDailyRate ?? v.baseDailyRate ?? 0)}</span>
+                    <span className="text-xs text-fg-tertiary ml-1 font-semibold">{t('catalog.perDay')}</span>
                   </div>
-                  <Button onClick={() => handleStartBooking(v)} className="!h-8 text-[10px] uppercase font-bold tracking-widest px-4 rounded-lg">
-                    Book Now
+                  <Button size="sm" onClick={() => handleStartBooking(v)}>
+                    {t('catalog.bookNow')}
                   </Button>
                 </div>
               </div>
@@ -306,28 +344,22 @@ export const CatalogPage: React.FC = () => {
 
       {/* Booking Dialog Modal overlay */}
       {selectedVehicle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-bg-inset/75 backdrop-blur-md animate-fade-in">
-          <div className="bg-bg-card border border-border-surface/50 max-w-lg w-full rounded-3xl p-6 shadow-2xl relative space-y-6">
-
-            {/* Close button */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in">
+          <div className="bg-bg-card border border-border-surface max-w-lg w-full rounded-3xl p-6 shadow-2xl backdrop-blur-2xl animate-slide-up relative space-y-6 max-h-[90vh] overflow-y-auto">
             {bookingStep !== 3 && (
               <button
                 onClick={() => setSelectedVehicle(null)}
-                className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer"
+                className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer z-10"
               >
                 ✕
               </button>
             )}
-
-            {/* Header */}
             <div>
-              <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">Checkout Wizard</span>
+              <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('catalog.checkoutWizard')}</span>
               <h2 className="text-lg font-extrabold text-fg-main mt-1 uppercase">
-                {bookingStep === 1 ? 'Review Reservation details' : bookingStep === 2 ? 'Payment Authorization' : 'Reservation Confirmed!'}
+                {bookingStep === 1 ? t('catalog.reviewReservation') : bookingStep === 2 ? t('catalog.paymentAuth') : t('catalog.bookingConfirmed')}
               </h2>
             </div>
-
-            {/* Steps indicator */}
             {bookingStep !== 3 && (
               <div className="flex items-center gap-1">
                 <div className={`h-1 flex-1 rounded-full ${bookingStep >= 1 ? 'bg-accent-primary' : 'bg-white/10'}`} />
@@ -335,15 +367,12 @@ export const CatalogPage: React.FC = () => {
                 <div className="h-1 flex-1 rounded-full bg-white/10" />
               </div>
             )}
-
             {errorMessage && (
               <div className="p-3 rounded-xl bg-accent-error/15 border border-accent-error/20 text-accent-error text-xs font-semibold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 {errorMessage}
               </div>
             )}
-
-            {/* STEP 1: Specs review */}
             {bookingStep === 1 && (
               <div className="space-y-4">
                 <div className="p-4 rounded-2xl bg-bg-inset border border-border-surface/40 flex items-center gap-4">
@@ -353,58 +382,54 @@ export const CatalogPage: React.FC = () => {
                     className="w-20 object-contain"
                   />
                   <div>
-                    <h3 className="text-[10px] text-fg-tertiary font-bold uppercase">{selectedVehicle.brand.name}</h3>
+                    <h3 className="text-xs text-fg-tertiary font-bold uppercase">{selectedVehicle.brand.name}</h3>
                     <h4 className="text-sm font-extrabold text-fg-main mt-0.5">{selectedVehicle.model.name}</h4>
-                    <span className="text-xs font-mono font-bold text-fg-secondary mt-1 block">${(selectedVehicle.calculatedDailyRate ?? selectedVehicle.baseDailyRate ?? 0).toFixed(2)} / day</span>
+                    <span className="text-xs font-mono font-bold text-fg-secondary mt-1 block">{formatCurrency(selectedVehicle.calculatedDailyRate ?? selectedVehicle.baseDailyRate ?? 0)} {t('catalog.perDay')}</span>
                   </div>
                 </div>
-
                 <div className="space-y-2 border-t border-border-surface/20 pt-4">
                   <div className="flex justify-between text-xs font-semibold text-fg-secondary">
-                    <span>Rental Period:</span>
+                    <span>{t('catalog.rentalPeriod')}</span>
                     <span className="text-fg-main">{dateFrom} to {dateTo}</span>
                   </div>
                   <div className="flex justify-between text-xs font-semibold text-fg-secondary">
-                    <span>Duration:</span>
-                    <span className="text-fg-main">{days} {days === 1 ? 'day' : 'days'}</span>
+                    <span>{t('catalog.duration')}</span>
+                    <span className="text-fg-main">{days} {t(days === 1 ? 'catalog.day' : 'catalog.days')}</span>
                   </div>
                   <div className="flex justify-between text-xs font-semibold text-fg-secondary">
-                    <span>Daily Rate:</span>
-                    <span className="text-fg-main font-mono">${(selectedVehicle.calculatedDailyRate ?? selectedVehicle.baseDailyRate ?? 0).toFixed(2)}</span>
+                    <span>{t('catalog.dailyRateLabel')}</span>
+                    <span className="text-fg-main font-mono">{formatCurrency(selectedVehicle.calculatedDailyRate ?? selectedVehicle.baseDailyRate ?? 0)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-bold text-fg-main border-t border-border-surface/10 pt-2">
-                    <span>Estimated Rental Total:</span>
-                    <span className="font-mono">${basePrice.toFixed(2)}</span>
+                    <span>{t('catalog.estimatedTotal')}</span>
+                    <span className="font-mono">{formatCurrency(basePrice)}</span>
                   </div>
                 </div>
-
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="secondary" onClick={() => setSelectedVehicle(null)}>
-                    Cancel
+                    {t('catalog.cancel')}
                   </Button>
                   <Button onClick={() => setBookingStep(2)}>
-                    Next: Payment
+                    {t('catalog.nextPayment')}
                   </Button>
                 </div>
               </div>
             )}
-
-            {/* STEP 2: Credit Card Entry & Stripe Pre-auth Hold Collection */}
             {bookingStep === 2 && (
               <div className="space-y-4">
                 <div className="p-3.5 rounded-xl border border-accent-primary/20 bg-accent-primary/5 text-fg-secondary text-xs flex items-start gap-2.5">
                   <Shield className="w-4 h-4 text-accent-primary shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold text-fg-primary block">Stripe Pre-Authorization Hold</span>
-                    A temporary hold of <strong className="text-fg-main">${totalHold.toFixed(2)}</strong> (Estimated rental ${basePrice.toFixed(2)} + ${securityDeposit} deposit) will be placed on your credit card. No funds are charged immediately.
+                    <span className="font-bold text-fg-primary block">{t('catalog.preAuthHold')}</span>
+                    {t('catalog.preAuthDesc', { totalHold: formatCurrency(totalHold), basePrice: formatCurrency(basePrice), securityDeposit: formatCurrency(securityDeposit) })}
                   </div>
                 </div>
-
-                <StripeCardForm onCardComplete={setStripePaymentMethodId} />
-
+                <Elements stripe={stripePromise}>
+                  <StripeCardForm onCardComplete={setStripePaymentMethodId} />
+                </Elements>
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="secondary" onClick={() => setBookingStep(1)}>
-                    Back
+                    {t('catalog.back')}
                   </Button>
                   <Button
                     onClick={handleConfirmBooking}
@@ -413,67 +438,83 @@ export const CatalogPage: React.FC = () => {
                     className="flex items-center gap-1.5"
                   >
                     <CreditCard className="w-3.5 h-3.5" />
-                    Place Pre-Auth Hold
+                    {t('catalog.placeHold')}
                   </Button>
                 </div>
               </div>
             )}
-
-            {/* STEP 3: Reservation Confirmed success screen */}
             {bookingStep === 3 && (
               <div className="flex flex-col items-center justify-center text-center py-6 space-y-4 animate-scale-up">
                 <div className="w-14 h-14 rounded-full bg-emerald-500/10 border-2 border-emerald-500 flex items-center justify-center text-emerald-500">
                   <Check className="w-8 h-8" />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-base font-extrabold text-fg-main uppercase tracking-wider">Booking Successful</h3>
+                  <h3 className="text-base font-extrabold text-fg-main uppercase tracking-wider">{t('catalog.bookingSuccess')}</h3>
                   <p className="text-xs text-fg-secondary max-w-sm">
-                    Your reservation has been locked and Stripe pre-authorization hold successfully verified. An agent will hand you the keys at the counter!
+                    {t('catalog.bookingSuccessDesc')}
                   </p>
                 </div>
-
                 <div className="pt-4 w-full">
                   <Button
                     className="w-full flex items-center justify-center gap-2"
-                    onClick={() => setSelectedVehicle(null)}
+                    onClick={() => navigate('/customer/reservations')}
                   >
                     <Sparkles className="w-4 h-4" />
-                    View My Reservations
+                    {t('catalog.viewReservations')}
                   </Button>
                 </div>
               </div>
             )}
-
           </div>
         </div>
       )}
 
       {/* Quick Signup Modal */}
-      {quickSignupVehicle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-bg-inset/75 backdrop-blur-md animate-fade-in">
-          <form
-            onSubmit={handleQuickSignupSubmit}
-            className="bg-bg-card/70 border border-border-surface/40 backdrop-blur-xl max-w-md w-full rounded-3xl p-6 shadow-2xl relative space-y-6"
-          >
-            <button
-              type="button"
-              onClick={() => setQuickSignupVehicle(null)}
-              className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer"
-            >
-              ✕
-            </button>
-
-            <div>
-              <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">
-                {t('auth.quickSignup')}
-              </span>
-              <h2 className="text-lg font-extrabold text-fg-main mt-1 uppercase">
-                {t('auth.createAccount')}
-              </h2>
-              <p className="text-xs text-fg-secondary mt-1">
-                {t('auth.quickSignupSubtitle')}
-              </p>
+      {quickSignupVehicle && !quickExistsEmail && (
+        <FormModal isOpen={!!(quickSignupVehicle && !quickExistsEmail)} onClose={() => setQuickSignupVehicle(null)} title={t('auth.createAccount')}>
+          <form onSubmit={handleQuickSignupSubmit} className="space-y-6">
+            <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('auth.quickSignup')}</span>
+            <p className="text-xs text-fg-secondary">{t('auth.quickSignupSubtitle')}</p>
+            {quickError && (
+              <div className="p-3 rounded-xl bg-accent-error/15 border border-accent-error/20 text-accent-error text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {quickError}
+              </div>
+            )}
+            <div className="space-y-4">
+              <FormField label={t('auth.firstName')} required>
+                <Input type="text" placeholder={t('auth.firstName')} value={quickFirstName} onChange={(e) => setQuickFirstName(e.target.value)} required />
+              </FormField>
+              <FormField label={t('auth.lastName')} required>
+                <Input type="text" placeholder={t('auth.lastName')} value={quickLastName} onChange={(e) => setQuickLastName(e.target.value)} required />
+              </FormField>
+              <FormField label={t('auth.emailAddress')} required>
+                <Input type="email" placeholder={t('auth.emailAddress')} value={quickEmail} onChange={(e) => setQuickEmail(e.target.value)} required />
+              </FormField>
             </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" type="button" onClick={() => setQuickSignupVehicle(null)}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" isLoading={quickRegisterMutation.isPending}>
+                {t('auth.continue')}
+              </Button>
+            </div>
+          </form>
+        </FormModal>
+      )}
+
+      {/* Account Exists — Login + Magic Link Modal */}
+      {quickSignupVehicle && quickExistsEmail && (
+        <FormModal isOpen={!!(quickSignupVehicle && quickExistsEmail)} onClose={() => {
+          setQuickSignupVehicle(null);
+          setQuickExistsEmail(null);
+          setQuickPassword('');
+          setQuickError(null);
+        }} title={t('auth.welcomeBack')}>
+          <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('auth.accountExists')}</span>
+          <p className="text-xs text-fg-secondary mt-1 mb-4">{t('auth.magicLinkSent', { email: quickExistsEmail })}</p>
+          <form onSubmit={handleQuickLoginSubmit} className="space-y-6">
 
             {quickError && (
               <div className="p-3 rounded-xl bg-accent-error/15 border border-accent-error/20 text-accent-error text-xs font-semibold flex items-center gap-2">
@@ -483,32 +524,20 @@ export const CatalogPage: React.FC = () => {
             )}
 
             <div className="space-y-4">
-              <FormField label={t('auth.firstName')} required>
-                <Input
-                  type="text"
-                  placeholder="John"
-                  value={quickFirstName}
-                  onChange={(e) => setQuickFirstName(e.target.value)}
-                  required
-                />
-              </FormField>
-
-              <FormField label={t('auth.lastName')} required>
-                <Input
-                  type="text"
-                  placeholder="Doe"
-                  value={quickLastName}
-                  onChange={(e) => setQuickLastName(e.target.value)}
-                  required
-                />
-              </FormField>
-
               <FormField label={t('auth.emailAddress')} required>
                 <Input
                   type="email"
-                  placeholder="name@example.com"
                   value={quickEmail}
-                  onChange={(e) => setQuickEmail(e.target.value)}
+                  disabled
+                />
+              </FormField>
+
+              <FormField label={t('auth.password')} required>
+                <Input
+                  type="password"
+                  placeholder={t('auth.password')}
+                  value={quickPassword}
+                  onChange={(e) => setQuickPassword(e.target.value)}
                   required
                 />
               </FormField>
@@ -518,16 +547,20 @@ export const CatalogPage: React.FC = () => {
               <Button
                 variant="secondary"
                 type="button"
-                onClick={() => setQuickSignupVehicle(null)}
+                onClick={() => {
+                  setQuickExistsEmail(null);
+                  setQuickPassword('');
+                  setQuickError(null);
+                }}
               >
-                {t('common.cancel')}
+                {t('common.back')}
               </Button>
-              <Button type="submit" isLoading={quickRegisterMutation.isPending}>
-                {t('auth.continue')}
+              <Button type="submit" isLoading={quickLoginLoading}>
+                {t('auth.signIn')}
               </Button>
             </div>
           </form>
-        </div>
+        </FormModal>
       )}
 
       {/* Toast notifications */}

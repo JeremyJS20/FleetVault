@@ -75,11 +75,11 @@ export const ModelsPage: React.FC = () => {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setFormError('Model name is required');
+      setFormError(t('models.validationNameRequired'));
       return;
     }
     if (!brandId) {
-      setFormError('Brand selection is required');
+      setFormError(t('models.validationBrandRequired'));
       return;
     }
 
@@ -89,16 +89,16 @@ export const ModelsPage: React.FC = () => {
           id: editingItem.id,
           data: { name, brandId },
         });
-        setToast({ message: 'Model updated successfully', type: 'success' });
+        setToast({ message: t('models.updatedSuccess'), type: 'success' });
       } else {
         await createMutation.mutateAsync({
           data: { name, brandId },
         });
-        setToast({ message: 'Model created successfully', type: 'success' });
+        setToast({ message: t('models.createdSuccess'), type: 'success' });
       }
       setIsFormOpen(false);
     } catch (err: any) {
-      setFormError(err.message || 'Operation failed');
+      setFormError(err.message || t('common.operationFailed'));
     }
   };
 
@@ -111,10 +111,10 @@ export const ModelsPage: React.FC = () => {
     if (!confirmItem) return;
     try {
       await toggleStatusMutation.mutateAsync({ id: confirmItem.id });
-      setToast({ message: 'Status updated successfully', type: 'success' });
+      setToast({ message: t('common.statusUpdated'), type: 'success' });
       setIsConfirmOpen(false);
     } catch (err: any) {
-      setToast({ message: err.message || 'Failed to update status', type: 'error' });
+      setToast({ message: err.message || t('common.statusUpdateFailed'), type: 'error' });
     }
   };
 
@@ -207,7 +207,7 @@ export const ModelsPage: React.FC = () => {
         onClose={() => setIsFormOpen(false)}
         title={editingItem ? t('models.editTitle') : t('models.createTitle')}
       >
-        <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleFormSubmit} className="flex flex-col gap-6">
           <FormField label={t('models.name')} required error={formError && !name ? 'Model name is required' : undefined}>
             <Input
               value={name}
@@ -253,8 +253,8 @@ export const ModelsPage: React.FC = () => {
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleConfirmToggle}
-        title="Toggle Status"
-        message={`Are you sure you want to change the status of ${confirmItem?.name}?`}
+        title={t('common.toggleStatus')}
+        message={t('common.confirmStatusChangeMsg', { name: confirmItem?.name })}
         isLoading={toggleStatusMutation.isPending}
       />
 

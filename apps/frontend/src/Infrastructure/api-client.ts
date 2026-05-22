@@ -56,9 +56,15 @@ export const apiClient = async (path: string, options: RequestOptions = {}): Pro
       }
 
       if (!isRefreshing) {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (!refreshToken) {
+          setAccessToken(null);
+          window.dispatchEvent(new CustomEvent('auth:logout'));
+          throw new Error('Session expired');
+        }
+
         isRefreshing = true;
         try {
-          const refreshToken = localStorage.getItem('refresh_token');
           const refreshRes = await fetch('/api/auth/refresh', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

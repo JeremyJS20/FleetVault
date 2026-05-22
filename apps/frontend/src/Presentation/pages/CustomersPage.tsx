@@ -15,6 +15,7 @@ import { SearchBar } from '../components/ui/SearchBar.js';
 import { DataTable } from '../components/ui/DataTable.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { FormModal } from '../components/ui/FormModal.js';
+import { formatCurrency } from '@rent-car/common';
 import { FormField } from '../components/ui/FormField.js';
 import { Input } from '../components/ui/Input.js';
 import { SelectField } from '../components/ui/SelectField.js';
@@ -99,8 +100,8 @@ export const CustomersPage: React.FC = () => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return setFormError('Name is required');
-    if (!nationalId.trim()) return setFormError('National ID is required');
+    if (!name.trim()) return setFormError(t('customers.validationNameRequired'));
+    if (!nationalId.trim()) return setFormError(t('customers.validationIdRequired'));
 
     const payload = {
       name,
@@ -121,16 +122,16 @@ export const CustomersPage: React.FC = () => {
           id: editingItem.id,
           data: payload,
         });
-        setToast({ message: 'Customer updated successfully', type: 'success' });
+        setToast({ message: t('customers.updatedSuccess'), type: 'success' });
       } else {
         await createMutation.mutateAsync({
           data: payload,
         });
-        setToast({ message: 'Customer created successfully', type: 'success' });
+        setToast({ message: t('customers.createdSuccess'), type: 'success' });
       }
       setIsFormOpen(false);
     } catch (err: any) {
-      setFormError(err.message || 'Operation failed');
+      setFormError(err.message || t('common.operationFailed'));
     }
   };
 
@@ -143,10 +144,10 @@ export const CustomersPage: React.FC = () => {
     if (!confirmItem) return;
     try {
       await toggleStatusMutation.mutateAsync({ id: confirmItem.id });
-      setToast({ message: 'Customer status updated successfully', type: 'success' });
+      setToast({ message: t('common.statusUpdated'), type: 'success' });
       setIsConfirmOpen(false);
     } catch (err: any) {
-      setToast({ message: err.message || 'Failed to update status', type: 'error' });
+      setToast({ message: err.message || t('common.statusUpdateFailed'), type: 'error' });
     }
   };
 
@@ -169,7 +170,7 @@ export const CustomersPage: React.FC = () => {
     {
       accessorKey: 'creditLimit',
       header: t('customers.creditLimit'),
-      cell: (info) => <span className="font-mono text-xs">${(info.getValue() as number || 0).toLocaleString()}</span>,
+      cell: (info) => <span className="font-mono text-xs">{formatCurrency(info.getValue() as number || 0)}</span>,
     },
     {
       accessorKey: 'status',
@@ -243,7 +244,7 @@ export const CustomersPage: React.FC = () => {
         onClose={() => setIsFormOpen(false)}
         title={editingItem ? t('customers.editTitle') : t('customers.createTitle')}
       >
-        <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleFormSubmit} className="flex flex-col gap-6">
           <FormField label={t('customers.name')} required>
             <Input
               value={name}
@@ -291,7 +292,7 @@ export const CustomersPage: React.FC = () => {
 
           <div className="border-t border-surface-border my-2 pt-2">
             <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider mb-3">
-              Driver License Verification
+              {t('customers.driversLicense')}
             </h4>
             
             <div className="grid grid-cols-2 gap-4">
@@ -351,8 +352,8 @@ export const CustomersPage: React.FC = () => {
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleConfirmToggle}
-        title="Change Customer Status"
-        message={`Are you sure you want to change the status of ${confirmItem?.name}?`}
+        title={t('common.confirmStatusChange', { entity: 'Customer' })}
+        message={t('common.confirmStatusChangeMsg', { name: confirmItem?.name })}
         isLoading={toggleStatusMutation.isPending}
       />
 

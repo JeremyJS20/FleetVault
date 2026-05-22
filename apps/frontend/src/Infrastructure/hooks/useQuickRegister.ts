@@ -7,7 +7,7 @@ export interface QuickRegisterInput {
   lastName: string;
 }
 
-export interface QuickRegisterResponse {
+export interface QuickRegisterSuccess {
   accessToken: string;
   refreshToken: string;
   user: {
@@ -24,6 +24,14 @@ export interface QuickRegisterResponse {
     type: string;
   };
 }
+
+export interface QuickRegisterExists {
+  exists: true;
+  email: string;
+  magicLinkSent: true;
+}
+
+export type QuickRegisterResponse = QuickRegisterSuccess | QuickRegisterExists;
 
 export const useQuickRegister = () => {
   return useMutation({

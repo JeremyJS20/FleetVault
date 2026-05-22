@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../Infrastructure/auth.context.js';
 import { 
@@ -17,7 +17,8 @@ import {
   Droplet,
   Percent,
   Languages,
-  ClipboardCheck
+  ClipboardCheck,
+  DollarSign
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -27,6 +28,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
   const { logout, user } = useAuth();
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
 
   const toggleLanguage = () => {
     const nextLang = i18n.language === 'en' ? 'es' : 'en';
@@ -71,6 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
       titleKey: 'nav.pricing',
       links: [
         { to: '/admin/seasonal-rates', labelKey: 'nav.seasonalRates', icon: Percent },
+        { to: '/admin/fee-config', labelKey: 'nav.feeConfig', icon: DollarSign },
         { to: '/admin/settings', labelKey: 'common.actions', icon: Settings },
       ]
     }
@@ -92,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
           <button
             onClick={toggleLanguage}
             className="p-2 rounded-xl bg-bg-inset border-border-surface text-fg-secondary hover:text-fg-main transition-all cursor-pointer"
-            title={i18n.language === 'en' ? 'Cambiar a Español' : 'Switch to English'}
+            title={t('common.switchLanguage')}
           >
             <Languages size={15} />
           </button>
@@ -100,13 +103,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
 
         {/* User Info */}
         <div className="p-3 rounded-xl bg-bg-inset border border-border-surface/40">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-accent-primary">
+          <div className="text-xs font-bold uppercase tracking-wider text-accent-primary">
             {role === 'admin' ? t('employees.shift') : t('customers.type')}
           </div>
           <div className="text-xs font-semibold text-fg-main truncate mt-0.5">
-            {user?.name || 'Loading...'}
+            {user?.name || t('common.loading')}
           </div>
-          <div className="text-[10px] text-fg-tertiary truncate">
+          <div className="text-xs text-fg-tertiary truncate">
             {user?.email}
           </div>
         </div>
@@ -116,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
           {role === 'admin' ? (
             adminGroups.map((group) => (
               <div key={group.titleKey} className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-tertiary px-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-fg-tertiary px-3">
                   {t(group.titleKey)}
                 </span>
                 <div className="flex flex-col gap-0.5">
@@ -171,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
       {/* Logout button */}
       <div className="pt-4 border-t border-border-surface mt-4">
         <button
-          onClick={logout}
+          onClick={() => { logout(); navigate(user?.role === 'CUSTOMER' ? '/' : '/login'); }}
           className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all cursor-pointer"
         >
           <LogOut size={14} />

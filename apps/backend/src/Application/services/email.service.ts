@@ -73,4 +73,75 @@ export class EmailService {
       return false;
     }
   }
+
+  async sendMagicLink(toEmail: string, magicLink: string): Promise<boolean> {
+    const apiKey = process.env.RESEND_API_KEY;
+    const mailFrom = process.env.MAIL_FROM || 'onboarding@resend.dev';
+
+    const testTo = process.env.RESEND_TEST_TO;
+    const actualTo = testTo || toEmail;
+    if (testTo && testTo !== toEmail) {
+      console.log(`[EMAIL SERVICE] DEV OVERRIDE: Redirecting magic link email from ${toEmail} → ${testTo}`);
+    }
+
+    const subject = 'Sign in to FleetVault';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <h2 style="color: #2b6cb0;">You already have a FleetVault account!</h2>
+        <p>We noticed you tried to register, but an account with this email already exists.</p>
+        <p>Click the button below to sign in instantly:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${magicLink}" style="background-color: #2b6cb0; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">Sign In to FleetVault</a>
+        </div>
+        <p style="color: #4a5568; font-size: 14px;">This link expires in 15 minutes. If you didn't request this, you can safely ignore this email.</p>
+        <p style="color: #4a5568; font-size: 14px;">Alternatively, you can sign in with your password on the FleetVault website.</p>
+        <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 20px 0;" />
+        <p style="color: #a0aec0; font-size: 12px;">This is an automated message, please do not reply directly to this email.</p>
+      </div>
+    `;
+
+    console.log('--------------------------------------------------');
+    console.log(`[EMAIL SERVICE] Sending Magic Link Email`);
+    console.log(`To (intended): ${toEmail}`);
+    console.log(`To (actual):   ${actualTo}`);
+    console.log(`From: ${mailFrom}`);
+    console.log(`Subject: ${subject}`);
+    console.log(`Magic Link: ${magicLink}`);
+    console.log('--------------------------------------------------');
+
+    if (!apiKey || apiKey.includes('placeholder') || apiKey.startsWith('re_dummy')) {
+      console.log(`[EMAIL SERVICE] Resend API Key is missing or using placeholder. Email not sent via Resend API (Mock mode active).`);
+      return true;
+    }
+
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          from: mailFrom,
+          to: actualTo,
+          subject: subject,
+          html: html,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn(`[EMAIL SERVICE] Resend API rejected magic link email (${response.status}): ${errorText}`);
+        console.warn(`[EMAIL SERVICE] Soft-fail: magic link flow proceeds. Check terminal above for the link.`);
+        return true;
+      }
+
+      const result = await response.json();
+      console.log(`[EMAIL SERVICE] Magic link email successfully sent via Resend. ID:`, (result as any).id);
+      return true;
+    } catch (error) {
+      console.error(`[EMAIL SERVICE] Error calling Resend API for magic link:`, error);
+      return true;
+    }
+  }
 }

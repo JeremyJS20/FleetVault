@@ -87,10 +87,10 @@ export const EmployeesPage: React.FC = () => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return setFormError('Name is required');
-    if (!nationalId.trim()) return setFormError('National ID is required');
+    if (!name.trim()) return setFormError(t('employees.validationNameRequired'));
+    if (!nationalId.trim()) return setFormError(t('employees.validationIdRequired'));
     if (commissionPercentage < 0 || commissionPercentage > 100) {
-      return setFormError('Commission percentage must be between 0 and 100');
+      return setFormError(t('employees.validationCommissionRange'));
     }
 
     const payload = {
@@ -108,16 +108,16 @@ export const EmployeesPage: React.FC = () => {
           id: editingItem.id,
           data: payload,
         });
-        setToast({ message: 'Employee updated successfully', type: 'success' });
+        setToast({ message: t('employees.updatedSuccess'), type: 'success' });
       } else {
         await createMutation.mutateAsync({
           data: payload,
         });
-        setToast({ message: 'Employee created successfully', type: 'success' });
+        setToast({ message: t('employees.createdSuccess'), type: 'success' });
       }
       setIsFormOpen(false);
     } catch (err: any) {
-      setFormError(err.message || 'Operation failed');
+      setFormError(err.message || t('common.operationFailed'));
     }
   };
 
@@ -130,10 +130,10 @@ export const EmployeesPage: React.FC = () => {
     if (!confirmItem) return;
     try {
       await toggleStatusMutation.mutateAsync({ id: confirmItem.id });
-      setToast({ message: 'Status updated successfully', type: 'success' });
+      setToast({ message: t('common.statusUpdated'), type: 'success' });
       setIsConfirmOpen(false);
     } catch (err: any) {
-      setToast({ message: err.message || 'Failed to update status', type: 'error' });
+      setToast({ message: err.message || t('common.statusUpdateFailed'), type: 'error' });
     }
   };
 
@@ -230,7 +230,7 @@ export const EmployeesPage: React.FC = () => {
         onClose={() => setIsFormOpen(false)}
         title={editingItem ? t('employees.editTitle') : t('employees.createTitle')}
       >
-        <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleFormSubmit} className="flex flex-col gap-6">
           <FormField label={t('employees.name')} required>
             <Input
               value={name}
@@ -299,8 +299,8 @@ export const EmployeesPage: React.FC = () => {
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleConfirmToggle}
-        title="Change Employee Status"
-        message={`Are you sure you want to change the status of ${confirmItem?.name}?`}
+        title={t('common.confirmStatusChange', { entity: 'Employee' })}
+        message={t('common.confirmStatusChangeMsg', { name: confirmItem?.name })}
         isLoading={toggleStatusMutation.isPending}
       />
 
