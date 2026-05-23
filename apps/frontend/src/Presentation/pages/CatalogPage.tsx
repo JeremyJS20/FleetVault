@@ -54,7 +54,8 @@ export const CatalogPage: React.FC = () => {
   const [useNewCard, setUseNewCard] = useState(false);
 
   // Saved Cards Queries & Mutations
-  const { data: savedCards = [], refetch: refetchSavedCards } = useMyPaymentMethods();
+  const { data: savedCards, refetch: refetchSavedCards } = useMyPaymentMethods();
+  const cardsList = savedCards || [];
   const deleteCardMutation = useDeleteMyPaymentMethod();
 
   // Reset/default saved card selection when entering Step 2
@@ -440,13 +441,13 @@ export const CatalogPage: React.FC = () => {
                     {t('catalog.preAuthDesc', { totalHold: formatCurrency(totalHold), basePrice: formatCurrency(basePrice), securityDeposit: formatCurrency(securityDeposit) })}
                   </div>
                 </div>
-                {savedCards.length > 0 && (
+                {cardsList.length > 0 && (
                   <div className="space-y-3">
                     <span className="text-xs font-bold text-fg-secondary uppercase tracking-wider block">
                       {t('stripe.savedPaymentMethods', 'Saved Payment Methods')}
                     </span>
                     <div className="space-y-2">
-                      {savedCards.map((card: any) => (
+                      {cardsList.map((card: any) => (
                         <div
                           key={card.id}
                           onClick={() => {

@@ -63,7 +63,8 @@ export const ReservationsPage: React.FC = () => {
   const [walkinUseNewCard, setWalkinUseNewCard] = useState(false);
 
   // Walk-in saved cards queries
-  const { data: walkinSavedCards = [], refetch: refetchWalkinSavedCards } = useCustomerPaymentMethods(walkinCustomer || undefined);
+  const { data: walkinSavedCards, refetch: refetchWalkinSavedCards } = useCustomerPaymentMethods(walkinCustomer || undefined);
+  const walkinCardsList = walkinSavedCards || [];
   const deleteWalkinCardMutation = useDeleteCustomerPaymentMethod(walkinCustomer || undefined);
 
   // Automatically sync selected card token when cards load
@@ -913,13 +914,13 @@ export const ReservationsPage: React.FC = () => {
               <div className="border-t border-border-surface/15 pt-4">
                 <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block mb-2">{t('reservations.cardDetails')}</span>
                 
-                {walkinCustomer && walkinSavedCards.length > 0 && (
+                {walkinCustomer && walkinCardsList.length > 0 && (
                   <div className="mb-4 space-y-2">
                     <span className="text-[10px] font-bold text-fg-secondary uppercase tracking-wider block">
                       {t('stripe.savedPaymentMethods', 'Saved Payment Methods')}
                     </span>
                     <div className="space-y-1.5">
-                      {walkinSavedCards.map((card: any) => (
+                      {walkinCardsList.map((card: any) => (
                         <div
                           key={card.id}
                           onClick={() => {
