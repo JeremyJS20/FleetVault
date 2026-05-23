@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRentalsList, useCreateRental, useRentalReturn, useRentalReturnEstimate } from '../../Infrastructure/hooks/useRentals.js';
 import { useVehicles } from '../../Infrastructure/hooks/useCatalog.js';
-import { useCustomers, useUpdateCustomer } from '../../Infrastructure/hooks/useCatalog.js';
+import { useCustomers, useUpdateCustomer, useCustomerPaymentMethods, useDeleteCustomerPaymentMethod } from '../../Infrastructure/hooks/useCatalog.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
 import { Input } from '../components/ui/Input.js';
@@ -14,7 +14,7 @@ import { StripeCardForm } from '../components/ui/StripeCardForm.js';
 import { Toast } from '../components/ui/Toast.js';
 import { 
   Calendar, Check, User, Sparkles, Play, 
-  CornerDownLeft, RefreshCw, AlertCircle
+  CornerDownLeft, RefreshCw, AlertCircle, Trash2
 } from 'lucide-react';
 
 export const ReservationsPage: React.FC = () => {
@@ -59,6 +59,25 @@ export const ReservationsPage: React.FC = () => {
   const [walkinSignature, setWalkinSignature] = useState<string | null>(null);
   const [walkinError, setWalkinError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  
+  const [walkinUseNewCard, setWalkinUseNewCard] = useState(false);
+
+  // Walk-in saved cards queries
+  const { data: walkinSavedCards = [], refetch: refetchWalkinSavedCards } = useCustomerPaymentMethods(walkinCustomer || undefined);
+  const deleteWalkinCardMutation = useDeleteCustomerPaymentMethod(walkinCustomer || undefined);
+
+  // Automatically sync selected card token when cards load
+  useEffect(() => {
+    if (isWalkinOpen) {
+      if (walkinSavedCards && walkinSavedCards.length > 0) {
+        setWalkinUseNewCard(false);
+        setWalkinCardToken(walkinSavedCards[0].id);
+      } else {
+        setWalkinUseNewCard(true);
+        setWalkinCardToken(null);
+      }
+    }
+  }, [isWalkinOpen, walkinSavedCards]);
 
   const anyModalOpen = checkoutRental || returnRental || isWalkinOpen;
   useEffect(() => {
@@ -893,9 +912,103 @@ export const ReservationsPage: React.FC = () => {
 
               <div className="border-t border-border-surface/15 pt-4">
                 <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block mb-2">{t('reservations.cardDetails')}</span>
-                <Elements stripe={stripePromise}>
-                  <StripeCardForm onCardComplete={setWalkinCardToken} onCardSuccess={() => setToastMessage(t('stripe.cardConfirmed'))} />
-                </Elements>
+                
+                {walkinCustomer && walkinSavedCards.length > 0 && (
+                  <div className="mb-4 space-y-2">
+                    <span className="text-[10px] font-bold text-fg-secondary uppercase tracking-wider block">
+                      {t('stripe.savedPaymentMethods', 'Saved Payment Methods')}
+                    </span>
+                    <div className="space-y-1.5">
+                      {walkinSavedCards.map((card: any) => (
+                        <div
+                          key={card.id}
+                          onClick={() => {
+                            setWalkinUseNewCard(false);
+                            setWalkinCardToken(card.id);
+                          }}
+                          className={`p-3 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
+                            !walkinUseNewCard && walkinCardToken === card.id
+                              ? 'border-accent-primary bg-accent-primary/5'
+                              : 'border-border-surface/30 bg-bg-inset/40 hover:border-border-surface/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              type="radio"
+                              name="walkinSavedCard"
+                              checked={!walkinUseNewCard && walkinCardToken === card.id}
+                              onChange={() => {}}
+                              className="accent-accent-primary"
+                            />
+                            <div className="text-left text-xs">
+                              <p className="font-bold text-fg-main uppercase">
+                                {card.card.brand} ending in {card.card.last4}
+                              </p>
+                              <p className="text-[10px] text-fg-tertiary">
+                                Expires {card.card.exp_month}/{card.card.exp_year}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm(t('stripe.confirmRemoveCard', 'Are you sure you want to remove this card?'))) {
+                                try {
+                                  setWalkinError(null);
+                                  await deleteWalkinCardMutation.mutateAsync(card.id);
+                                  setToastMessage(t('stripe.cardRemoved', 'Card removed successfully'));
+                                  refetchWalkinSavedCards();
+                                } catch (err: any) {
+                                  setWalkinError(err.message || t('common.operationFailed'));
+                                }
+                              }
+                            }}
+                            className="p-1.5 text-fg-tertiary hover:text-accent-error transition-all rounded-lg hover:bg-white/5 cursor-pointer flex items-center justify-center shrink-0"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      ))}
+
+                      <div
+                        onClick={() => {
+                          setWalkinUseNewCard(true);
+                          setWalkinCardToken(null);
+                        }}
+                        className={`p-3 rounded-xl border transition-all flex items-center gap-2.5 cursor-pointer ${
+                          walkinUseNewCard
+                            ? 'border-accent-primary bg-accent-primary/5'
+                            : 'border-border-surface/30 bg-bg-inset/40 hover:border-border-surface/60'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="walkinSavedCard"
+                          checked={walkinUseNewCard}
+                          onChange={() => {}}
+                          className="accent-accent-primary"
+                        />
+                        <div className="text-left text-xs">
+                          <p className="font-bold text-fg-main uppercase">
+                            {t('stripe.useNewCard', 'Use a new credit card')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {walkinUseNewCard ? (
+                  <Elements stripe={stripePromise}>
+                    <StripeCardForm onCardComplete={setWalkinCardToken} onCardSuccess={() => setToastMessage(t('stripe.cardConfirmed'))} />
+                  </Elements>
+                ) : (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5" />
+                    {t('stripe.savedCardSelected', 'Saved card selected for walk-in authorization.')}
+                  </div>
+                )}
               </div>
 
               <div className="border-t border-border-surface/15 pt-4">

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePublicVehicles, usePublicVehicleTypes, usePublicBrands } from '../../Infrastructure/hooks/usePublicCatalog.js';
 import { useCreateReservation } from '../../Infrastructure/hooks/useReservations.js';
-import { useFeeConfigs } from '../../Infrastructure/hooks/useCatalog.js';
+import { useFeeConfigs, useMyPaymentMethods, useDeleteMyPaymentMethod } from '../../Infrastructure/hooks/useCatalog.js';
 import { useAuth } from '../../Infrastructure/auth.context.js';
 import { useQuickRegister } from '../../Infrastructure/hooks/useQuickRegister.js';
 import { FormModal } from '../components/ui/FormModal.js';
@@ -15,7 +15,7 @@ import { Elements } from '@stripe/react-stripe-js';
 import { stripePromise } from '../../Infrastructure/stripe.js';
 import { StripeCardForm } from '../components/ui/StripeCardForm.js';
 import { Toast } from '../components/ui/Toast.js';
-import { Search, Calendar, Shield, CreditCard, Check, Sparkles, AlertCircle } from 'lucide-react';
+import { Search, Calendar, Shield, CreditCard, Check, Sparkles, AlertCircle, Trash2 } from 'lucide-react';
 
 export const CatalogPage: React.FC = () => {
   const { t } = useTranslation();
@@ -51,6 +51,24 @@ export const CatalogPage: React.FC = () => {
   const [bookingStep, setBookingStep] = useState(1); // 1 = Details, 2 = Payment & Billing, 3 = Confirmation
   const [stripePaymentMethodId, setStripePaymentMethodId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [useNewCard, setUseNewCard] = useState(false);
+
+  // Saved Cards Queries & Mutations
+  const { data: savedCards = [], refetch: refetchSavedCards } = useMyPaymentMethods();
+  const deleteCardMutation = useDeleteMyPaymentMethod();
+
+  // Reset/default saved card selection when entering Step 2
+  useEffect(() => {
+    if (bookingStep === 2) {
+      if (savedCards && savedCards.length > 0) {
+        setUseNewCard(false);
+        setStripePaymentMethodId(savedCards[0].id);
+      } else {
+        setUseNewCard(true);
+        setStripePaymentMethodId(null);
+      }
+    }
+  }, [bookingStep, savedCards]);
 
   // Queries
   const { data: vehicles = [], isLoading: isVehiclesLoading, refetch } = usePublicVehicles({
@@ -422,9 +440,101 @@ export const CatalogPage: React.FC = () => {
                     {t('catalog.preAuthDesc', { totalHold: formatCurrency(totalHold), basePrice: formatCurrency(basePrice), securityDeposit: formatCurrency(securityDeposit) })}
                   </div>
                 </div>
-                <Elements stripe={stripePromise}>
-                  <StripeCardForm onCardComplete={setStripePaymentMethodId} onCardSuccess={() => setToastMessage(t('stripe.cardConfirmed'))} />
-                </Elements>
+                {savedCards.length > 0 && (
+                  <div className="space-y-3">
+                    <span className="text-xs font-bold text-fg-secondary uppercase tracking-wider block">
+                      {t('stripe.savedPaymentMethods', 'Saved Payment Methods')}
+                    </span>
+                    <div className="space-y-2">
+                      {savedCards.map((card: any) => (
+                        <div
+                          key={card.id}
+                          onClick={() => {
+                            setUseNewCard(false);
+                            setStripePaymentMethodId(card.id);
+                          }}
+                          className={`p-4 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
+                            !useNewCard && stripePaymentMethodId === card.id
+                              ? 'border-accent-primary bg-accent-primary/5'
+                              : 'border-border-surface/30 bg-bg-inset/40 hover:border-border-surface/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="radio"
+                              name="savedCard"
+                              checked={!useNewCard && stripePaymentMethodId === card.id}
+                              onChange={() => {}} // handled by parent click
+                              className="accent-accent-primary"
+                            />
+                            <div className="text-left">
+                              <p className="text-xs font-bold text-fg-main uppercase">
+                                {card.card.brand} ending in {card.card.last4}
+                              </p>
+                              <p className="text-[10px] text-fg-tertiary">
+                                Expires {card.card.exp_month}/{card.card.exp_year}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm(t('stripe.confirmRemoveCard', 'Are you sure you want to remove this card?'))) {
+                                try {
+                                  setErrorMessage(null);
+                                  await deleteCardMutation.mutateAsync(card.id);
+                                  setToastMessage(t('stripe.cardRemoved', 'Card removed successfully'));
+                                  refetchSavedCards();
+                                } catch (err: any) {
+                                  setErrorMessage(err.message || t('common.operationFailed'));
+                                }
+                              }
+                            }}
+                            className="p-2 text-fg-tertiary hover:text-accent-error transition-all rounded-lg hover:bg-white/5 cursor-pointer flex items-center justify-center shrink-0"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+
+                      <div
+                        onClick={() => {
+                          setUseNewCard(true);
+                          setStripePaymentMethodId(null);
+                        }}
+                        className={`p-4 rounded-xl border transition-all flex items-center gap-3 cursor-pointer ${
+                          useNewCard
+                            ? 'border-accent-primary bg-accent-primary/5'
+                            : 'border-border-surface/30 bg-bg-inset/40 hover:border-border-surface/60'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="savedCard"
+                          checked={useNewCard}
+                          onChange={() => {}}
+                          className="accent-accent-primary"
+                        />
+                        <div className="text-left">
+                          <p className="text-xs font-bold text-fg-main uppercase">
+                            {t('stripe.useNewCard', 'Use a new credit card')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {useNewCard ? (
+                  <Elements stripe={stripePromise}>
+                    <StripeCardForm onCardComplete={setStripePaymentMethodId} onCardSuccess={() => setToastMessage(t('stripe.cardConfirmed'))} />
+                  </Elements>
+                ) : (
+                  <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    {t('stripe.savedCardSelected', 'Saved card selected for pre-authorization hold.')}
+                  </div>
+                )}
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="secondary" onClick={() => setBookingStep(1)}>
                     {t('catalog.back')}

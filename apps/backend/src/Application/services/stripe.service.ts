@@ -163,4 +163,65 @@ export class StripeService {
       throw new Error(`Stripe charge error: ${error.message}`);
     }
   }
+
+  async listCustomerCards(stripeCustomerId: string) {
+    const stripe = getStripe();
+    if (!stripe) {
+      console.log(`[MOCK STRIPE] Listing cards for customer ${stripeCustomerId}`);
+      return [
+        {
+          id: 'pm_mock_visa',
+          card: { brand: 'visa', last4: '4242', exp_month: 12, exp_year: 2028 },
+          billing_details: { name: 'John Doe' },
+        },
+        {
+          id: 'pm_mock_mastercard',
+          card: { brand: 'mastercard', last4: '5555', exp_month: 10, exp_year: 2029 },
+          billing_details: { name: 'John Doe' },
+        }
+      ];
+    }
+
+    try {
+      const paymentMethods = await stripe.paymentMethods.list({
+        customer: stripeCustomerId,
+        type: 'card',
+      });
+      return paymentMethods.data;
+    } catch (error: any) {
+      throw new Error(`Stripe list payment methods error: ${error.message}`);
+    }
+  }
+
+  async getPaymentIntent(paymentIntentId: string) {
+    const stripe = getStripe();
+    if (!stripe) {
+      return {
+        id: paymentIntentId,
+        payment_method: 'pm_mock_visa',
+      };
+    }
+
+    try {
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      return paymentIntent;
+    } catch (error: any) {
+      throw new Error(`Stripe retrieve payment intent error: ${error.message}`);
+    }
+  }
+
+  async detachPaymentMethod(paymentMethodId: string) {
+    const stripe = getStripe();
+    if (!stripe) {
+      console.log(`[MOCK STRIPE] Detached payment method ${paymentMethodId}`);
+      return { id: paymentMethodId };
+    }
+
+    try {
+      const paymentMethod = await stripe.paymentMethods.detach(paymentMethodId);
+      return paymentMethod;
+    } catch (error: any) {
+      throw new Error(`Stripe detach payment method error: ${error.message}`);
+    }
+  }
 }

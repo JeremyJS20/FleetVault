@@ -84,4 +84,44 @@ router.patch('/:id/status', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR
   }
 });
 
+// GET /api/customers/me/payment-methods
+router.get('/me/payment-methods', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const cards = await service.listMyPaymentMethods(req.user!.userId);
+    res.status(200).json({ success: true, data: cards });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/customers/me/payment-methods/:paymentMethodId
+router.delete('/me/payment-methods/:paymentMethodId', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    await service.deleteMyPaymentMethod(req.user!.userId, req.params.paymentMethodId);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/customers/:id/payment-methods
+router.get('/:id/payment-methods', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), async (req, res, next) => {
+  try {
+    const cards = await service.listCustomerPaymentMethods(req.params.id);
+    res.status(200).json({ success: true, data: cards });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/customers/:id/payment-methods/:paymentMethodId
+router.delete('/:id/payment-methods/:paymentMethodId', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), async (req, res, next) => {
+  try {
+    await service.deleteCustomerPaymentMethod(req.params.id, req.params.paymentMethodId);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

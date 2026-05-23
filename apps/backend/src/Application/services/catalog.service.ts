@@ -1,5 +1,6 @@
 import { prisma } from '../../Infrastructure/db.js';
 import { NotFoundError, ValidationError, ConflictError } from '../../Domain/errors/index.js';
+import { StripeService } from './stripe.service.js';
 import {
   CreateVehicleTypeInput, UpdateVehicleTypeInput,
   CreateBrandInput, UpdateBrandInput,
@@ -687,6 +688,63 @@ export class CatalogService {
       where: { id },
       data: { status: newStatus }
     });
+  }
+
+  async listCustomerPaymentMethods(customerId: string) {
+    const customer = await this.getCustomerById(customerId);
+    if (!customer.stripeCustomerId) return [];
+    const stripeService = new StripeService();
+    return await stripeService.listCustomerCards(customer.stripeCustomerId);
+  }
+
+  async listMyPaymentMethods(userId: string) {
+    const customer = await this.getCustomerByUserId(userId);
+    if (!customer.stripeCustomerId) return [];
+    const stripeService = new StripeService();
+    return await stripeService.listCustomerCards(customer.stripeCustomerId);
+  }
+
+  async deleteCustomerPaymentMethod(customerId: string, paymentMethodId: string) {
+    const customer = await this.getCustomerById(customerId);
+    if (!customer.stripeCustomerId) throw new ValidationError('Customer has no Stripe account');
+    const stripeService = new StripeService();
+
+    // Deletion block check: active or pending rentals
+    const activeRentals = await prisma.rental.findMany({
+      where: {
+        customerId,
+        status: { in: ['PENDING', 'ACTIVE'] },
+        stripePaymentIntentId: { not: null }
+      },
+      select: {
+        stripePaymentIntentId: true
+      }
+    });
+
+    for (const rental of activeRentals) {
+      if (rental.stripePaymentIntentId) {
+        try {
+          const pi = await stripeService.getPaymentIntent(rental.stripePaymentIntentId);
+          const usedPaymentMethodId = typeof pi.payment_method === 'string'
+            ? pi.payment_method
+            : (pi.payment_method as any)?.id;
+
+          if (usedPaymentMethodId === paymentMethodId) {
+            throw new ValidationError('Cannot remove this card because it is currently backing an active or pending rental hold.');
+          }
+        } catch (err: any) {
+          if (err instanceof ValidationError) throw err;
+          console.error(`Failed to verify payment method for PaymentIntent ${rental.stripePaymentIntentId}:`, err);
+        }
+      }
+    }
+
+    return await stripeService.detachPaymentMethod(paymentMethodId);
+  }
+
+  async deleteMyPaymentMethod(userId: string, paymentMethodId: string) {
+    const customer = await this.getCustomerByUserId(userId);
+    return await this.deleteCustomerPaymentMethod(customer.id, paymentMethodId);
   }
 
   // ==========================================

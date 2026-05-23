@@ -118,3 +118,57 @@ export const useFeeConfigs = () => {
 };
 
 export const useUpdateFeeConfig = createMutationHook<any, any>('PUT', (id) => `/api/fee-config/${id}`, ['fee-config']);
+
+// 10. Payment Method Hooks
+export const useMyPaymentMethods = () => {
+  return useQuery({
+    queryKey: ['my-payment-methods'],
+    queryFn: async () => {
+      const res = await apiClient('/api/customers/me/payment-methods');
+      return res.data as any[];
+    },
+  });
+};
+
+export const useCustomerPaymentMethods = (customerId?: string) => {
+  return useQuery({
+    queryKey: ['customer-payment-methods', customerId],
+    queryFn: async () => {
+      if (!customerId) return [];
+      const res = await apiClient(`/api/customers/${customerId}/payment-methods`);
+      return res.data as any[];
+    },
+    enabled: !!customerId,
+  });
+};
+
+export const useDeleteMyPaymentMethod = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (paymentMethodId: string) => {
+      const res = await apiClient(`/api/customers/me/payment-methods/${paymentMethodId}`, {
+        method: 'DELETE',
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-payment-methods'] });
+    },
+  });
+};
+
+export const useDeleteCustomerPaymentMethod = (customerId?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (paymentMethodId: string) => {
+      if (!customerId) throw new Error('Customer ID is required');
+      const res = await apiClient(`/api/customers/${customerId}/payment-methods/${paymentMethodId}`, {
+        method: 'DELETE',
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customer-payment-methods', customerId] });
+    },
+  });
+};
