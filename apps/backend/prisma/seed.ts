@@ -67,12 +67,22 @@ async function main() {
 
   console.log('Seeding Users & Roles...');
 
-  // Admin User
+  // Admin User + Employee record
   const adminUser = await prisma.user.create({
     data: {
       email: 'admin@fleetvault.com',
       passwordHash: commonPasswordHash,
       role: 'ADMINISTRATOR',
+    },
+  });
+  await prisma.employee.create({
+    data: {
+      name: 'Admin',
+      nationalId: 'EMP-00000',
+      commissionPercentage: 0,
+      hireDate: new Date('2024-01-01'),
+      shift: 'MORNING',
+      userId: adminUser.id,
     },
   });
 

@@ -3,15 +3,14 @@ import { NotFoundError, ValidationError } from '../../Domain/errors/index.js';
 
 export class InspectionService {
   async createInspection(input: {
-    rentalId?: string | null;
-    vehicleId: string;
-    customerId: string;
+    rentalId: string;
+    type: 'PICKUP' | 'RETURN';
     employeeId: string;
     hasScratches: boolean;
     fuelGaugeLevel: string;
     fuelGaugePhotoUrl: string;
-    hasSpareTire: boolean;
-    hasJack: boolean;
+    missingSpareTire: boolean;
+    missingJack: boolean;
     hasBrokenGlass: boolean;
     tireConditionFrontLeft: string;
     tireConditionFrontRight: string;
@@ -21,29 +20,55 @@ export class InspectionService {
     photoUrls?: string[];
     comments?: string | null;
   }) {
-    // 1. Fetch vehicle and run odometer checks
-    const vehicle = await prisma.vehicle.findUnique({ where: { id: input.vehicleId } });
-    if (!vehicle) {
-      throw new NotFoundError('Vehicle not found');
+    // 1. Fetch rental with vehicle
+    const rental = await prisma.rental.findUnique({
+      where: { id: input.rentalId },
+      include: { vehicle: true, customer: true }
+    });
+    if (!rental) {
+      throw new NotFoundError('Rental not found');
     }
 
-    if (input.odometer < vehicle.odometer) {
-      throw new ValidationError(`Odometer reading (${input.odometer}) cannot be less than the vehicle's current odometer (${vehicle.odometer})`);
+    // 2. Validate rental status based on inspection type
+    if (input.type === 'PICKUP' && rental.status !== 'PENDING') {
+      throw new ValidationError('Pickup inspections can only be performed on pending rentals');
+    }
+    if (input.type === 'RETURN' && rental.status !== 'ACTIVE') {
+      throw new ValidationError('Return inspections can only be performed on active rentals');
     }
 
-    // 2. Fetch customer and employee checks
-    const customer = await prisma.customer.findUnique({ where: { id: input.customerId } });
-    if (!customer) {
-      throw new NotFoundError('Customer not found');
+    // 3. Vehicle accessibility check for PICKUP
+    if (input.type === 'PICKUP') {
+      const vStatus = rental.vehicle.status;
+      if (vStatus === 'UNDER_INSPECTION' || vStatus === 'MAINTENANCE') {
+        throw new ValidationError('Vehicle is not available for pickup inspection');
+      }
     }
 
+    // 4. Prevent duplicate PICKUP inspection per rental
+    if (input.type === 'PICKUP') {
+      const existing = await prisma.inspection.findFirst({
+        where: { rentalId: input.rentalId, type: 'PICKUP' }
+      });
+      if (existing) {
+        throw new ValidationError('A pickup inspection already exists for this rental');
+      }
+    }
+
+    // 5. Validate odometer against current vehicle odometer
+    if (input.odometer < rental.vehicle.odometer) {
+      throw new ValidationError(`Odometer reading (${input.odometer}) cannot be less than the vehicle's current odometer (${rental.vehicle.odometer})`);
+    }
+
+    // 6. Validate employee
     const employee = await prisma.employee.findUnique({ where: { id: input.employeeId } });
     if (!employee) {
       throw new NotFoundError('Employee not found');
     }
 
-    // 3. Determine status of inspection
-    // It is FLAGGED if it has broken glass, missing/damaged tires, missing spare/jack, scratches, or comments indicating damage.
+    const vehicle = rental.vehicle;
+
+    // 7. Determine inspection status
     const isTireDamaged = (cond: string) => cond === 'DAMAGED' || cond === 'MISSING';
     const hasTireIssue = isTireDamaged(input.tireConditionFrontLeft) ||
                          isTireDamaged(input.tireConditionFrontRight) ||
@@ -51,26 +76,27 @@ export class InspectionService {
                          isTireDamaged(input.tireConditionRearRight);
 
     const isFlagged = input.hasBrokenGlass ||
-                      !input.hasSpareTire ||
-                      !input.hasJack ||
+                      input.missingSpareTire ||
+                      input.missingJack ||
                       hasTireIssue ||
                       input.hasScratches;
 
     const status = isFlagged ? 'FLAGGED' : 'PASSED';
 
-    // 4. Save inspection and update vehicle details in a transaction
+    // 8. Save inspection and update vehicle in a transaction
     return await prisma.$transaction(async (tx) => {
       const inspection = await tx.inspection.create({
         data: {
-          rentalId: input.rentalId || null,
-          vehicleId: input.vehicleId,
-          customerId: input.customerId,
+          rentalId: input.rentalId,
+          type: input.type,
+          vehicleId: rental.vehicleId,
+          customerId: rental.customerId,
           employeeId: input.employeeId,
           hasScratches: input.hasScratches,
           fuelGaugeLevel: input.fuelGaugeLevel,
           fuelGaugePhotoUrl: input.fuelGaugePhotoUrl,
-          hasSpareTire: input.hasSpareTire,
-          hasJack: input.hasJack,
+          missingSpareTire: input.missingSpareTire,
+          missingJack: input.missingJack,
           hasBrokenGlass: input.hasBrokenGlass,
           tireConditionFrontLeft: input.tireConditionFrontLeft,
           tireConditionFrontRight: input.tireConditionFrontRight,
@@ -82,28 +108,30 @@ export class InspectionService {
           comments: input.comments || null
         },
         include: {
-          vehicle: true,
+          vehicle: {
+            include: { brand: true, model: true, vehicleType: true }
+          },
           customer: true,
           employee: true
         }
       });
 
-      // Update vehicle odometer and cleaning status
-      // If it is flagged (e.g. damaged), status becomes MAINTENANCE. If not, it becomes AVAILABLE (unless it's rented).
-      let newVehicleStatus = vehicle.status;
-      if (isFlagged) {
-        newVehicleStatus = 'MAINTENANCE';
-      } else if (vehicle.status === 'UNDER_INSPECTION') {
-        newVehicleStatus = 'AVAILABLE';
-      }
-
-      await tx.vehicle.update({
-        where: { id: input.vehicleId },
-        data: {
-          odometer: input.odometer,
-          status: newVehicleStatus
+      if (input.type === 'RETURN') {
+        let newVehicleStatus = vehicle.status;
+        if (isFlagged) {
+          newVehicleStatus = 'MAINTENANCE';
+        } else if (vehicle.status === 'UNDER_INSPECTION') {
+          newVehicleStatus = 'AVAILABLE';
         }
-      });
+
+        await tx.vehicle.update({
+          where: { id: rental.vehicleId },
+          data: {
+            odometer: input.odometer,
+            status: newVehicleStatus
+          }
+        });
+      }
 
       return inspection;
     });
@@ -113,7 +141,9 @@ export class InspectionService {
     const item = await prisma.inspection.findUnique({
       where: { id },
       include: {
-        vehicle: true,
+        vehicle: {
+          include: { brand: true, model: true, vehicleType: true }
+        },
         customer: true,
         employee: true
       }
@@ -129,7 +159,7 @@ export class InspectionService {
     };
   }
 
-  async listInspections(filters: { vehicleId?: string; customerId?: string; page?: number; limit?: number }) {
+  async listInspections(filters: { vehicleId?: string; customerId?: string; employeeId?: string; search?: string; type?: string; status?: string; page?: number; limit?: number }) {
     const page = filters.page || 1;
     const limit = filters.limit || 10;
     const skip = (page - 1) * limit;
@@ -137,6 +167,17 @@ export class InspectionService {
     const where: any = {};
     if (filters.vehicleId) where.vehicleId = filters.vehicleId;
     if (filters.customerId) where.customerId = filters.customerId;
+    if (filters.employeeId) where.employeeId = filters.employeeId;
+    if (filters.type) where.type = filters.type;
+    if (filters.status) where.status = filters.status;
+    if (filters.search) {
+      where.OR = [
+        { id: { contains: filters.search } },
+        { comments: { contains: filters.search } },
+        { vehicle: { plateNumber: { contains: filters.search } } },
+        { customer: { name: { contains: filters.search } } },
+      ];
+    }
 
     const [items, total] = await Promise.all([
       prisma.inspection.findMany({
@@ -144,7 +185,9 @@ export class InspectionService {
         skip,
         take: limit,
         include: {
-          vehicle: true,
+          vehicle: {
+            include: { brand: true, model: true, vehicleType: true }
+          },
           customer: true,
           employee: true
         },

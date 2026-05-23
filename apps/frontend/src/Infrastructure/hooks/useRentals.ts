@@ -35,13 +35,11 @@ export const useCreateRental = () => {
     mutationFn: async (data: {
       rentalId?: string; // set for activating reservation
       customerId?: string;
-      employeeId?: string;
+      checkoutEmployeeId?: string;
       vehicleId?: string;
       rentalDate?: string;
       scheduledReturnDate?: string;
       pricePerDay?: number;
-      checkoutOdometer?: number;
-      checkoutFuelLevel?: string;
       signatureUrl: string;
       comments?: string | null;
       stripePaymentMethodId?: string;
@@ -67,13 +65,8 @@ export const useRentalReturn = () => {
       id: string;
       data: {
         actualReturnDate: string;
-        returnOdometer: number;
-        returnFuelLevel: string;
         returnSignatureUrl: string;
         comments?: string | null;
-        hasBrokenGlass: boolean;
-        damagedTiresCount: number;
-        hasNewScratches: boolean;
       };
     }) => {
       const res = await apiClient(`/api/rentals/${id}/return`, {
@@ -96,11 +89,6 @@ export const useRentalReturnEstimate = () => {
       id: string;
       data: {
         actualReturnDate: string;
-        returnOdometer: number;
-        returnFuelLevel: string;
-        hasBrokenGlass: boolean;
-        damagedTiresCount: number;
-        hasNewScratches: boolean;
       };
     }) => {
       const res = await apiClient(`/api/rentals/${id}/return-estimate`, {

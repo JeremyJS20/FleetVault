@@ -94,19 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshTokenValue = res.data.refreshToken;
         userValue = res.data.user;
       } catch (err: any) {
-        // Fallback for development testing only if it is a network error (no status code)
-        if (!err.status && (emailOrToken.includes('admin') || emailOrToken.includes('customer'))) {
-          const role = emailOrToken.includes('admin') ? 'ADMINISTRATOR' : 'CUSTOMER';
-          tokenValue = `mock-jwt-token-for-${role.toLowerCase()}`;
-          userValue = {
-            id: `mock-id-${role.toLowerCase()}`,
-            name: role === 'ADMINISTRATOR' ? 'System Administrator' : 'John Customer',
-            email: emailOrToken,
-            role: role,
-          };
-        } else {
-          throw err;
-        }
+        throw err;
       }
 
       setAccessToken(tokenValue);
@@ -149,18 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           userValue = regRes.data.user;
         }
       } catch (err: any) {
-        // Mock fallback only if it is a network error (no status code)
-        if (!err.status) {
-          tokenValue = 'mock-jwt-token-for-customer';
-          userValue = {
-            id: 'mock-id-customer',
-            name: name,
-            email: email,
-            role: 'CUSTOMER',
-          };
-        } else {
-          throw err;
-        }
+        throw err;
       }
 
       setAccessToken(tokenValue);
@@ -200,18 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           userValue = regRes.data.user;
         }
       } catch (err: any) {
-        // Mock fallback only if it is a network error (no status code)
-        if (!err.status) {
-          tokenValue = 'mock-jwt-token-for-customer';
-          userValue = {
-            id: 'mock-id-customer',
-            name: `${data.firstName} ${data.lastName}`,
-            email: data.email,
-            role: 'CUSTOMER',
-          };
-        } else {
-          throw err;
-        }
+        throw err;
       }
 
       setAccessToken(tokenValue);

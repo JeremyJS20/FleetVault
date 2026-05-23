@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api-client.js';
 
-export const useInspectionsList = (params: { vehicleId?: string; customerId?: string; page?: number; limit?: number }) => {
+export const useInspectionsList = (params: { search?: string; type?: string; status?: string; vehicleId?: string; customerId?: string; page?: number; limit?: number }) => {
   const requestParams: Record<string, string> = {};
   Object.entries(params).forEach(([key, val]) => {
     if (val !== undefined && val !== null && val !== '') {
@@ -33,15 +33,14 @@ export const useCreateInspection = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
-      rentalId?: string | null;
-      vehicleId: string;
-      customerId: string;
+      rentalId: string;
+      type: 'PICKUP' | 'RETURN';
       employeeId?: string;
       hasScratches: boolean;
       fuelGaugeLevel: string;
       fuelGaugePhotoUrl: string;
-      hasSpareTire: boolean;
-      hasJack: boolean;
+      missingSpareTire: boolean;
+      missingJack: boolean;
       hasBrokenGlass: boolean;
       tireConditionFrontLeft: string;
       tireConditionFrontRight: string;

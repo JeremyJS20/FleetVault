@@ -93,4 +93,14 @@ router.patch('/:id/cleaning', authMiddleware, requireRole(['INSPECTOR', 'ADMINIS
   }
 });
 
+// PATCH /api/vehicles/:id/pass-inspection
+router.patch('/:id/pass-inspection', authMiddleware, requireRole(['INSPECTOR', 'ADMINISTRATOR']), async (req, res, next) => {
+  try {
+    const item = await service.passInspection(req.params.id);
+    res.status(200).json({ success: true, data: item });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

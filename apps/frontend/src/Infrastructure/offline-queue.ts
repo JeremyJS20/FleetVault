@@ -2,15 +2,15 @@ import { openDB, DBSchema } from 'idb';
 
 interface OfflineInspection {
   id: string;
-  rentalId?: string | null;
-  vehicleId: string;
-  customerId: string;
-  employeeId?: string;
+  rentalId: string;
+  type: 'PICKUP' | 'RETURN';
+  vehicleId?: string | null;
+  customerId?: string | null;
   hasScratches: boolean;
   fuelGaugeLevel: string;
   fuelGaugePhotoUrl: string; // Base64 or local URL representation
-  hasSpareTire: boolean;
-  hasJack: boolean;
+  missingSpareTire: boolean;
+  missingJack: boolean;
   hasBrokenGlass: boolean;
   tireConditionFrontLeft: string;
   tireConditionFrontRight: string;

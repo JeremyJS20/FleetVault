@@ -43,26 +43,6 @@ export const useQuickRegister = () => {
         });
         return res.data;
       } catch (err: any) {
-        // Fallback mock logic if server is offline or fails with connection error
-        if (!err.status) {
-          return {
-            accessToken: 'mock-jwt-token-for-customer',
-            refreshToken: 'mock-refresh-token-for-customer',
-            user: {
-              id: 'mock-id-customer',
-              name: `${data.firstName} ${data.lastName}`,
-              email: data.email,
-              role: 'CUSTOMER',
-            },
-            customer: {
-              id: 'mock-id-customer',
-              name: `${data.firstName} ${data.lastName}`,
-              email: data.email,
-              status: 'ACTIVE',
-              type: 'REGULAR',
-            },
-          };
-        }
         throw err;
       }
     },

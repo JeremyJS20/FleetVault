@@ -4,10 +4,11 @@ import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Button } from './Button.js';
 import { Input } from './Input.js';
 import { FormField } from './FormField.js';
-import { CreditCard, Lock } from 'lucide-react';
+import { CreditCard, Lock, CheckCircle } from 'lucide-react';
 
 interface StripeCardFormProps {
   onCardComplete: (stripePaymentMethodId: string | null) => void;
+  onCardSuccess?: () => void;
 }
 
 const CARD_ELEMENT_OPTIONS = {
@@ -22,7 +23,7 @@ const CARD_ELEMENT_OPTIONS = {
   },
 };
 
-export const StripeCardForm: React.FC<StripeCardFormProps> = ({ onCardComplete }) => {
+export const StripeCardForm: React.FC<StripeCardFormProps> = ({ onCardComplete, onCardSuccess }) => {
   const { t } = useTranslation();
   const stripe = useStripe();
   const elements = useElements();
@@ -30,6 +31,9 @@ export const StripeCardForm: React.FC<StripeCardFormProps> = ({ onCardComplete }
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [cardComplete, setCardComplete] = useState(false);
+  const [isCardConfirmed, setIsCardConfirmed] = useState(false);
+  const [cardBrand, setCardBrand] = useState('');
+  const [cardLast4, setCardLast4] = useState('');
 
   React.useEffect(() => {
     onCardComplete(null);
@@ -75,9 +79,59 @@ export const StripeCardForm: React.FC<StripeCardFormProps> = ({ onCardComplete }
       return;
     }
 
+    setCardBrand(paymentMethod.card?.brand ?? '');
+    setCardLast4(paymentMethod.card?.last4 ?? '');
+    setIsCardConfirmed(true);
     onCardComplete(paymentMethod.id);
+    onCardSuccess?.();
     setIsProcessing(false);
   };
+
+  const handleChangeCard = () => {
+    setIsCardConfirmed(false);
+    setCardBrand('');
+    setCardLast4('');
+    setName('');
+    setError(null);
+    setCardComplete(false);
+    onCardComplete(null);
+  };
+
+  const brandCapitalized = cardBrand.charAt(0).toUpperCase() + cardBrand.slice(1);
+
+  if (isCardConfirmed) {
+    return (
+      <div className="p-5 rounded-2xl border border-border-surface/40 bg-bg-surface/30 backdrop-blur-md">
+        <div className="flex items-center justify-between pb-3 border-b border-border-surface/20">
+          <span className="text-xs font-bold uppercase tracking-widest text-accent-primary flex items-center gap-2">
+            <CreditCard className="w-3.5 h-3.5" />
+            {t('stripe.securePayment')}
+          </span>
+          <Lock className="w-3.5 h-3.5 text-fg-tertiary" />
+        </div>
+
+        <div className="mt-4 p-4 rounded-xl bg-bg-inset border border-border-surface/30 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-7 rounded-md bg-gradient-to-br from-accent-primary/20 to-accent-primary/5 border border-accent-primary/10 flex items-center justify-center">
+              <CreditCard className="w-5 h-5 text-accent-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-fg-main capitalize">{brandCapitalized}</p>
+              <p className="text-xs text-fg-secondary font-mono">•••• {cardLast4}</p>
+            </div>
+            <CheckCircle className="w-4 h-4 text-emerald-500 ml-1" />
+          </div>
+          <button
+            type="button"
+            onClick={handleChangeCard}
+            className="text-xs font-bold text-accent-primary hover:text-accent-primary/80 uppercase tracking-wider cursor-pointer"
+          >
+            {t('stripe.changeCard')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="p-5 rounded-2xl border border-border-surface/40 bg-bg-surface/30 backdrop-blur-md space-y-4">

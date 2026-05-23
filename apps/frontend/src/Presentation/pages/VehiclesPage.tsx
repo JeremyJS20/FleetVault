@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Power, Sparkles } from 'lucide-react';
+import { Pencil, Power, Sparkles, Check } from 'lucide-react';
 import { useAuth } from '../../Infrastructure/auth.context.js';
 import {
   useVehicles,
@@ -13,6 +13,7 @@ import {
   useUpdateVehicle,
   useToggleVehicleStatus,
   useUpdateVehicleCleaning,
+  usePassInspection,
 } from '../../Infrastructure/hooks/useCatalog.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
 import { Button } from '../components/ui/Button.js';
@@ -35,11 +36,17 @@ export const VehiclesPage: React.FC = () => {
 
   // Filters state
   const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
+  const [cleaningStatus, setCleaningStatus] = useState('');
+  const [filterVehicleTypeId, setFilterVehicleTypeId] = useState('');
+  const [filterBrandId, setFilterBrandId] = useState('');
+  const [filterModelId, setFilterModelId] = useState('');
+  const [filterFuelTypeId, setFilterFuelTypeId] = useState('');
   const [page, setPage] = useState(1);
   const limit = 10;
 
   // Query hook
-  const { data, isLoading } = useVehicles({ search, page, limit });
+  const { data, isLoading } = useVehicles({ search, status, cleaningStatus, vehicleTypeId: filterVehicleTypeId, brandId: filterBrandId, modelId: filterModelId, fuelTypeId: filterFuelTypeId, page, limit });
 
   // Lookups data (fetch ACTIVE status items only, large limits)
   const { data: typesData } = useVehicleTypes({ status: 'ACTIVE', limit: 100 });
@@ -52,12 +59,17 @@ export const VehiclesPage: React.FC = () => {
   const updateMutation = useUpdateVehicle();
   const toggleStatusMutation = useToggleVehicleStatus();
   const updateCleaningMutation = useUpdateVehicleCleaning();
+  const passInspectionMutation = usePassInspection();
 
   // Dialog/Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [confirmItem, setConfirmItem] = useState<any>(null);
+  const [isPassConfirmOpen, setIsPassConfirmOpen] = useState(false);
+  const [passConfirmItem, setPassConfirmItem] = useState<any>(null);
+  const [isCleanConfirmOpen, setIsCleanConfirmOpen] = useState(false);
+  const [cleanConfirmItem, setCleanConfirmItem] = useState<any>(null);
 
   // Form states
   const [description, setDescription] = useState('');
@@ -70,8 +82,6 @@ export const VehiclesPage: React.FC = () => {
   const [fuelTypeId, setFuelTypeId] = useState('');
   const [odometer, setOdometer] = useState(0);
   const [imageUrl, setImageUrl] = useState('');
-  const [status, setStatus] = useState('AVAILABLE');
-  const [cleaningStatus, setCleaningStatus] = useState('CLEAN');
 
   const [formError, setFormError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -88,8 +98,6 @@ export const VehiclesPage: React.FC = () => {
     setFuelTypeId(fuelTypesData?.items?.[0]?.id || '');
     setOdometer(0);
     setImageUrl('');
-    setStatus('AVAILABLE');
-    setCleaningStatus('CLEAN');
     setFormError(null);
   };
 
@@ -120,8 +128,6 @@ export const VehiclesPage: React.FC = () => {
     setFuelTypeId(item.fuelTypeId);
     setOdometer(item.odometer);
     setImageUrl(item.imageUrl || '');
-    setStatus(item.status);
-    setCleaningStatus(item.cleaningStatus);
     setEditingItem(item);
     setFormError(null);
     setIsFormOpen(true);
@@ -148,8 +154,6 @@ export const VehiclesPage: React.FC = () => {
       fuelTypeId,
       odometer: Number(odometer),
       imageUrl: imageUrl.trim() || undefined,
-      status: editingItem ? status : undefined,
-      cleaningStatus: editingItem ? cleaningStatus : undefined,
     };
 
     try {
@@ -188,15 +192,38 @@ export const VehiclesPage: React.FC = () => {
   };
 
   const handleToggleCleaning = async (item: any) => {
-    const nextCleaning = item.cleaningStatus === 'CLEAN' ? 'DIRTY' : 'CLEAN';
+    setCleanConfirmItem(item);
+    setIsCleanConfirmOpen(true);
+  };
+
+  const handleConfirmCleaning = async () => {
+    if (!cleanConfirmItem) return;
+    const nextCleaning = cleanConfirmItem.cleaningStatus === 'CLEAN' ? 'DIRTY' : 'CLEAN';
     try {
       await updateCleaningMutation.mutateAsync({
-        id: item.id,
+        id: cleanConfirmItem.id,
         data: { cleaningStatus: nextCleaning },
       });
       setToast({ message: t('common.cleaningUpdated'), type: 'success' });
+      setIsCleanConfirmOpen(false);
     } catch (err: any) {
       setToast({ message: err.message || t('common.cleaningUpdateFailed'), type: 'error' });
+    }
+  };
+
+  const handleOpenPassInspection = (item: any) => {
+    setPassConfirmItem(item);
+    setIsPassConfirmOpen(true);
+  };
+
+  const handleConfirmPassInspection = async () => {
+    if (!passConfirmItem) return;
+    try {
+      await passInspectionMutation.mutateAsync({ id: passConfirmItem.id });
+      setToast({ message: t('vehicles.inspectionPassed'), type: 'success' });
+      setIsPassConfirmOpen(false);
+    } catch (err: any) {
+      setToast({ message: err.message || t('common.operationFailed'), type: 'error' });
     }
   };
 
@@ -258,36 +285,53 @@ export const VehiclesPage: React.FC = () => {
           <div className="flex items-center gap-2">
             {isAdmin && (
               <>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => handleOpenEdit(item)}
-                  title={t('common.edit')}
-                  className="!p-2.5 rounded-xl"
-                >
-                  <Pencil size={15} />
-                </Button>
-                <Button
-                  variant={item.status === 'AVAILABLE' ? 'danger' : 'primary'}
-                  size="sm"
-                  onClick={() => handleOpenToggle(item)}
-                  title={t('common.toggleStatus')}
-                  className="!p-2.5 rounded-xl"
-                >
-                  <Power size={15} />
-                </Button>
+                {(item.status === 'AVAILABLE' || item.status === 'RETIRED') && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleOpenEdit(item)}
+                    title={t('common.edit')}
+                    className="!p-2.5 rounded-xl"
+                  >
+                    <Pencil size={15} />
+                  </Button>
+                )}
+                {(item.status === 'AVAILABLE' || item.status === 'RETIRED') && (
+                  <Button
+                    variant={item.status === 'AVAILABLE' ? 'danger' : 'primary'}
+                    size="sm"
+                    onClick={() => handleOpenToggle(item)}
+                    title={t('common.toggleStatus')}
+                    className="!p-2.5 rounded-xl"
+                  >
+                    <Power size={15} />
+                  </Button>
+                )}
               </>
             )}
             {canClean && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="!text-teal-500 hover:!bg-teal-500/10 !p-2.5 rounded-xl"
-                onClick={() => handleToggleCleaning(item)}
-                title={item.cleaningStatus === 'CLEAN' ? t('vehicles.markDirty') : t('vehicles.markClean')}
-              >
-                <Sparkles size={15} />
-              </Button>
+              <>
+                {item.status === 'UNDER_INSPECTION' && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="!text-emerald-500 hover:!bg-emerald-500/10 !p-2.5 rounded-xl"
+                    onClick={() => handleOpenPassInspection(item)}
+                    title={t('vehicles.passInspection')}
+                  >
+                    <Check size={15} />
+                  </Button>
+                )}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="!text-teal-500 hover:!bg-teal-500/10 !p-2.5 rounded-xl"
+                  onClick={() => handleToggleCleaning(item)}
+                  title={item.cleaningStatus === 'CLEAN' ? t('vehicles.markDirty') : t('vehicles.markClean')}
+                >
+                  <Sparkles size={15} />
+                </Button>
+              </>
             )}
           </div>
         );
@@ -313,8 +357,39 @@ export const VehiclesPage: React.FC = () => {
         )}
       </PageHeader>
 
-      <div className="flex flex-col md:flex-row items-center gap-4 justify-between">
+      <div className="flex flex-col md:flex-row items-center gap-4 justify-between flex-wrap">
         <SearchBar value={search} onChange={(val) => { setSearch(val); setPage(1); }} />
+        <div className="flex gap-2 flex-wrap w-full md:w-auto">
+          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); setFilterModelId(''); }} className="w-full md:w-32 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary">
+            <option value="">{t('common.allStatuses')}</option>
+            <option value="AVAILABLE">{t('vehicles.available')}</option>
+            <option value="RENTED">{t('vehicles.rented')}</option>
+            <option value="UNDER_INSPECTION">{t('vehicles.underInspection')}</option>
+            <option value="MAINTENANCE">{t('vehicles.maintenance')}</option>
+            <option value="RETIRED">{t('vehicles.retired')}</option>
+          </select>
+          <select value={cleaningStatus} onChange={(e) => { setCleaningStatus(e.target.value); setPage(1); }} className="w-full md:w-32 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary">
+            <option value="">{t('common.allCleaningStatuses')}</option>
+            <option value="CLEAN">{t('vehicles.clean')}</option>
+            <option value="DIRTY">{t('vehicles.dirty')}</option>
+          </select>
+          <select value={filterVehicleTypeId} onChange={(e) => { setFilterVehicleTypeId(e.target.value); setPage(1); }} className="w-full md:w-32 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary">
+            <option value="">{t('common.allVehicleTypes')}</option>
+            {(typesData?.items || []).map((t: any) => (<option key={t.id} value={t.id}>{t.name}</option>))}
+          </select>
+          <select value={filterBrandId} onChange={(e) => { setFilterBrandId(e.target.value); setPage(1); setFilterModelId(''); }} className="w-full md:w-32 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary">
+            <option value="">{t('common.allBrands')}</option>
+            {(brandsData?.items || []).map((b: any) => (<option key={b.id} value={b.id}>{b.name}</option>))}
+          </select>
+          <select value={filterModelId} onChange={(e) => { setFilterModelId(e.target.value); setPage(1); }} className="w-full md:w-32 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary">
+            <option value="">{t('common.allModels')}</option>
+            {(modelsData?.items || []).filter((m: any) => !filterBrandId || m.brandId === filterBrandId).map((m: any) => (<option key={m.id} value={m.id}>{m.name}</option>))}
+          </select>
+          <select value={filterFuelTypeId} onChange={(e) => { setFilterFuelTypeId(e.target.value); setPage(1); }} className="w-full md:w-32 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary">
+            <option value="">{t('common.allFuelTypes')}</option>
+            {(fuelTypesData?.items || []).map((f: any) => (<option key={f.id} value={f.id}>{f.name}</option>))}
+          </select>
+        </div>
       </div>
 
       <DataTable
@@ -419,31 +494,6 @@ export const VehiclesPage: React.FC = () => {
             />
           </FormField>
 
-          {editingItem && (
-            <div className="grid grid-cols-2 gap-4">
-              <SelectField
-                label={t('vehicles.status')}
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                options={[
-                  { value: 'AVAILABLE', label: t('vehicles.available') },
-                  { value: 'RENTED', label: t('vehicles.rented') },
-                  { value: 'UNDER_INSPECTION', label: t('vehicles.underInspection') },
-                  { value: 'MAINTENANCE', label: t('vehicles.maintenance') },
-                  { value: 'RETIRED', label: t('vehicles.retired') },
-                ]}
-              />
-              <SelectField
-                label={t('vehicles.cleaningStatus')}
-                value={cleaningStatus}
-                onChange={(e) => setCleaningStatus(e.target.value)}
-                options={[
-                  { value: 'CLEAN', label: t('vehicles.clean') },
-                  { value: 'DIRTY', label: t('vehicles.dirty') },
-                ]}
-              />
-            </div>
-          )}
 
           {formError && (
             <p className="text-xs font-semibold text-red-500 bg-red-500/10 border border-red-500/20 p-3 rounded-xl">
@@ -470,6 +520,26 @@ export const VehiclesPage: React.FC = () => {
         title={t('vehicles.retireActivateTitle')}
         message={t('common.confirmStatusChangeMsg', { name: confirmItem?.plateNumber })}
         isLoading={toggleStatusMutation.isPending}
+      />
+
+      {/* Confirm Pass Inspection Modal */}
+      <ConfirmDialog
+        isOpen={isPassConfirmOpen}
+        onClose={() => setIsPassConfirmOpen(false)}
+        onConfirm={handleConfirmPassInspection}
+        title={t('vehicles.passInspection')}
+        message={t('vehicles.passInspectionConfirmMsg', { plate: passConfirmItem?.plateNumber })}
+        isLoading={passInspectionMutation.isPending}
+      />
+
+      {/* Confirm Cleaning Toggle Modal */}
+      <ConfirmDialog
+        isOpen={isCleanConfirmOpen}
+        onClose={() => setIsCleanConfirmOpen(false)}
+        onConfirm={handleConfirmCleaning}
+        title={t('vehicles.cleaningStatus')}
+        message={t('vehicles.cleaningConfirmMsg', { plate: cleanConfirmItem?.plateNumber, action: cleanConfirmItem?.cleaningStatus === 'CLEAN' ? t('vehicles.markDirty') : t('vehicles.markClean') })}
+        isLoading={updateCleaningMutation.isPending}
       />
 
       {/* Toast Alert */}

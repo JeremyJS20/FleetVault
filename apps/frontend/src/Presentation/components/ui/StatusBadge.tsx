@@ -27,6 +27,10 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
     // Cleaning Status
     CLEAN: { bg: 'bg-teal-500/10 border-teal-500/20', text: 'text-teal-500', dot: 'bg-teal-500', labelKey: 'vehicles.clean' },
     DIRTY: { bg: 'bg-amber-800/10 border-amber-800/20', text: 'text-amber-700 dark:text-amber-500', dot: 'bg-amber-700 dark:bg-amber-500', labelKey: 'vehicles.dirty' },
+
+    // Inspection Status
+    PASSED: { bg: 'bg-emerald-500/10 border-emerald-500/20', text: 'text-emerald-500', dot: 'bg-emerald-500', labelKey: 'inspections.passed' },
+    FLAGGED: { bg: 'bg-red-500/10 border-red-500/20', text: 'text-red-500', dot: 'bg-red-500', labelKey: 'inspections.flagged' },
   };
 
   const config = statusConfig[status.toUpperCase()] || {

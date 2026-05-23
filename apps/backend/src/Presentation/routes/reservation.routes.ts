@@ -28,7 +28,8 @@ router.get(
   authMiddleware,
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const result = await service.listOwnReservations(req.user!.userId);
+      const statusFilter = req.query.status?.toString();
+      const result = await service.listOwnReservations(req.user!.userId, statusFilter);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);

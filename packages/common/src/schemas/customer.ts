@@ -27,7 +27,12 @@ export const CreateCustomerSchema = z.object({
   type: z.enum(CustomerType),
   licenseNumber: z.string().min(1, 'License number is required'),
   licenseCountry: z.string().min(1, 'License country is required'),
-  licenseExpDate: z.string().refine((d) => new Date(d) > new Date(), 'License is expired'),
+  licenseExpDate: z.string().refine((d) => {
+    const expDate = new Date(d);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return expDate >= today;
+  }, 'License is expired'),
   licensePhotoUrl: z.string().url('Invalid photo URL').optional().nullable(),
   userId: z.string().optional().nullable(),
   stripeCustomerId: z.string().optional().nullable(),

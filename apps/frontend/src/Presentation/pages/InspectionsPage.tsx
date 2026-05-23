@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInspectionsList, useCreateInspection } from '../../Infrastructure/hooks/useInspections.js';
-import { useVehicles } from '../../Infrastructure/hooks/useCatalog.js';
-import { useCustomers } from '../../Infrastructure/hooks/useCatalog.js';
+import { useRentalsList } from '../../Infrastructure/hooks/useRentals.js';
 import { useUploadImage } from '../../Infrastructure/hooks/useUploads.js';
 import { useNetworkStatus } from '../../Infrastructure/network-status.js';
 import { queueOfflineInspection } from '../../Infrastructure/offline-queue.js';
+import { SearchBar } from '../components/ui/SearchBar.js';
 import { FormModal } from '../components/ui/FormModal.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
@@ -17,21 +17,29 @@ export const InspectionsPage: React.FC = () => {
   const { t } = useTranslation();
   const { isOnline, triggerQueueRefresh } = useNetworkStatus();
 
+  // Filters
+  const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
   // Dialog & Lists States
   const [isOpen, setIsOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Form Fields
-  const [vehicleId, setVehicleId] = useState('');
-  const [customerId, setCustomerId] = useState('');
+  const [type, setType] = useState<'PICKUP' | 'RETURN'>('PICKUP');
+  const [rentalId, setRentalId] = useState('');
+  const [selectedRental, setSelectedRental] = useState<any | null>(null);
   const [odometer, setOdometer] = useState(0);
   const [fuelGaugeLevel, setFuelGaugeLevel] = useState('FULL');
   const [fuelGaugePhotoUrl, setFuelGaugePhotoUrl] = useState('');
   const [hasScratches, setHasScratches] = useState(false);
   const [hasBrokenGlass, setHasBrokenGlass] = useState(false);
-  const [hasSpareTire, setHasSpareTire] = useState(true);
-  const [hasJack, setHasJack] = useState(true);
+  const [missingSpareTire, setMissingSpareTire] = useState(false);
+  const [missingJack, setMissingJack] = useState(false);
   const [tireConditionFrontLeft, setTireConditionFrontLeft] = useState('GOOD');
   const [tireConditionFrontRight, setTireConditionFrontRight] = useState('GOOD');
   const [tireConditionRearLeft, setTireConditionRearLeft] = useState('GOOD');
@@ -43,13 +51,12 @@ export const InspectionsPage: React.FC = () => {
   const [isUploadingFuel, setIsUploadingFuel] = useState(false);
 
   // Queries
-  const { data: inspectionsData, isLoading: isInspectionsLoading, refetch } = useInspectionsList({ page: 1, limit: 10 });
+  const { data: inspectionsData, isLoading: isInspectionsLoading, refetch } = useInspectionsList({ search, type: filterType, status: filterStatus, page, limit });
   const inspections = inspectionsData?.items || [];
 
-  const { data: vehiclesData } = useVehicles({});
-  const { data: customersData } = useCustomers({});
-  const vehicles = vehiclesData?.items || [];
-  const customers = customersData?.items || [];
+  const { data: pendingRentalsData } = useRentalsList({ status: 'PENDING' });
+  const { data: activeRentalsData } = useRentalsList({ status: 'ACTIVE' });
+  const rentals = type === 'PICKUP' ? (pendingRentalsData?.items || []) : (activeRentalsData?.items || []);
 
   // Mutations
   const createInspectionMutation = useCreateInspection();
@@ -76,7 +83,7 @@ export const InspectionsPage: React.FC = () => {
         setIsUploadingFuel(false);
       }
     } catch (err: any) {
-      setErrorMsg(t('common.operationFailed'));
+      setErrorMsg(err.message || t('common.operationFailed'));
       setFuelGaugePhotoUrl('https://images.unsplash.com/photo-1551524559-8af4e6624178?auto=format&fit=crop&q=80&w=200');
       setIsUploadingFuel(false);
     }
@@ -86,25 +93,19 @@ export const InspectionsPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!vehicleId || !customerId || !fuelGaugePhotoUrl) {
-      setErrorMsg(t('common.operationFailed'));
-      return;
-    }
-
-    const selectedVehicle = vehicles.find((v: any) => v.id === vehicleId);
-    if (selectedVehicle && odometer < selectedVehicle.odometer) {
+    if (!rentalId || !fuelGaugePhotoUrl) {
       setErrorMsg(t('common.operationFailed'));
       return;
     }
 
     const payload = {
-      vehicleId,
-      customerId,
+      rentalId,
+      type,
       hasScratches,
       fuelGaugeLevel,
       fuelGaugePhotoUrl,
-      hasSpareTire,
-      hasJack,
+      missingSpareTire,
+      missingJack,
       hasBrokenGlass,
       tireConditionFrontLeft,
       tireConditionFrontRight,
@@ -136,15 +137,16 @@ export const InspectionsPage: React.FC = () => {
   };
 
   const resetForm = () => {
-    setVehicleId('');
-    setCustomerId('');
+    setType('PICKUP');
+    setRentalId('');
+    setSelectedRental(null);
     setOdometer(0);
     setFuelGaugeLevel('FULL');
     setFuelGaugePhotoUrl('');
     setHasScratches(false);
     setHasBrokenGlass(false);
-    setHasSpareTire(true);
-    setHasJack(true);
+    setMissingSpareTire(false);
+    setMissingJack(false);
     setTireConditionFrontLeft('GOOD');
     setTireConditionFrontRight('GOOD');
     setTireConditionRearLeft('GOOD');
@@ -172,6 +174,23 @@ export const InspectionsPage: React.FC = () => {
         </Button>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row items-center gap-4 justify-between">
+        <SearchBar value={search} onChange={(val) => { setSearch(val); setPage(1); }} />
+        <div className="flex gap-2 w-full md:w-auto">
+          <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(1); }} className="w-full md:w-40 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary">
+            <option value="">{t('common.allTypes')}</option>
+            <option value="PICKUP">{t('inspections.pickupInspection')}</option>
+            <option value="RETURN">{t('inspections.returnInspection')}</option>
+          </select>
+          <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="w-full md:w-40 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary">
+            <option value="">{t('common.allStatuses')}</option>
+            <option value="PASSED">{t('inspections.passed')}</option>
+            <option value="FLAGGED">{t('inspections.flagged')}</option>
+          </select>
+        </div>
+      </div>
+
       {/* Inspections Listings */}
       {isInspectionsLoading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -194,7 +213,16 @@ export const InspectionsPage: React.FC = () => {
                     {insp.vehicle.brand.name} {insp.vehicle.model.name}
                   </h2>
                 </div>
-                <StatusBadge status={insp.status === 'FLAGGED' ? 'MAINTENANCE' : 'ACTIVE'} />
+                <div className="flex items-center gap-2">
+                  <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    insp.type === 'PICKUP'
+                      ? 'bg-blue-500/10 text-blue-500'
+                      : 'bg-purple-500/10 text-purple-500'
+                  }`}>
+                    {insp.type === 'PICKUP' ? t('inspections.pickupInspection') : t('inspections.returnInspection')}
+                  </span>
+                  <StatusBadge status={insp.status} />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs font-semibold text-fg-secondary">
@@ -211,6 +239,10 @@ export const InspectionsPage: React.FC = () => {
                   <span className="text-fg-main truncate block max-w-[120px]">{insp.customer.name}</span>
                 </div>
                 <div>
+                  <span className="text-fg-tertiary block text-[9px] uppercase tracking-wider">{t('inspections.inspectedBy')}</span>
+                  <span className="text-fg-main truncate block max-w-[120px]">{insp.employee?.name || '—'}</span>
+                </div>
+                <div>
                   <span className="text-fg-tertiary block text-[9px] uppercase tracking-wider">{t('inspections.inspectionDate')}</span>
                   <span className="text-fg-main">{new Date(insp.inspectionDate).toLocaleDateString()}</span>
                 </div>
@@ -223,6 +255,21 @@ export const InspectionsPage: React.FC = () => {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {inspectionsData && inspectionsData.pages > 1 && (
+        <div className="flex items-center justify-center gap-4 pt-4">
+          <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+            {t('common.previous')}
+          </Button>
+          <span className="text-xs font-semibold text-fg-secondary">
+            {t('common.pageOf', { current: page, total: inspectionsData.pages })}
+          </span>
+          <Button variant="secondary" size="sm" disabled={page >= inspectionsData.pages} onClick={() => setPage(p => p + 1)}>
+            {t('common.next')}
+          </Button>
         </div>
       )}
 
@@ -255,40 +302,69 @@ export const InspectionsPage: React.FC = () => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label={t('inspections.assignedVehicle')} required>
-                  <select
-                    value={vehicleId}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                      setVehicleId(e.target.value);
-                      const selected = vehicles.find((v: any) => v.id === e.target.value);
-                      if (selected) setOdometer(selected.odometer);
-                    }}
-                    className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
-                    required
-                  >
-                    <option value="">{t('inspections.chooseVehicle')}</option>
-                    {vehicles.map((v: any) => (
-                      <option key={v.id} value={v.id}>{v.brand.name} {v.model.name} ({v.plateNumber})</option>
-                    ))}
-                  </select>
-                </FormField>
 
-                <FormField label={t('inspections.associatedCustomer')} required>
-                  <select
-                    value={customerId}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCustomerId(e.target.value)}
-                    className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
-                    required
-                  >
-                    <option value="">{t('inspections.chooseCustomer')}</option>
-                    {customers.map((c: any) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </FormField>
+              {/* Type toggle */}
+              <div className="flex gap-2 p-1 rounded-xl bg-bg-inset border border-border-surface/20">
+                <button
+                  type="button"
+                  onClick={() => { setType('PICKUP'); setRentalId(''); setSelectedRental(null); }}
+                  className={`flex-1 h-8 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                    type === 'PICKUP'
+                      ? 'bg-accent-primary text-white shadow-sm'
+                      : 'text-fg-tertiary hover:text-fg-secondary'
+                  }`}
+                >
+                  {t('inspections.pickupInspection')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setType('RETURN'); setRentalId(''); setSelectedRental(null); }}
+                  className={`flex-1 h-8 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                    type === 'RETURN'
+                      ? 'bg-accent-primary text-white shadow-sm'
+                      : 'text-fg-tertiary hover:text-fg-secondary'
+                  }`}
+                >
+                  {t('inspections.returnInspection')}
+                </button>
               </div>
+
+              <FormField label={type === 'PICKUP' ? t('inspections.pickupRental') : t('inspections.returnRental')} required>
+                <select
+                  value={rentalId}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                    const id = e.target.value;
+                    setRentalId(id);
+                    const rental = rentals.find((r: any) => r.id === id);
+                    setSelectedRental(rental || null);
+                    if (rental) {
+                      setOdometer(rental.returnOdometer || rental.vehicle.odometer);
+                    }
+                  }}
+                  className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
+                  required
+                >
+                  <option value="">{type === 'PICKUP' ? t('inspections.choosePickupRental') : t('inspections.chooseReturnRental')}</option>
+                  {rentals.map((r: any) => (
+                    <option key={r.id} value={r.id}>
+                      {r.vehicle.brand.name} {r.vehicle.model.name} ({r.vehicle.plateNumber}) — {r.customer.name}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+
+              {selectedRental && (
+                <div className="p-3 rounded-xl bg-bg-inset border border-border-surface/30 grid grid-cols-2 gap-2 text-xs font-semibold">
+                  <div>
+                    <span className="text-fg-tertiary block text-[9px] uppercase tracking-wider">{t('inspections.assignedVehicle')}</span>
+                    <span className="text-fg-main">{selectedRental.vehicle.brand.name} {selectedRental.vehicle.model.name} ({selectedRental.vehicle.plateNumber})</span>
+                  </div>
+                  <div>
+                    <span className="text-fg-tertiary block text-[9px] uppercase tracking-wider">{t('inspections.associatedCustomer')}</span>
+                    <span className="text-fg-main">{selectedRental.customer.name}</span>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField label={t('inspections.odometerReadingKm')} required>
@@ -371,21 +447,21 @@ export const InspectionsPage: React.FC = () => {
                   <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={hasSpareTire}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHasSpareTire(e.target.checked)}
+                      checked={missingSpareTire}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMissingSpareTire(e.target.checked)}
                       className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
                     />
-                    {t('inspections.hasSpareTire')}
+                    {t('inspections.missingSpareTire')}
                   </label>
 
                   <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={hasJack}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHasJack(e.target.checked)}
+                      checked={missingJack}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMissingJack(e.target.checked)}
                       className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
                     />
-                    {t('inspections.hasToolJack')}
+                    {t('inspections.missingJack')}
                   </label>
                 </div>
 

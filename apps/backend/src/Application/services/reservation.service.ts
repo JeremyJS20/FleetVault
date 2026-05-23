@@ -37,9 +37,14 @@ export class ReservationService {
       throw new ValidationError('Your customer profile is not active or suspended');
     }
 
-    // License expiration check
-    if (customer.licenseExpDate && new Date(customer.licenseExpDate) < now) {
-      throw new ValidationError('Your driver\'s license is expired. Please update your profile.');
+    // License expiration check (date-only comparison)
+    if (customer.licenseExpDate) {
+      const expDate = new Date(customer.licenseExpDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (expDate < today) {
+        throw new ValidationError('Your driver\'s license is expired. Please update your profile.');
+      }
     }
 
     // 2. Compute duration in days
@@ -47,7 +52,7 @@ export class ReservationService {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     const days = diffDays || 1;
 
-    // 3. Find default system agent employee to link (schema requires employeeId)
+    // 3. Find default system agent employee to link (schema requires checkoutEmployeeId)
     const defaultEmployee = await prisma.employee.findFirst({
       where: { status: 'ACTIVE' },
     });
@@ -147,7 +152,7 @@ export class ReservationService {
       const rental = await tx.rental.create({
         data: {
           customerId: customer.id,
-          employeeId: defaultEmployee.id,
+          checkoutEmployeeId: defaultEmployee.id,
           vehicleId: input.vehicleId,
           rentalDate: start,
           scheduledReturnDate: end,
@@ -183,14 +188,17 @@ export class ReservationService {
     });
   }
 
-  async listOwnReservations(userId: string) {
+  async listOwnReservations(userId: string, statusFilter?: string) {
     const customer = await prisma.customer.findUnique({ where: { userId } });
     if (!customer) {
       throw new NotFoundError('Customer profile not found for this user');
     }
 
+    const where: any = { customerId: customer.id };
+    if (statusFilter) where.status = statusFilter;
+
     return await prisma.rental.findMany({
-      where: { customerId: customer.id },
+      where,
       include: {
         vehicle: {
           include: {
@@ -198,7 +206,8 @@ export class ReservationService {
             model: true,
             vehicleType: true
           }
-        }
+        },
+        checkoutEmployee: true
       },
       orderBy: { rentalDate: 'desc' }
     });

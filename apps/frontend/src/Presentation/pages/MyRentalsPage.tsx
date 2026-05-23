@@ -12,8 +12,11 @@ import { formatCurrency } from '@rent-car/common';
 export const MyRentalsPage: React.FC = () => {
   const { t } = useTranslation();
 
+  // Filters
+  const [statusFilter, setStatusFilter] = useState('');
+
   // Queries & Mutations
-  const { data: bookings = [], isLoading, refetch } = useOwnReservations();
+  const { data: bookings = [], isLoading, refetch } = useOwnReservations(statusFilter || undefined);
   const cancelMutation = useCancelReservation();
 
   // Cancellation Modal state
@@ -85,6 +88,22 @@ export const MyRentalsPage: React.FC = () => {
         <p className="text-xs text-fg-secondary mt-1">
           {t('myRentals.subtitle')}
         </p>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row items-center gap-4 justify-between">
+        <div />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="w-full md:w-40 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
+        >
+          <option value="">{t('common.allStatuses')}</option>
+          <option value="PENDING">{t('common.pending')}</option>
+          <option value="ACTIVE">{t('common.active')}</option>
+          <option value="COMPLETED">{t('common.completed')}</option>
+          <option value="CANCELLED">{t('common.cancelled')}</option>
+        </select>
       </div>
 
       {!isProfileLoading && !isProfileComplete && (

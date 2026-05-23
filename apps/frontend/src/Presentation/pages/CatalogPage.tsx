@@ -344,16 +344,14 @@ export const CatalogPage: React.FC = () => {
 
       {/* Booking Dialog Modal overlay */}
       {selectedVehicle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in">
-          <div className="bg-bg-card border border-border-surface max-w-lg w-full rounded-3xl p-6 shadow-2xl backdrop-blur-2xl animate-slide-up relative space-y-6 max-h-[90vh] overflow-y-auto">
-            {bookingStep !== 3 && (
-              <button
-                onClick={() => setSelectedVehicle(null)}
-                className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer z-10"
-              >
-                ✕
-              </button>
-            )}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" onClick={() => setSelectedVehicle(null)}>
+          <div className="bg-bg-card border border-border-surface max-w-lg w-full rounded-3xl p-6 shadow-2xl backdrop-blur-2xl animate-slide-up relative space-y-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setSelectedVehicle(null)}
+              className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer z-10"
+            >
+              ✕
+            </button>
             <div>
               <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('catalog.checkoutWizard')}</span>
               <h2 className="text-lg font-extrabold text-fg-main mt-1 uppercase">
@@ -425,7 +423,7 @@ export const CatalogPage: React.FC = () => {
                   </div>
                 </div>
                 <Elements stripe={stripePromise}>
-                  <StripeCardForm onCardComplete={setStripePaymentMethodId} />
+                  <StripeCardForm onCardComplete={setStripePaymentMethodId} onCardSuccess={() => setToastMessage(t('stripe.cardConfirmed'))} />
                 </Elements>
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="secondary" onClick={() => setBookingStep(1)}>

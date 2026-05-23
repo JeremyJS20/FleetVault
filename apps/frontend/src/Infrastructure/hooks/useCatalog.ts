@@ -3,7 +3,7 @@ import { apiClient } from '../api-client.js';
 
 // Generic List Query Helper
 const createListHook = <T>(queryKey: string, endpoint: string) => {
-  return (params: { search?: string; status?: string; brandId?: string; type?: string; shift?: string; page?: number; limit?: number }) => {
+  return (params: { search?: string; status?: string; brandId?: string; modelId?: string; vehicleTypeId?: string; fuelTypeId?: string; cleaningStatus?: string; type?: string; shift?: string; page?: number; limit?: number }) => {
     // Convert numbers/booleans to strings for URLSearchParams
     const requestParams: Record<string, string> = {};
     Object.entries(params).forEach(([key, val]) => {
@@ -79,6 +79,12 @@ export const useToggleVehicleStatus = createMutationHook<void, any>('PATCH', (id
 export const useUpdateVehicleCleaning = createMutationHook<{ cleaningStatus: 'CLEAN' | 'DIRTY' }, any>(
   'PATCH',
   (id) => `/api/vehicles/${id}/cleaning`,
+  ['vehicles']
+);
+
+export const usePassInspection = createMutationHook<void, any>(
+  'PATCH',
+  (id) => `/api/vehicles/${id}/pass-inspection`,
   ['vehicles']
 );
 

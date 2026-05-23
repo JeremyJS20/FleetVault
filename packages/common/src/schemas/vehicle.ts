@@ -34,10 +34,7 @@ export const CreateVehicleSchema = z.object({
   lastMaintenanceOdometer: z.number().nonnegative('Maintenance odometer cannot be negative').optional(),
 });
 
-export const UpdateVehicleSchema = CreateVehicleSchema.partial().extend({
-  status: z.enum(VehicleStatus).optional(),
-  cleaningStatus: z.enum(CleaningStatus).optional(),
-});
+export const UpdateVehicleSchema = CreateVehicleSchema.partial();
 
 export type Vehicle = z.infer<typeof VehicleSchema>;
 export type CreateVehicleInput = z.infer<typeof CreateVehicleSchema>;

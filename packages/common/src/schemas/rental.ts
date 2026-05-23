@@ -3,7 +3,8 @@ import { RentalStatus, FuelLevel } from '../enums.js';
 
 export const RentalSchema = z.object({
   id: z.string(),
-  employeeId: z.string(),
+  checkoutEmployeeId: z.string(),
+  returnEmployeeId: z.string().nullable(),
   customerId: z.string(),
   vehicleId: z.string(),
   rentalDate: z.string(),
@@ -28,7 +29,7 @@ export const RentalSchema = z.object({
 });
 
 export const CreateRentalSchema = z.object({
-  employeeId: z.string().min(1, 'Employee is required'),
+  checkoutEmployeeId: z.string().min(1, 'Employee is required'),
   customerId: z.string().min(1, 'Customer is required'),
   vehicleId: z.string().min(1, 'Vehicle is required'),
   rentalDate: z.string(),
@@ -44,14 +45,8 @@ export const CreateRentalSchema = z.object({
 
 export const ReturnRentalSchema = z.object({
   actualReturnDate: z.string(),
-  returnOdometer: z.number().nonnegative('Return odometer cannot be negative'),
-  returnFuelLevel: z.enum(FuelLevel),
   returnSignatureUrl: z.string().min(1, 'Customer return signature is required'),
   comments: z.string().optional().nullable(),
-  // Check conditions from checkout to calculate damage charges
-  hasBrokenGlass: z.boolean(),
-  damagedTiresCount: z.number().min(0).max(4),
-  hasNewScratches: z.boolean(),
 });
 
 export type Rental = z.infer<typeof RentalSchema>;

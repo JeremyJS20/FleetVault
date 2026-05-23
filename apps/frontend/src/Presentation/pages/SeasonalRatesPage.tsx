@@ -28,11 +28,12 @@ export const SeasonalRatesPage: React.FC = () => {
 
   // Filters state
   const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const limit = 10;
 
   // Query hook
-  const { data, isLoading } = useSeasonalRates({ search, page, limit });
+  const { data, isLoading } = useSeasonalRates({ search, status, page, limit });
 
   // Mutations
   const createMutation = useCreateSeasonalRate();
@@ -207,6 +208,15 @@ export const SeasonalRatesPage: React.FC = () => {
 
       <div className="flex flex-col md:flex-row items-center gap-4 justify-between">
         <SearchBar value={search} onChange={(val) => { setSearch(val); setPage(1); }} />
+        <select
+          value={status}
+          onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+          className="w-full md:w-40 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
+        >
+          <option value="">{t('common.allStatuses')}</option>
+          <option value="ACTIVE">{t('common.active')}</option>
+          <option value="INACTIVE">{t('common.inactive')}</option>
+        </select>
       </div>
 
       <DataTable

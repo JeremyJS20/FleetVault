@@ -29,11 +29,13 @@ export const EmployeesPage: React.FC = () => {
 
   // Filters state
   const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
+  const [shiftFilter, setShiftFilter] = useState('');
   const [page, setPage] = useState(1);
   const limit = 10;
 
   // Query hook
-  const { data, isLoading } = useEmployees({ search, page, limit });
+  const { data, isLoading } = useEmployees({ search, status, shift: shiftFilter, page, limit });
 
   // Mutations
   const createMutation = useCreateEmployee();
@@ -212,6 +214,27 @@ export const EmployeesPage: React.FC = () => {
 
       <div className="flex flex-col md:flex-row items-center gap-4 justify-between">
         <SearchBar value={search} onChange={(val) => { setSearch(val); setPage(1); }} />
+        <div className="flex gap-2 w-full md:w-auto">
+          <select
+            value={shiftFilter}
+            onChange={(e) => { setShiftFilter(e.target.value); setPage(1); }}
+            className="w-full md:w-40 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
+          >
+            <option value="">{t('common.allShifts')}</option>
+            <option value="MORNING">{t('employees.morning')}</option>
+            <option value="AFTERNOON">{t('employees.afternoon')}</option>
+            <option value="NIGHT">{t('employees.night')}</option>
+          </select>
+          <select
+            value={status}
+            onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+            className="w-full md:w-40 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
+          >
+            <option value="">{t('common.allStatuses')}</option>
+            <option value="ACTIVE">{t('common.active')}</option>
+            <option value="INACTIVE">{t('common.inactive')}</option>
+          </select>
+        </div>
       </div>
 
       <DataTable

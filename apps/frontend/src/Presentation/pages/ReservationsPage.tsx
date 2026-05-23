@@ -5,13 +5,13 @@ import { useVehicles } from '../../Infrastructure/hooks/useCatalog.js';
 import { useCustomers, useUpdateCustomer } from '../../Infrastructure/hooks/useCatalog.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
-import { formatCurrency } from '@rent-car/common';
 import { Input } from '../components/ui/Input.js';
 import { FormField } from '../components/ui/FormField.js';
 import { SignaturePad } from '../components/ui/SignaturePad.js';
 import { Elements } from '@stripe/react-stripe-js';
 import { stripePromise } from '../../Infrastructure/stripe.js';
 import { StripeCardForm } from '../components/ui/StripeCardForm.js';
+import { Toast } from '../components/ui/Toast.js';
 import { 
   Calendar, Check, User, Sparkles, Play, 
   CornerDownLeft, RefreshCw, AlertCircle
@@ -31,8 +31,6 @@ export const ReservationsPage: React.FC = () => {
   // Stepper Wizards State
   const [checkoutRental, setCheckoutRental] = useState<any | null>(null);
   const [checkoutStep, setCheckoutStep] = useState(1);
-  const [checkoutOdometer, setCheckoutOdometer] = useState(0);
-  const [checkoutFuelLevel, setCheckoutFuelLevel] = useState('FULL');
   const [checkoutSignature, setCheckoutSignature] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
@@ -46,11 +44,6 @@ export const ReservationsPage: React.FC = () => {
   // Returns Wizard State
   const [returnRental, setReturnRental] = useState<any | null>(null);
   const [returnStep, setReturnStep] = useState(1);
-  const [returnOdometer, setReturnOdometer] = useState(0);
-  const [returnFuelLevel, setReturnFuelLevel] = useState('FULL');
-  const [hasBrokenGlass, setHasBrokenGlass] = useState(false);
-  const [damagedTiresCount, setDamagedTiresCount] = useState(0);
-  const [hasNewScratches, setHasNewScratches] = useState(false);
   const [returnSignature, setReturnSignature] = useState<string | null>(null);
   const [estimateData, setEstimateData] = useState<any | null>(null);
   const [returnError, setReturnError] = useState<string | null>(null);
@@ -61,20 +54,19 @@ export const ReservationsPage: React.FC = () => {
   const [walkinVehicle, setWalkinVehicle] = useState('');
   const [walkinStart, setWalkinStart] = useState('');
   const [walkinEnd, setWalkinEnd] = useState('');
-  const [walkinOdometer, setWalkinOdometer] = useState(0);
-  const [walkinFuel, setWalkinFuel] = useState('FULL');
   const [walkinRate, setWalkinRate] = useState(50);
   const [walkinCardToken, setWalkinCardToken] = useState<string | null>(null);
   const [walkinSignature, setWalkinSignature] = useState<string | null>(null);
   const [walkinError, setWalkinError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const anyModalOpen = checkoutRental || returnRental || isWalkinOpen;
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setCheckoutRental(null);
-        setReturnRental(null);
-        setIsWalkinOpen(false);
+        closeCheckout();
+        closeReturn();
+        closeWalkin();
       }
     };
     if (anyModalOpen) {
@@ -99,6 +91,38 @@ export const ReservationsPage: React.FC = () => {
   const estimateReturnMutation = useRentalReturnEstimate();
   const updateCustomerMutation = useUpdateCustomer();
 
+  // Modal close handlers with full state reset
+  const closeCheckout = () => {
+    setCheckoutRental(null);
+    setCheckoutStep(1);
+    setCheckoutSignature(null);
+    setCheckoutError(null);
+    createRentalMutation.reset();
+  };
+
+  const closeReturn = () => {
+    setReturnRental(null);
+    setReturnStep(1);
+    setReturnSignature(null);
+    setEstimateData(null);
+    setReturnError(null);
+    returnRentalMutation.reset();
+    estimateReturnMutation.reset();
+  };
+
+  const closeWalkin = () => {
+    setIsWalkinOpen(false);
+    setWalkinCustomer('');
+    setWalkinVehicle('');
+    setWalkinStart('');
+    setWalkinEnd('');
+    setWalkinRate(50);
+    setWalkinCardToken(null);
+    setWalkinSignature(null);
+    setWalkinError(null);
+    createRentalMutation.reset();
+  };
+
   const isCheckoutCustomerProfileIncomplete = 
     !checkoutRental?.customer.nationalId || 
     !checkoutRental?.customer.licenseNumber || 
@@ -108,8 +132,6 @@ export const ReservationsPage: React.FC = () => {
   const handleStartCheckout = (rental: any) => {
     setCheckoutRental(rental);
     setCheckoutStep(1);
-    setCheckoutOdometer(rental.vehicle.odometer);
-    setCheckoutFuelLevel('FULL');
     setCheckoutSignature(null);
     setCheckoutError(null);
 
@@ -165,20 +187,16 @@ export const ReservationsPage: React.FC = () => {
         }
       }
 
-      // Check license expiration
+      // Check license expiration (date-only comparison)
       const expDate = new Date(counterLicenseExpDate);
-      if (expDate < new Date()) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (expDate < today) {
         setCheckoutError(t('common.operationFailed'));
         return;
       }
     }
     if (checkoutStep === 3) {
-      if (checkoutOdometer < checkoutRental.vehicle.odometer) {
-        setCheckoutError(t('common.operationFailed'));
-        return;
-      }
-    }
-    if (checkoutStep === 4) {
       if (!checkoutSignature) {
         setCheckoutError(t('common.operationFailed'));
         return;
@@ -192,11 +210,9 @@ export const ReservationsPage: React.FC = () => {
       setCheckoutError(null);
       await createRentalMutation.mutateAsync({
         rentalId: checkoutRental.id,
-        checkoutOdometer,
-        checkoutFuelLevel,
         signatureUrl: checkoutSignature || '',
       });
-      setCheckoutStep(5); // success
+      setCheckoutStep(4); // success
       refetch();
     } catch (err: any) {
       setCheckoutError(err.message || t('common.operationFailed'));
@@ -207,11 +223,6 @@ export const ReservationsPage: React.FC = () => {
   const handleStartReturn = (rental: any) => {
     setReturnRental(rental);
     setReturnStep(1);
-    setReturnOdometer(rental.vehicle.odometer);
-    setReturnFuelLevel(rental.checkoutFuelLevel || 'FULL');
-    setHasBrokenGlass(false);
-    setDamagedTiresCount(0);
-    setHasNewScratches(false);
     setReturnSignature(null);
     setEstimateData(null);
     setReturnError(null);
@@ -219,21 +230,11 @@ export const ReservationsPage: React.FC = () => {
 
   const handleEstimateReturn = async () => {
     setReturnError(null);
-    if (returnOdometer < returnRental.checkoutOdometer) {
-      setReturnError(t('common.operationFailed'));
-      return;
-    }
-
     try {
       const data = await estimateReturnMutation.mutateAsync({
         id: returnRental.id,
         data: {
-          actualReturnDate: new Date().toISOString(),
-          returnOdometer,
-          returnFuelLevel,
-          hasBrokenGlass,
-          damagedTiresCount,
-          hasNewScratches
+          actualReturnDate: new Date().toISOString()
         }
       });
       setEstimateData(data);
@@ -251,34 +252,25 @@ export const ReservationsPage: React.FC = () => {
 
     try {
       setReturnError(null);
+      const returnInsp = returnRental.inspections?.find((i: any) => i.type === 'RETURN');
       await returnRentalMutation.mutateAsync({
         id: returnRental.id,
         data: {
           actualReturnDate: new Date().toISOString(),
-          returnOdometer,
-          returnFuelLevel,
           returnSignatureUrl: returnSignature,
-          hasBrokenGlass,
-          damagedTiresCount,
-          hasNewScratches,
-          comments: `Returned at odometer ${returnOdometer}.`
+          comments: `Returned at odometer ${returnInsp?.odometer || '?'}.`
         }
       });
       setReturnStep(4); // success
       refetch();
     } catch (err: any) {
-      setReturnError(err.message || 'Failed to finalize return check-in.');
+      setReturnError(err.message || t('common.operationFailed'));
     }
   };
 
   // Direct Walkin counter Booking
-  const handleCreateWalkin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateWalkin = async () => {
     if (!walkinCustomer || !walkinVehicle || !walkinStart || !walkinEnd || !walkinCardToken || !walkinSignature) {
-      setWalkinError(t('common.operationFailed'));
-      return;
-    }
-    if (walkinOdometer < 0) {
       setWalkinError(t('common.operationFailed'));
       return;
     }
@@ -291,19 +283,11 @@ export const ReservationsPage: React.FC = () => {
         rentalDate: new Date(walkinStart).toISOString(),
         scheduledReturnDate: new Date(walkinEnd).toISOString(),
         pricePerDay: Number(walkinRate),
-        checkoutOdometer: Number(walkinOdometer),
-        checkoutFuelLevel: walkinFuel,
         signatureUrl: walkinSignature,
         stripePaymentMethodId: walkinCardToken,
       });
 
-      setIsWalkinOpen(false);
-      setWalkinCustomer('');
-      setWalkinVehicle('');
-      setWalkinStart('');
-      setWalkinEnd('');
-      setWalkinCardToken(null);
-      setWalkinSignature(null);
+      closeWalkin();
       refetch();
     } catch (err: any) {
       setWalkinError(err.message || t('common.operationFailed'));
@@ -404,11 +388,35 @@ export const ReservationsPage: React.FC = () => {
                       {r.vehicle.brand.name} {r.vehicle.model.name}
                     </h3>
                     <StatusBadge status={r.status} />
+                    {r.status === 'PENDING' && !r.inspections?.some((i: any) => i.type === 'PICKUP') && (
+                      <span className="text-[9px] font-bold text-amber-500 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded-full">Insp. Required</span>
+                    )}
+                    {r.status === 'PENDING' && r.inspections?.some((i: any) => i.type === 'PICKUP') && (
+                      <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded-full">Insp. Done</span>
+                    )}
+                    {r.status === 'ACTIVE' && !r.inspections?.some((i: any) => i.type === 'RETURN') && (
+                      <span className="text-[9px] font-bold text-amber-500 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded-full">Return Insp. Pending</span>
+                    )}
+                    {r.status === 'ACTIVE' && r.inspections?.some((i: any) => i.type === 'RETURN') && (
+                      <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded-full">Return Insp. Done</span>
+                    )}
                   </div>
                   <p className="text-xs text-fg-tertiary mt-1.5 flex items-center gap-1 font-semibold uppercase">
                     <User className="w-3.5 h-3.5 text-accent-primary" />
                     {t('reservations.customer')} <span className="text-fg-secondary font-bold">{r.customer.name}</span>
                   </p>
+                  {r.checkoutEmployee && (
+                    <p className="text-xs text-fg-tertiary mt-1 flex items-center gap-1 font-semibold uppercase">
+                      <User className="w-3.5 h-3.5 text-accent-primary" />
+                      {t('reservations.employee')} <span className="text-fg-secondary font-bold">{r.checkoutEmployee.name}</span>
+                    </p>
+                  )}
+                  {r.returnEmployee && (
+                    <p className="text-xs text-fg-tertiary mt-1 flex items-center gap-1 font-semibold uppercase">
+                      <User className="w-3.5 h-3.5 text-accent-primary" />
+                      {t('reservations.returnEmployee')} <span className="text-fg-secondary font-bold">{r.returnEmployee.name}</span>
+                    </p>
+                  )}
                   <p className="text-xs text-fg-tertiary mt-1.5 flex items-center gap-1 font-semibold uppercase">
                     <Calendar className="w-3.5 h-3.5 text-accent-primary" />
                     {new Date(r.rentalDate).toLocaleDateString()} — {new Date(r.scheduledReturnDate).toLocaleDateString()}
@@ -418,16 +426,24 @@ export const ReservationsPage: React.FC = () => {
 
               <div className="flex gap-2">
                 {r.status === 'PENDING' && (
-                  <Button onClick={() => handleStartCheckout(r)} className="!h-8 text-xs uppercase font-bold tracking-widest px-4 rounded-lg flex items-center gap-1.5">
+                  <Button
+                    onClick={() => handleStartCheckout(r)}
+                    disabled={!r.inspections?.some((i: any) => i.type === 'PICKUP')}
+                    className="!h-8 text-xs uppercase font-bold tracking-widest px-4 rounded-lg flex items-center gap-1.5"
+                  >
                     <Play className="w-3.5 h-3.5" />
-                    {t('reservations.checkout')}
+                    {r.inspections?.some((i: any) => i.type === 'PICKUP') ? t('reservations.checkout') : t('reservations.inspectionRequired')}
                   </Button>
                 )}
 
                 {r.status === 'ACTIVE' && (
-                  <Button onClick={() => handleStartReturn(r)} className="!h-8 text-xs uppercase font-bold tracking-widest px-4 rounded-lg bg-emerald-500 border border-emerald-500 hover:bg-emerald-600 flex items-center gap-1.5">
+                  <Button
+                    onClick={() => handleStartReturn(r)}
+                    disabled={!r.inspections?.some((i: any) => i.type === 'RETURN')}
+                    className="!h-8 text-xs uppercase font-bold tracking-widest px-4 rounded-lg bg-emerald-500 border border-emerald-500 hover:bg-emerald-600 flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
                     <CornerDownLeft className="w-3.5 h-3.5" />
-                    {t('reservations.returnVehicle')}
+                    {r.inspections?.some((i: any) => i.type === 'RETURN') ? t('reservations.returnVehicle') : t('reservations.inspectionRequired')}
                   </Button>
                 )}
               </div>
@@ -439,33 +455,30 @@ export const ReservationsPage: React.FC = () => {
 
       {/* 5-STEP RENTAL CHECKOUT STEPPER DIALOG */}
       {checkoutRental && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in">
-          <div className="bg-bg-card border border-border-surface max-w-lg w-full rounded-3xl p-6 shadow-2xl backdrop-blur-2xl animate-slide-up relative space-y-6 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" onClick={closeCheckout}>
+          <div className="bg-bg-card border border-border-surface max-w-lg w-full rounded-3xl p-6 shadow-2xl backdrop-blur-2xl animate-slide-up relative space-y-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             
-            {checkoutStep !== 5 && (
-              <button
-                onClick={() => setCheckoutRental(null)}
-                className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer z-10"
-              >
-                ✕
-              </button>
-            )}
+            <button
+              onClick={closeCheckout}
+              className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer z-10"
+            >
+              ✕
+            </button>
 
             <div>
               <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('reservations.checkoutContract')}</span>
               <h2 className="text-lg font-extrabold text-fg-main mt-1 uppercase">
                 {checkoutStep === 1 && t('reservations.stepVerify')}
                 {checkoutStep === 2 && t('reservations.stepLicense')}
-                {checkoutStep === 3 && t('reservations.stepOdometer')}
-                {checkoutStep === 4 && t('reservations.stepSignature')}
-                {checkoutStep === 5 && t('reservations.stepActivated')}
+                {checkoutStep === 3 && t('reservations.stepSignature')}
+                {checkoutStep === 4 && t('reservations.stepActivated')}
               </h2>
             </div>
 
             {/* Stepper Dots */}
-            {checkoutStep !== 5 && (
+            {checkoutStep !== 4 && (
               <div className="flex gap-1.5">
-                {[1, 2, 3, 4].map(idx => (
+                {[1, 2, 3].map(idx => (
                   <div key={idx} className={`h-1.5 flex-1 rounded-full ${checkoutStep >= idx ? 'bg-accent-primary' : 'bg-white/10'}`} />
                 ))}
               </div>
@@ -491,7 +504,7 @@ export const ReservationsPage: React.FC = () => {
                 </table>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setCheckoutRental(null)}>{t('reservations.cancel')}</Button>
+                  <Button variant="secondary" onClick={closeCheckout}>{t('reservations.cancel')}</Button>
                   <Button onClick={() => setCheckoutStep(2)}>{t('reservations.nextVerify')}</Button>
                 </div>
               </div>
@@ -583,57 +596,20 @@ export const ReservationsPage: React.FC = () => {
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="secondary" onClick={() => setCheckoutStep(1)}>{t('reservations.back')}</Button>
                   <Button onClick={handleNextCheckoutStep} isLoading={isUpdatingCustomer}>
-                    {isCheckoutCustomerProfileIncomplete ? t('reservations.saveContinue') : t('reservations.nextOdometer')}
+                    {isCheckoutCustomerProfileIncomplete ? t('reservations.saveContinue') : t('reservations.nextSignature')}
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* Step 3: Odometer & Fuel Check */}
+            {/* Step 3: Draw Hand Signature */}
             {checkoutStep === 3 && (
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-xl border border-white/5 bg-bg-inset text-xs text-fg-tertiary">
-                  {t('reservations.odometerInfo', { odometer: checkoutRental.vehicle.odometer })}
-                </div>
-
-                <FormField label={t('reservations.checkoutOdometer')} required>
-                  <Input
-                    type="number"
-                    value={checkoutOdometer}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCheckoutOdometer(Number(e.target.value))}
-                    className="!h-9 rounded-lg"
-                  />
-                </FormField>
-
-                <FormField label={t('reservations.checkoutFuel')} required>
-                  <select
-                    value={checkoutFuelLevel}
-                    onChange={(e) => setCheckoutFuelLevel(e.target.value)}
-                    className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
-                  >
-                    <option value="FULL">{t('common.fuelFull')}</option>
-                    <option value="THREE_QUARTERS">{t('common.fuelThreeQuarters')}</option>
-                    <option value="HALF">{t('common.fuelHalf')}</option>
-                    <option value="QUARTER">{t('common.fuelQuarter')}</option>
-                    <option value="EMPTY">{t('common.fuelEmpty')}</option>
-                  </select>
-                </FormField>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setCheckoutStep(2)}>{t('reservations.back')}</Button>
-                  <Button onClick={handleNextCheckoutStep}>{t('reservations.nextSignature')}</Button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 4: Draw Hand Signature */}
-            {checkoutStep === 4 && (
               <div className="space-y-4">
                 <span className="text-xs font-semibold text-fg-secondary block">{t('reservations.signaturePrompt')}</span>
                 <SignaturePad onChange={setCheckoutSignature} />
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setCheckoutStep(3)}>{t('reservations.back')}</Button>
+                  <Button variant="secondary" onClick={() => setCheckoutStep(2)}>{t('reservations.back')}</Button>
                   <Button
                     onClick={handleConfirmCheckout}
                     isLoading={createRentalMutation.isPending}
@@ -645,8 +621,8 @@ export const ReservationsPage: React.FC = () => {
               </div>
             )}
 
-            {/* Step 5: Success screen */}
-            {checkoutStep === 5 && (
+            {/* Step 4: Success screen */}
+            {checkoutStep === 4 && (
               <div className="flex flex-col items-center justify-center text-center py-6 space-y-4 animate-scale-up">
                 <div className="w-14 h-14 rounded-full bg-emerald-500/10 border-2 border-emerald-500 flex items-center justify-center text-emerald-500">
                   <Check className="w-8 h-8" />
@@ -659,40 +635,39 @@ export const ReservationsPage: React.FC = () => {
                 </div>
 
                 <div className="pt-4 w-full">
-                  <Button className="w-full" onClick={() => setCheckoutRental(null)}>
+                  <Button className="w-full" onClick={closeCheckout}>
                     {t('reservations.dismiss')}
                   </Button>
                 </div>
               </div>
             )}
-
           </div>
         </div>
       )}
 
-      {/* RENTAL RETURN CHECK-IN DIALOG */}
+      {/* RETURN DIALOG OVERLAY */}
       {returnRental && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in">
-          <div className="bg-bg-card border border-border-surface max-w-lg w-full rounded-3xl p-6 shadow-2xl backdrop-blur-2xl animate-slide-up relative space-y-6 max-h-[90vh] overflow-y-auto">
-            
-            {returnStep !== 4 && (
-              <button
-                onClick={() => setReturnRental(null)}
-                className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer z-10"
-              >
-                ✕
-              </button>
-            )}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" onClick={closeReturn}>
+          <div className="bg-bg-card border border-border-surface max-w-lg w-full rounded-3xl p-6 shadow-2xl backdrop-blur-2xl animate-slide-up relative space-y-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+
+            <button onClick={closeReturn} className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer z-10">✕</button>
 
             <div>
-              <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest block font-sans">{t('reservations.returnDesk')}</span>
+              <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('reservations.returnDesk')}</span>
               <h2 className="text-lg font-extrabold text-fg-main mt-1 uppercase">
                 {returnStep === 1 && t('reservations.stepReturnParams')}
                 {returnStep === 2 && t('reservations.stepPenalty')}
-                {returnStep === 3 && t('reservations.stepReturnSignature')}
                 {returnStep === 4 && t('reservations.stepFinalized')}
               </h2>
             </div>
+
+            {returnStep !== 4 && (
+              <div className="flex gap-1.5">
+                {[1, 2].map(idx => (
+                  <div key={idx} className={`h-1.5 flex-1 rounded-full ${returnStep >= idx ? 'bg-accent-primary' : 'bg-white/10'}`} />
+                ))}
+              </div>
+            )}
 
             {returnError && (
               <div className="p-3 rounded-xl bg-accent-error/15 border border-accent-error/20 text-accent-error text-xs font-semibold flex items-center gap-2">
@@ -701,136 +676,93 @@ export const ReservationsPage: React.FC = () => {
               </div>
             )}
 
-            {/* Step 1: Return check-in logs */}
-            {returnStep === 1 && (
+            {/* Step 1: Check-in Parameters (read-only from RETURN inspection) */}
+            {returnStep === 1 && (() => {
+              const returnInsp = returnRental.inspections?.find((i: any) => i.type === 'RETURN');
+              const tireDmg = [returnInsp?.tireConditionFrontLeft, returnInsp?.tireConditionFrontRight, returnInsp?.tireConditionRearLeft, returnInsp?.tireConditionRearRight]
+                .filter((t: string) => t === 'DAMAGED' || t === 'MISSING').length;
+              return (
               <div className="space-y-4">
-                <div className="p-3 rounded-xl bg-bg-inset text-xs text-fg-tertiary">
-                  {t('reservations.checkoutDetails', { odometer: returnRental.checkoutOdometer, fuelLevel: returnRental.checkoutFuelLevel })}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField label={t('reservations.returnOdometer')} required>
-                    <Input
-                      type="number"
-                      value={returnOdometer}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReturnOdometer(Number(e.target.value))}
-                      className="!h-9 rounded-lg"
-                    />
-                  </FormField>
-
-                  <FormField label={t('reservations.returnFuel')} required>
-                    <select
-                      value={returnFuelLevel}
-                      onChange={(e) => setReturnFuelLevel(e.target.value)}
-                      className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
-                    >
-                      <option value="FULL">{t('common.fuelFull')}</option>
-                      <option value="THREE_QUARTERS">{t('common.fuelThreeQuarters')}</option>
-                      <option value="HALF">{t('common.fuelHalf')}</option>
-                      <option value="QUARTER">{t('common.fuelQuarter')}</option>
-                      <option value="EMPTY">{t('common.fuelEmpty')}</option>
-                    </select>
-                  </FormField>
-                </div>
-
-                <div className="p-4 rounded-xl border border-border-surface/30 space-y-3 bg-bg-surface/10">
-                  <span className="text-xs font-bold uppercase tracking-widest text-accent-primary block">{t('reservations.inspectDamage')}</span>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
-                    <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={hasBrokenGlass}
-                        onChange={(e) => setHasBrokenGlass(e.target.checked)}
-                        className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
-                      />
-                      {t('reservations.brokenGlass')}
-                    </label>
-
-                    <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={hasNewScratches}
-                        onChange={(e) => setHasNewScratches(e.target.checked)}
-                        className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
-                      />
-                      {t('reservations.newScratches')}
-                    </label>
+                <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-3 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-fg-tertiary">{t('reservations.returnOdometer')}</span>
+                    <span className="font-bold font-mono text-fg-main">{returnInsp?.odometer || '—'} km</span>
                   </div>
-
-                  <FormField label={t('reservations.damagedTires')}>
-                    <input
-                      type="number"
-                      min={0}
-                      max={4}
-                      value={damagedTiresCount}
-                      onChange={(e) => setDamagedTiresCount(Number(e.target.value))}
-                      className="w-20 h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold text-center outline-none focus:border-accent-primary"
-                    />
-                  </FormField>
+                  <div className="flex justify-between">
+                    <span className="text-fg-tertiary">{t('reservations.returnFuel')}</span>
+                    <span className="font-bold text-fg-main">{returnInsp?.fuelGaugeLevel || '—'}</span>
+                  </div>
+                  <div className="border-t border-border-surface/15 pt-2">
+                    <span className="text-fg-tertiary block mb-1.5">{t('reservations.inspectDamage')}</span>
+                    <div className="flex flex-wrap gap-3">
+                      <span className={`font-semibold ${returnInsp?.hasBrokenGlass ? 'text-accent-error' : 'text-emerald-500'}`}>
+                        {returnInsp?.hasBrokenGlass ? '⚠ ' : '✓ '}{t('reservations.brokenGlass')}
+                      </span>
+                      <span className={`font-semibold ${returnInsp?.hasScratches ? 'text-accent-error' : 'text-emerald-500'}`}>
+                        {returnInsp?.hasScratches ? '⚠ ' : '✓ '}{t('reservations.newScratches')}
+                      </span>
+                      <span className={`font-semibold ${tireDmg > 0 ? 'text-accent-error' : 'text-emerald-500'}`}>
+                        {tireDmg > 0 ? `⚠ ${tireDmg} ` : '✓ '}{t('reservations.damagedTires')}
+                      </span>
+                    </div>
+                  </div>
+                  {returnInsp?.comments && (
+                    <div className="border-t border-border-surface/15 pt-2">
+                      <span className="text-fg-tertiary block">{t('inspections.comments')}:</span>
+                      <span className="text-fg-main font-semibold">{returnInsp.comments}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setReturnRental(null)}>{t('reservations.cancel')}</Button>
-                  <Button
-                    onClick={handleEstimateReturn}
-                    isLoading={estimateReturnMutation.isPending}
-                    className="flex items-center gap-1.5"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
+                  <Button variant="secondary" onClick={closeReturn}>{t('common.cancel')}</Button>
+                  <Button onClick={handleEstimateReturn} isLoading={estimateReturnMutation.isPending}>
                     {t('reservations.estimatePenalty')}
                   </Button>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
-            {/* Step 2: Live breakdown estimates */}
+            {/* Step 2: Penalty Breakdown + Signature */}
             {returnStep === 2 && estimateData && (
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-2 text-xs">
-                  <div className="flex justify-between text-fg-tertiary">
-                    <span>{t('reservations.baseCost')}</span>
-                    <span className="font-mono text-fg-main font-semibold">{formatCurrency(estimateData.baseCost)}</span>
+                  <div className="flex justify-between py-1">
+                    <span className="text-fg-tertiary">{t('reservations.baseCost')}</span>
+                    <span className="font-bold font-mono text-fg-main">RD${estimateData.baseCost?.toFixed(2)}</span>
                   </div>
                   {estimateData.lateFee > 0 && (
-                    <div className="flex justify-between text-accent-error">
-                      <span>{t('reservations.lateFee', { hours: estimateData.lateHours.toFixed(1) })}</span>
-                      <span className="font-mono font-bold">{formatCurrency(estimateData.lateFee)}</span>
+                    <div className="flex justify-between py-1">
+                      <span className="text-fg-tertiary">{t('reservations.lateFee', { hours: estimateData.lateHours })}</span>
+                      <span className="font-bold font-mono text-accent-error">+RD${estimateData.lateFee?.toFixed(2)}</span>
                     </div>
                   )}
                   {estimateData.fuelFee > 0 && (
-                    <div className="flex justify-between text-accent-error">
-                      <span>{t('reservations.refuelPenalty', { steps: estimateData.fuelDifference })}</span>
-                      <span className="font-mono font-bold">{formatCurrency(estimateData.fuelFee)}</span>
+                    <div className="flex justify-between py-1">
+                      <span className="text-fg-tertiary">{t('reservations.refuelPenalty', { steps: estimateData.fuelDifference })}</span>
+                      <span className="font-bold font-mono text-accent-error">+RD${estimateData.fuelFee?.toFixed(2)}</span>
                     </div>
                   )}
                   {estimateData.totalDamageFee > 0 && (
-                    <div className="flex justify-between text-accent-error">
-                      <span>{t('reservations.damagePenalty')}</span>
-                      <span className="font-mono font-bold">{formatCurrency(estimateData.totalDamageFee)}</span>
+                    <div className="flex justify-between py-1">
+                      <span className="text-fg-tertiary">{t('reservations.damagePenalty')}</span>
+                      <span className="font-bold font-mono text-accent-error">+RD${estimateData.totalDamageFee?.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm font-bold text-fg-main border-t border-white/10 pt-2.5">
-                    <span>{t('reservations.finalCost')}</span>
-                    <span className="font-mono">{formatCurrency(estimateData.totalFinalCost)}</span>
+                  <div className="border-t border-border-surface/15 pt-2 mt-2 flex justify-between">
+                    <span className="text-sm font-extrabold text-fg-main">{t('reservations.finalCost')}</span>
+                    <span className="text-sm font-extrabold font-mono text-fg-main">RD${estimateData.totalFinalCost?.toFixed(2)}</span>
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setReturnStep(1)}>{t('reservations.back')}</Button>
-                  <Button onClick={() => setReturnStep(3)}>{t('reservations.nextSignature')}</Button>
+                <div className="border-t border-border-surface/15 pt-4">
+                  <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block mb-2">{t('reservations.returnSignaturePrompt')}</span>
+                  <SignaturePad onChange={setReturnSignature} />
                 </div>
-              </div>
-            )}
-
-            {/* Step 3: Draw Hand Signature return */}
-            {returnStep === 3 && (
-              <div className="space-y-4">
-                <span className="text-xs font-semibold text-fg-secondary block">{t('reservations.returnSignaturePrompt')}</span>
-                <SignaturePad onChange={setReturnSignature} />
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setReturnStep(2)}>{t('reservations.back')}</Button>
+                  <Button variant="secondary" onClick={() => setReturnStep(1)}>{t('common.cancel')}</Button>
                   <Button
                     onClick={handleConfirmReturn}
                     isLoading={returnRentalMutation.isPending}
@@ -842,7 +774,7 @@ export const ReservationsPage: React.FC = () => {
               </div>
             )}
 
-            {/* Step 4: Success Return check-in */}
+            {/* Step 4: Success */}
             {returnStep === 4 && (
               <div className="flex flex-col items-center justify-center text-center py-6 space-y-4 animate-scale-up">
                 <div className="w-14 h-14 rounded-full bg-emerald-500/10 border-2 border-emerald-500 flex items-center justify-center text-emerald-500">
@@ -850,13 +782,10 @@ export const ReservationsPage: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-base font-extrabold text-fg-main uppercase tracking-wider">{t('reservations.returnFinalized')}</h3>
-                  <p className="text-xs text-fg-secondary max-w-sm">
-                    {t('reservations.returnDesc')}
-                  </p>
+                  <p className="text-xs text-fg-secondary max-w-sm" dangerouslySetInnerHTML={{ __html: t('reservations.returnDesc') }} />
                 </div>
-
                 <div className="pt-4 w-full">
-                  <Button className="w-full" onClick={() => setReturnRental(null)}>
+                  <Button className="w-full" onClick={closeReturn}>
                     {t('reservations.dismiss')}
                   </Button>
                 </div>
@@ -872,7 +801,7 @@ export const ReservationsPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in">
           <div className="bg-bg-card border border-border-surface max-w-lg w-full rounded-3xl p-6 shadow-2xl backdrop-blur-2xl animate-slide-up relative space-y-5 overflow-y-auto max-h-[90vh]">
             <button
-              onClick={() => setIsWalkinOpen(false)}
+              onClick={closeWalkin}
               className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer z-10"
             >
               ✕
@@ -889,7 +818,7 @@ export const ReservationsPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleCreateWalkin} className="space-y-4">
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <FormField label={t('reservations.selectCustomer')} required>
                   <select
@@ -912,7 +841,6 @@ export const ReservationsPage: React.FC = () => {
                       setWalkinVehicle(e.target.value);
                       const selected = availableVehicles.find((v: any) => v.id === e.target.value);
                       if (selected) {
-                        setWalkinOdometer(selected.odometer);
                         const rates: any = { sedan: 45, suv: 75, truck: 85 };
                         const typeName = selected.vehicleType.name.toLowerCase();
                         setWalkinRate(rates[typeName] || 50);
@@ -951,31 +879,7 @@ export const ReservationsPage: React.FC = () => {
                 </FormField>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <FormField label={t('reservations.startOdometer')} required>
-                  <Input
-                    type="number"
-                    value={walkinOdometer}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinOdometer(Number(e.target.value))}
-                    className="!h-9 rounded-lg"
-                    required
-                  />
-                </FormField>
-
-                <FormField label={t('reservations.startFuel')} required>
-                  <select
-                    value={walkinFuel}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setWalkinFuel(e.target.value)}
-                    className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none"
-                  >
-                    <option value="FULL">{t('common.fuelFull')}</option>
-                    <option value="THREE_QUARTERS">{t('common.fuelThreeQuarters')}</option>
-                    <option value="HALF">{t('common.fuelHalf')}</option>
-                    <option value="QUARTER">{t('common.fuelQuarter')}</option>
-                    <option value="EMPTY">{t('common.fuelEmpty')}</option>
-                  </select>
-                </FormField>
-
+              <div className="grid grid-cols-2 gap-4">
                 <FormField label={t('reservations.dailyRate')} required>
                   <Input
                     type="number"
@@ -990,7 +894,7 @@ export const ReservationsPage: React.FC = () => {
               <div className="border-t border-border-surface/15 pt-4">
                 <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block mb-2">{t('reservations.cardDetails')}</span>
                 <Elements stripe={stripePromise}>
-                  <StripeCardForm onCardComplete={setWalkinCardToken} />
+                  <StripeCardForm onCardComplete={setWalkinCardToken} onCardSuccess={() => setToastMessage(t('stripe.cardConfirmed'))} />
                 </Elements>
               </div>
 
@@ -1000,18 +904,22 @@ export const ReservationsPage: React.FC = () => {
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
-                <Button type="button" variant="secondary" onClick={() => setIsWalkinOpen(false)}>{t('reservations.cancel')}</Button>
+                <Button type="button" variant="secondary" onClick={closeWalkin}>{t('reservations.cancel')}</Button>
                 <Button
-                  type="submit"
+                  onClick={handleCreateWalkin}
                   isLoading={createRentalMutation.isPending}
                   disabled={!walkinCardToken || !walkinSignature}
                 >
                   {t('reservations.createContract')}
                 </Button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
+      )}
+
+      {toastMessage && (
+        <Toast message={toastMessage} type="success" onClose={() => setToastMessage(null)} />
       )}
 
     </div>

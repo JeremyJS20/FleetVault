@@ -457,6 +457,10 @@ export class CatalogService {
   async updateVehicle(id: string, input: UpdateVehicleInput) {
     const current = await this.getVehicleById(id);
 
+    if (current.status !== 'AVAILABLE' && current.status !== 'RETIRED') {
+      throw new ValidationError('Cannot edit a vehicle that is RENTED, UNDER_INSPECTION, or MAINTENANCE');
+    }
+
     // 1. Uniques checks
     if (input.chassisNumber && input.chassisNumber !== current.chassisNumber) {
       const chassis = await prisma.vehicle.findUnique({ where: { chassisNumber: input.chassisNumber } });
@@ -507,8 +511,6 @@ export class CatalogService {
         brandId: brandId,
         modelId: modelId,
         fuelTypeId: fuelTypeId,
-        status: input.status,
-        cleaningStatus: input.cleaningStatus,
         imageUrl: input.imageUrl !== undefined ? input.imageUrl || null : undefined,
         odometer: input.odometer,
         lastMaintenanceOdometer: input.lastMaintenanceOdometer
@@ -524,6 +526,11 @@ export class CatalogService {
 
   async toggleVehicleStatus(id: string) {
     const item = await this.getVehicleById(id);
+
+    if (item.status !== 'AVAILABLE' && item.status !== 'RETIRED') {
+      throw new ValidationError('Can only toggle status between AVAILABLE and RETIRED');
+    }
+
     const newStatus = item.status === 'AVAILABLE' ? 'RETIRED' : 'AVAILABLE';
     return await prisma.vehicle.update({
       where: { id },
@@ -538,19 +545,31 @@ export class CatalogService {
   }
 
   async updateVehicleCleaning(id: string, cleaningStatus: 'CLEAN' | 'DIRTY') {
-    const vehicle = await this.getVehicleById(id);
-    let newStatus = vehicle.status;
+    return await prisma.vehicle.update({
+      where: { id },
+      data: {
+        cleaningStatus
+      },
+      include: {
+        vehicleType: true,
+        brand: true,
+        model: true,
+        fuelType: true
+      }
+    });
+  }
 
-    if (cleaningStatus === 'CLEAN' && vehicle.status === 'UNDER_INSPECTION') {
-      // In the inspections flow, when completed & set to CLEAN, revert back to AVAILABLE unless MAINTENANCE flagged
-      newStatus = 'AVAILABLE';
+  async passInspection(id: string) {
+    const item = await this.getVehicleById(id);
+    if (item.status !== 'UNDER_INSPECTION') {
+      throw new ValidationError('Only vehicles UNDER_INSPECTION can be marked as passed');
     }
 
     return await prisma.vehicle.update({
       where: { id },
       data: {
-        cleaningStatus,
-        status: newStatus
+        status: 'AVAILABLE',
+        cleaningStatus: 'CLEAN'
       },
       include: {
         vehicleType: true,

@@ -4,9 +4,16 @@ import { authMiddleware, AuthenticatedRequest } from '../../Application/middlewa
 import { requireRole } from '../../Application/middleware/require-role.middleware.js';
 import { validateBody } from '../../Application/middleware/validation.middleware.js';
 import { CreateRentalSchema, ReturnRentalSchema } from '@rent-car/common';
+import { prisma } from '../../Infrastructure/db.js';
 
 const router = Router();
 const service = new RentalService();
+
+async function resolveEmployeeId(userId: string): Promise<string> {
+  const employee = await prisma.employee.findFirst({ where: { userId } });
+  if (!employee) throw new Error('Authenticated user is not linked to an employee record');
+  return employee.id;
+}
 
 // GET /api/rentals
 router.get(
@@ -16,10 +23,11 @@ router.get(
     try {
       const status = req.query.status?.toString();
       const customerId = req.query.customerId?.toString();
+      const checkoutEmployeeId = req.query.checkoutEmployeeId?.toString();
       const page = req.query.page ? Number(req.query.page) : undefined;
       const limit = req.query.limit ? Number(req.query.limit) : undefined;
 
-      const result = await service.listRentals({ status, customerId, page, limit });
+      const result = await service.listRentals({ status, customerId, checkoutEmployeeId, page, limit });
       res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -51,26 +59,23 @@ router.post(
       const { rentalId } = req.body;
       if (rentalId) {
         // Activate reservation checkout
-        const { checkoutOdometer, checkoutFuelLevel, signatureUrl, employeeId } = req.body;
+        const { signatureUrl } = req.body;
+        const resolvedEmployeeId = await resolveEmployeeId(req.user!.userId);
         const result = await service.activateReservation(rentalId, {
-          checkoutOdometer: Number(checkoutOdometer),
-          checkoutFuelLevel,
           signatureUrl,
-          employeeId: employeeId || req.user!.userId
+          checkoutEmployeeId: resolvedEmployeeId
         });
         res.status(200).json({ success: true, data: result });
       } else {
         // Direct counter checkout
-        // We temporarily bypass schema check if body schema differs slightly
+        const walkinEmployeeId = await resolveEmployeeId(req.user!.userId);
         const result = await service.createWalkInRental({
           customerId: req.body.customerId,
-          employeeId: req.body.employeeId || req.user!.userId,
+          checkoutEmployeeId: walkinEmployeeId,
           vehicleId: req.body.vehicleId,
           rentalDate: req.body.rentalDate,
           scheduledReturnDate: req.body.scheduledReturnDate,
           pricePerDay: Number(req.body.pricePerDay),
-          checkoutOdometer: Number(req.body.checkoutOdometer),
-          checkoutFuelLevel: req.body.checkoutFuelLevel,
           signatureUrl: req.body.signatureUrl,
           comments: req.body.comments,
           stripePaymentMethodId: req.body.stripePaymentMethodId
@@ -106,7 +111,8 @@ router.post(
   validateBody(ReturnRentalSchema),
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const result = await service.processReturn(req.params.id, req.body);
+      const returnEmployeeId = await resolveEmployeeId(req.user!.userId);
+      const result = await service.processReturn(req.params.id, { ...req.body, returnEmployeeId });
       res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);

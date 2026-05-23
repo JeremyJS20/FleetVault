@@ -1,11 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api-client.js';
 
-export const useOwnReservations = () => {
+export const useOwnReservations = (status?: string) => {
+  const params: Record<string, string> = {};
+  if (status) params.status = status;
+
   return useQuery({
-    queryKey: ['my-reservations'],
+    queryKey: ['my-reservations', { status }],
     queryFn: async () => {
-      const res = await apiClient('/api/reservations/me');
+      const res = await apiClient('/api/reservations/me', { params });
       return res.data as any[];
     },
   });

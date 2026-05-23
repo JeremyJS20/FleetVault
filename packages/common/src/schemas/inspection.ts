@@ -3,15 +3,16 @@ import { InspectionStatus, FuelLevel, TireCondition } from '../enums.js';
 
 export const InspectionSchema = z.object({
   id: z.string(),
-  rentalId: z.string().nullable(), // Nullable for general checklist checkups
+  rentalId: z.string(),
+  type: z.enum(['PICKUP', 'RETURN']),
   vehicleId: z.string(),
   customerId: z.string(),
   employeeId: z.string(),
   hasScratches: z.boolean(),
   fuelGaugeLevel: z.enum(FuelLevel),
   fuelGaugePhotoUrl: z.string(), // Mandatory fuel gauge photo
-  hasSpareTire: z.boolean(),
-  hasJack: z.boolean(),
+  missingSpareTire: z.boolean(),
+  missingJack: z.boolean(),
   hasBrokenGlass: z.boolean(),
   tireConditionFrontLeft: z.enum(TireCondition),
   tireConditionFrontRight: z.enum(TireCondition),
@@ -27,15 +28,14 @@ export const InspectionSchema = z.object({
 });
 
 export const CreateInspectionSchema = z.object({
-  rentalId: z.string().optional().nullable(),
-  vehicleId: z.string().min(1, 'Vehicle is required'),
-  customerId: z.string().min(1, 'Customer is required'),
-  employeeId: z.string().optional(),
+  rentalId: z.string().min(1, 'Rental is required'),
+  type: z.enum(['PICKUP', 'RETURN']),
+  employeeId: z.string().optional().nullable(),
   hasScratches: z.boolean(),
   fuelGaugeLevel: z.enum(FuelLevel),
   fuelGaugePhotoUrl: z.string().url('Mandatory fuel gauge photo URL is required'),
-  hasSpareTire: z.boolean(),
-  hasJack: z.boolean(),
+  missingSpareTire: z.boolean(),
+  missingJack: z.boolean(),
   hasBrokenGlass: z.boolean(),
   tireConditionFrontLeft: z.enum(TireCondition),
   tireConditionFrontRight: z.enum(TireCondition),

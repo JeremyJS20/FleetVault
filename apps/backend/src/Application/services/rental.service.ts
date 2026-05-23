@@ -53,10 +53,8 @@ export class RentalService {
   }
 
   async activateReservation(rentalId: string, input: {
-    checkoutOdometer: number;
-    checkoutFuelLevel: string;
     signatureUrl: string;
-    employeeId: string;
+    checkoutEmployeeId: string;
   }) {
     const rental = await prisma.rental.findUnique({
       where: { id: rentalId },
@@ -71,15 +69,24 @@ export class RentalService {
       throw new ValidationError(`Cannot activate reservation in ${rental.status} status`);
     }
 
+    // Gate: pickup inspection required before checkout
+    const pickupInspection = await prisma.inspection.findFirst({
+      where: { rentalId, type: 'PICKUP' }
+    });
+    if (!pickupInspection) {
+      throw new ValidationError('A pickup inspection is required before checkout');
+    }
+
+    // Gate: vehicle must not be in a blocked state
+    if (rental.vehicle.status === 'UNDER_INSPECTION' || rental.vehicle.status === 'MAINTENANCE') {
+      throw new ValidationError('Vehicle is not available for checkout');
+    }
+
     if (!rental.customer) {
       throw new NotFoundError('Customer not found for this reservation');
     }
 
     this.validateCustomerProfileComplete(rental.customer, rental.scheduledReturnDate);
-
-    if (input.checkoutOdometer < rental.vehicle.odometer) {
-      throw new ValidationError(`Checkout odometer cannot be less than current vehicle odometer (${rental.vehicle.odometer})`);
-    }
 
     return await prisma.$transaction(async (tx) => {
       // 1. Update Rental to ACTIVE
@@ -87,10 +94,10 @@ export class RentalService {
         where: { id: rentalId },
         data: {
           status: 'ACTIVE',
-          checkoutOdometer: input.checkoutOdometer,
-          checkoutFuelLevel: input.checkoutFuelLevel,
+          checkoutOdometer: pickupInspection.odometer,
+          checkoutFuelLevel: pickupInspection.fuelGaugeLevel,
           signatureUrl: input.signatureUrl,
-          employeeId: input.employeeId
+          checkoutEmployeeId: input.checkoutEmployeeId
         }
       });
 
@@ -99,7 +106,7 @@ export class RentalService {
         where: { id: rental.vehicleId },
         data: {
           status: 'RENTED',
-          odometer: input.checkoutOdometer
+          odometer: pickupInspection.odometer
         }
       });
 
@@ -109,13 +116,13 @@ export class RentalService {
 
   async createWalkInRental(input: {
     customerId: string;
-    employeeId: string;
+    checkoutEmployeeId: string;
     vehicleId: string;
     rentalDate: string;
     scheduledReturnDate: string;
     pricePerDay: number;
-    checkoutOdometer: number;
-    checkoutFuelLevel: string;
+    checkoutOdometer?: number;
+    checkoutFuelLevel?: string;
     signatureUrl: string;
     comments?: string | null;
     stripePaymentMethodId: string; // for direct pre-auth hold
@@ -144,12 +151,15 @@ export class RentalService {
     const depositAmount = feeMap['SECURITY_DEPOSIT'] ?? 15000;
     const holdAmount = totalCost + depositAmount;
 
+    const checkoutOdometer = input.checkoutOdometer ?? 0;
+    const checkoutFuelLevel = input.checkoutFuelLevel ?? 'FULL';
+
     const result = await prisma.$transaction(async (tx) => {
       const vehicle = await tx.vehicle.findUnique({ where: { id: input.vehicleId } });
       if (!vehicle) throw new NotFoundError('Vehicle not found');
       if (vehicle.status !== 'AVAILABLE') throw new ValidationError('Vehicle is not available');
-      if (input.checkoutOdometer < vehicle.odometer) {
-        throw new ValidationError(`Checkout odometer cannot be less than current odometer (${vehicle.odometer})`);
+      if (checkoutOdometer < vehicle.odometer) {
+        throw new ValidationError(`Checkout odometer (${checkoutOdometer}) cannot be less than current odometer (${vehicle.odometer})`);
       }
 
       // Check date conflicts
@@ -184,13 +194,13 @@ export class RentalService {
       const rental = await tx.rental.create({
         data: {
           customerId: input.customerId,
-          employeeId: input.employeeId,
+          checkoutEmployeeId: input.checkoutEmployeeId,
           vehicleId: input.vehicleId,
           rentalDate: start,
           scheduledReturnDate: end,
           pricePerDay,
-          checkoutOdometer: input.checkoutOdometer,
-          checkoutFuelLevel: input.checkoutFuelLevel,
+          checkoutOdometer,
+          checkoutFuelLevel,
           status: 'ACTIVE',
           signatureUrl: input.signatureUrl,
           stripePaymentIntentId: hold.id,
@@ -203,7 +213,7 @@ export class RentalService {
         where: { id: input.vehicleId },
         data: {
           status: 'RENTED',
-          odometer: input.checkoutOdometer
+          odometer: checkoutOdometer
         }
       });
 
@@ -223,11 +233,6 @@ export class RentalService {
 
   async calculatePenalties(rentalId: string, returnInput: {
     actualReturnDate: string;
-    returnOdometer: number;
-    returnFuelLevel: string;
-    hasBrokenGlass: boolean;
-    damagedTiresCount: number;
-    hasNewScratches: boolean;
   }): Promise<ReturnCalculations> {
     const rental = await prisma.rental.findUnique({
       where: { id: rentalId },
@@ -237,6 +242,21 @@ export class RentalService {
     if (!rental) {
       throw new NotFoundError('Rental not found');
     }
+
+    const returnInsp = await prisma.inspection.findFirst({
+      where: { rentalId, type: 'RETURN' }
+    });
+    if (!returnInsp) {
+      throw new ValidationError('A RETURN inspection must be completed before estimating penalties');
+    }
+
+    const tireConditions = [
+      returnInsp.tireConditionFrontLeft,
+      returnInsp.tireConditionFrontRight,
+      returnInsp.tireConditionRearLeft,
+      returnInsp.tireConditionRearRight
+    ];
+    const damagedTiresCount = tireConditions.filter(t => t === 'DAMAGED' || t === 'MISSING').length;
 
     const actualReturn = new Date(returnInput.actualReturnDate);
     const feeMap = await this.loadFeeMap();
@@ -260,7 +280,7 @@ export class RentalService {
     const fuelFlatFee = feeMap['FUEL_FLAT_FEE'] ?? 2000;
     const fuelPerStep = feeMap['FUEL_PER_STEP'] ?? 1000;
     const checkoutVal = FUEL_VALUES[rental.checkoutFuelLevel] ?? 4;
-    const returnVal = FUEL_VALUES[returnInput.returnFuelLevel] ?? 4;
+    const returnVal = FUEL_VALUES[returnInsp.fuelGaugeLevel] ?? 4;
     const fuelDifference = Math.max(0, checkoutVal - returnVal);
     let fuelFee = 0;
     if (fuelDifference > 0) {
@@ -271,9 +291,9 @@ export class RentalService {
     const glassFeeAmount = feeMap['GLASS_DAMAGE'] ?? 12000;
     const scratchesFeeAmount = feeMap['SCRATCHES'] ?? 8000;
     const tireFeeAmount = feeMap['TIRE_DAMAGE'] ?? 5000;
-    const glassFee = returnInput.hasBrokenGlass ? glassFeeAmount : 0.0;
-    const scratchesFee = returnInput.hasNewScratches ? scratchesFeeAmount : 0.0;
-    const tiresFee = (returnInput.damagedTiresCount || 0) * tireFeeAmount;
+    const glassFee = returnInsp.hasBrokenGlass ? glassFeeAmount : 0.0;
+    const scratchesFee = returnInsp.hasScratches ? scratchesFeeAmount : 0.0;
+    const tiresFee = damagedTiresCount * tireFeeAmount;
     const totalDamageFee = glassFee + scratchesFee + tiresFee;
 
     const totalFinalCost = parseFloat((baseCost + lateFee + fuelFee + totalDamageFee).toFixed(2));
@@ -294,13 +314,9 @@ export class RentalService {
 
   async processReturn(rentalId: string, input: {
     actualReturnDate: string;
-    returnOdometer: number;
-    returnFuelLevel: string;
     returnSignatureUrl: string;
+    returnEmployeeId: string;
     comments?: string | null;
-    hasBrokenGlass: boolean;
-    damagedTiresCount: number;
-    hasNewScratches: boolean;
   }) {
     const rental = await prisma.rental.findUnique({
       where: { id: rentalId },
@@ -310,9 +326,24 @@ export class RentalService {
     if (!rental) throw new NotFoundError('Rental contract not found');
     if (rental.status !== 'ACTIVE') throw new ValidationError(`Cannot return a rental that is in ${rental.status} status`);
 
-    if (input.returnOdometer < rental.checkoutOdometer) {
-      throw new ValidationError(`Return odometer (${input.returnOdometer}) cannot be less than checkout odometer (${rental.checkoutOdometer})`);
+    const returnInspection = await prisma.inspection.findFirst({
+      where: { rentalId, type: 'RETURN' }
+    });
+    if (!returnInspection) {
+      throw new ValidationError('A RETURN inspection must be completed before processing the return');
     }
+
+    if (returnInspection.odometer < rental.checkoutOdometer) {
+      throw new ValidationError(`Return odometer (${returnInspection.odometer}) cannot be less than checkout odometer (${rental.checkoutOdometer})`);
+    }
+
+    const tireConditions = [
+      returnInspection.tireConditionFrontLeft,
+      returnInspection.tireConditionFrontRight,
+      returnInspection.tireConditionRearLeft,
+      returnInspection.tireConditionRearRight
+    ];
+    const damagedTiresCount = tireConditions.filter(t => t === 'DAMAGED' || t === 'MISSING').length;
 
     // 1. Calculate final costs and fees
     const calcs = await this.calculatePenalties(rentalId, input);
@@ -358,13 +389,13 @@ export class RentalService {
 
       // Update vehicle status
       // If there is damage, vehicle status goes to MAINTENANCE. If dirty/standard return, goes to UNDER_INSPECTION.
-      const hasAnyDamage = input.hasBrokenGlass || input.hasNewScratches || input.damagedTiresCount > 0;
+      const hasAnyDamage = returnInspection.hasBrokenGlass || returnInspection.hasScratches || damagedTiresCount > 0;
       const vehicleStatus = hasAnyDamage ? 'MAINTENANCE' : 'UNDER_INSPECTION';
 
       await tx.vehicle.update({
         where: { id: rental.vehicleId },
         data: {
-          odometer: input.returnOdometer,
+          odometer: returnInspection.odometer,
           status: vehicleStatus,
           cleaningStatus: 'DIRTY' // Needs checkup/cleaning before re-lease
         }
@@ -376,9 +407,10 @@ export class RentalService {
         data: {
           status: 'COMPLETED',
           actualReturnDate: new Date(input.actualReturnDate),
-          returnOdometer: input.returnOdometer,
-          returnFuelLevel: input.returnFuelLevel,
+          returnOdometer: returnInspection.odometer,
+          returnFuelLevel: returnInspection.fuelGaugeLevel,
           returnSignatureUrl: input.returnSignatureUrl,
+          returnEmployeeId: input.returnEmployeeId,
           totalCost: calcs.totalFinalCost,
           comments: input.comments || `Returned successfully. Penalties applied: RD$${calcs.totalFinalCost - calcs.baseCost}`
         },
@@ -390,7 +422,7 @@ export class RentalService {
     });
   }
 
-  async listRentals(filters: { status?: string; customerId?: string; page?: number; limit?: number }) {
+  async listRentals(filters: { status?: string; customerId?: string; checkoutEmployeeId?: string; page?: number; limit?: number }) {
     const page = filters.page || 1;
     const limit = filters.limit || 10;
     const skip = (page - 1) * limit;
@@ -398,6 +430,7 @@ export class RentalService {
     const where: any = {};
     if (filters.status) where.status = filters.status;
     if (filters.customerId) where.customerId = filters.customerId;
+    if (filters.checkoutEmployeeId) where.checkoutEmployeeId = filters.checkoutEmployeeId;
 
     const [items, total] = await Promise.all([
       prisma.rental.findMany({
@@ -413,7 +446,24 @@ export class RentalService {
             }
           },
           customer: true,
-          employee: true
+          checkoutEmployee: true,
+          returnEmployee: true,
+          inspections: {
+            select: {
+              type: true,
+              odometer: true,
+              fuelGaugeLevel: true,
+              hasBrokenGlass: true,
+              hasScratches: true,
+              tireConditionFrontLeft: true,
+              tireConditionFrontRight: true,
+              tireConditionRearLeft: true,
+              tireConditionRearRight: true,
+              missingSpareTire: true,
+              missingJack: true,
+              comments: true
+            }
+          }
         },
         orderBy: { rentalDate: 'desc' }
       }),
@@ -435,7 +485,8 @@ export class RentalService {
           }
         },
         customer: true,
-        employee: true,
+        checkoutEmployee: true,
+        returnEmployee: true,
         transactions: true,
         inspections: true
       }

@@ -109,8 +109,8 @@ export interface Inspection {
   hasScratches: boolean;
   fuelGaugeLevel: string;
   fuelGaugePhotoUrl: string;
-  hasSpareTire: boolean;
-  hasJack: boolean;
+  missingSpareTire: boolean;
+  missingJack: boolean;
   hasBrokenGlass: boolean;
   tireConditionFrontLeft: string;
   tireConditionFrontRight: string;
@@ -127,7 +127,8 @@ export interface Inspection {
 
 export interface Rental {
   id: string;
-  employeeId: string;
+  checkoutEmployeeId: string;
+  returnEmployeeId?: string | null;
   customerId: string;
   vehicleId: string;
   rentalDate: Date;

@@ -29,11 +29,13 @@ export const ModelsPage: React.FC = () => {
 
   // Filters state
   const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
+  const [filterBrandId, setFilterBrandId] = useState('');
   const [page, setPage] = useState(1);
   const limit = 10;
 
   // Query hook for models
-  const { data, isLoading } = useModels({ search, page, limit });
+  const { data, isLoading } = useModels({ search, status, brandId: filterBrandId, page, limit });
 
   // Query hook for active brands list (for the dropdown)
   const { data: brandsData } = useBrands({ status: 'ACTIVE', limit: 100 });
@@ -189,6 +191,27 @@ export const ModelsPage: React.FC = () => {
 
       <div className="flex flex-col md:flex-row items-center gap-4 justify-between">
         <SearchBar value={search} onChange={(val) => { setSearch(val); setPage(1); }} />
+        <div className="flex gap-2 w-full md:w-auto">
+          <select
+            value={filterBrandId}
+            onChange={(e) => { setFilterBrandId(e.target.value); setPage(1); }}
+            className="w-full md:w-40 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
+          >
+            <option value="">{t('common.allBrands')}</option>
+            {(brandsData?.items || []).map((b: any) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+          <select
+            value={status}
+            onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+            className="w-full md:w-40 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
+          >
+            <option value="">{t('common.allStatuses')}</option>
+            <option value="ACTIVE">{t('common.active')}</option>
+            <option value="INACTIVE">{t('common.inactive')}</option>
+          </select>
+        </div>
       </div>
 
       <DataTable

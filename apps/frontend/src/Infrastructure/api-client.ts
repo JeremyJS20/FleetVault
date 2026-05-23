@@ -120,8 +120,21 @@ export const apiClient = async (path: string, options: RequestOptions = {}): Pro
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      const error = new Error(errData.message || errData.error || `Request failed with status ${response.status}`);
+      let message = errData.message || errData.error || `Request failed with status ${response.status}`;
+      if (errData.details) {
+        const parts: string[] = [];
+        for (const [key, val] of Object.entries(errData.details)) {
+          if (key === '_errors') continue;
+          if (val && typeof val === 'object' && '_errors' in (val as any)) {
+            const errs = (val as any)._errors as string[];
+            if (errs.length) parts.push(`${key}: ${errs.join(', ')}`);
+          }
+        }
+        if (parts.length) message += ` (${parts.join('; ')})`;
+      }
+      const error = new Error(message);
       (error as any).status = response.status;
+      if (errData.details) (error as any).details = errData.details;
       throw error;
     }
 
