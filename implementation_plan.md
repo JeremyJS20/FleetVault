@@ -204,7 +204,7 @@ Must be done first. Sets up auth, DB schema, routing shell, and shared schemas.
 - **Customer model additions** (per §12.6): `licenseNumber`, `licenseCountry`, `licenseExpDate`, `licensePhotoUrl`
 - **Customer ↔ User link**: add `userId` FK on Customer model (optional — walk-in customers may not have a User account; online customers always do)
 - **Vehicle model additions**: `imageUrl` (vehicle photo for catalog), `lastMaintenanceOdometer` (for §10 maintenance alert threshold)
-- **Inspection model addition** (per §12.9): `fuelGaugePhotoUrl` — mandatory dashboard photo
+- **Inspection model photos**: Store inspection photos (including the dashboard fuel gauge photo) inside the general `photoUrls` JSON string array instead of a separate database column.
 - **Rental model additions**: `stripePaymentIntentId`, `purchaseOrderNumber` (for corporate)
 - **Rental status enum**: `PENDING` (reserved, awaiting pickup), `ACTIVE`, `COMPLETED`, `CANCELLED`, `NO_SHOW`
 - **New SeasonalRate model** (per §12.11): `id`, `name`, `startDate`, `endDate`, `multiplier`, `status`
@@ -517,7 +517,7 @@ Inspections, rental booking, returns with penalty calculation, e-signatures, cor
 - Auto-set `inspectionDate` to now
 - Determine `status`: if `hasBrokenGlass || hasScratches || any tire bad` → `FLAGGED`, else `PASSED`
 - Store photo URLs as JSON string array
-- **Mandatory fuel gauge photo** (§12.9): reject if `fuelGaugePhotoUrl` is missing
+- **Mandatory fuel gauge photo** (§12.9): verified via the general inspection photos array (`photoUrls`), ensuring at least one photo (representing the fuel gauge/dashboard cluster) is uploaded.
 
 #### [NEW] Rental endpoints — `rental.routes.ts`
 
@@ -738,12 +738,109 @@ components/
 ```
 
 #### [NEW] Customer API hooks
-```
+```typescript
 Infrastructure/hooks/
 ├── useCatalog.ts          # Public vehicle search queries
 ├── useReservations.ts     # Customer's own reservations CRUD
 └── useCustomerProfile.ts  # Own profile read/update
 ```
+
+---
+
+### Phase 2.1: Stripe Saved Card Wallet
+
+This sub-phase integrates credit card reusability and customer card wallet management.
+
+#### Backend Tracks
+- **Stripe Wallet Integration (`stripe.service.ts`)**: Add methods `listCustomerCards(customerId)`, `detachPaymentMethod(paymentMethodId)`, and `getPaymentIntent(paymentIntentId)`.
+- **Customer Wallet Routes (`customer.routes.ts`)**: 
+  - `GET /api/customers/me/payment-methods` (retrieve logged-in customer's wallet)
+  - `DELETE /api/customers/me/payment-methods/:paymentMethodId` (detach card)
+  - Staff-facing routes: `GET /api/customers/:id/payment-methods` and `DELETE /api/customers/:id/payment-methods/:paymentMethodId` for counter agents.
+- **Card Deletion Block Validation (`catalog.service.ts`)**: Throws a validation error if a customer attempts to delete a card associated with an active/pending rental check-out.
+
+#### Frontend Tracks
+- **TanStack Hooks (`useCatalog.ts`)**: Export `useMyPaymentMethods`, `useCustomerPaymentMethods`, `useDeleteMyPaymentMethod`, and `useDeleteCustomerPaymentMethod`.
+- **Checkout Integrations (`CatalogPage.tsx` & `ReservationsPage.tsx`)**: Allow choosing from cards on file (via Stripe Customer ID query) or typing a new card. Render "Remove" buttons to detach cards from the wallet.
+
+---
+
+### Phase 2.2: Role-based UI Action Conditioning
+
+Restricts frontend UI rendering based on the user's role, mirroring the backend auth permissions.
+
+#### Frontend Tracks
+- **Context Binding (`ReservationsPage.tsx`)**: Limit walk-in counter bookings and checkout flow transitions only to authorized staff (`AGENT` or `ADMINISTRATOR`). Hide actions for the `INSPECTOR` role.
+- **Visual Sidebar Filtering (`Sidebar.tsx`)**: Group layout routing dynamically. Hide configuration submenus (Seasonal Rates, Employees, Fees) from `AGENT` roles and restrict `INSPECTOR` views to Dashboard, Vehicles, Inspections, and Reservations.
+- **Router Route Interceptors (`AdminLayout.tsx`)**: Handle manual URL entry. Intercept unauthorized page accesses based on the user's role and redirect to `/admin`.
+
+---
+
+### Phase 2.3: Idle Session Rejection & Dashboard Performance
+
+Implements API retry queue rejections on session expiration and resolves redundant queries.
+
+#### Frontend Tracks
+- **Promise Rejection Queue (`api-client.ts`)**: Refactor request buffer queue with both resolve and reject handlers. Reject all pending requests in the queue immediately with a `Session expired` error if refresh tokens fail, preventing loading hangs.
+- **Enabled Query Checks (`useDashboard.ts` & `DashboardPage.tsx`)**: Add conditional check parameters to `useAdminDashboard` and `useCustomerDashboard` queries to only fire them if the matching role (`isAdmin` vs `!isAdmin`) is authenticated.
+
+---
+
+### Phase 2.4: Walk-in Stepper Wizard & Tariff Lookup
+
+Splits counter booking into a multi-step stepper wizard and implements dynamic price checks.
+
+#### Frontend Tracks
+- **Stepper Structure (`ReservationsPage.tsx`)**:
+  - **Step 1 (Parameters)**: Choose active customer, vehicle, dates, and read-only daily rate.
+  - **Step 2 (Stripe Wallet)**: Load cards on file or input a new card.
+  - **Step 3 (Signature)**: Capture checkout signature.
+  - **Step 4 (Success)**: Confirmation screen.
+- **Dynamic Tariff Selector (`ReservationsPage.tsx`)**: cascade lookup of vehicle `baseDailyRate` from `vehicleType` lookup collections. Form input is set to read-only/disabled to prevent counter agents from manually overriding tariffs.
+- **i18n Mappings**: Add translations for step names, progress subtitles, and walk-in details.
+
+---
+
+### Phase 2.5: Customer Form Realignment & Secure Uploader
+
+Removes obsolete input fields, splits customer creation, and adds live document camera uploads.
+
+#### Frontend Tracks
+- **Card Number Input Removal (`CustomersPage.tsx`)**: Remove raw `creditCardNumber` text input fields from customer CRUD configurations (as Stripe Card Elements handles card tokens). Let `creditLimit` take up full width.
+- **Webcam Snapshot Capture (`LicensePhotoCapture.tsx`)**: 
+  - Create high-fidelity uploader supporting MediaDevices camera streams and canvas snapshot capture.
+  - Convert captured video frames to JPEG Files and upload them directly to `/api/uploads` Vercel Blob storage.
+- **Stepped Customer Form (`CustomersPage.tsx`)**: Split the CRUD modal into a 2-step stepper:
+  - **Step 1 (General Info)**: Name, National ID, Customer Type (Corporate/Individual), and Credit Limit (rendered only for Corporate accounts).
+  - **Step 2 (Driver Credentials)**: License Number, Country, Expiry Date, and `<LicensePhotoCapture />`.
+- **Checkout Enforcement (`ReservationsPage.tsx`)**: Enforce license photo checking in checkout checks. If the document photo is missing, the agent is forced to capture it before checking out the vehicle.
+
+---
+
+### Phase 2.5.1: Customer Form & Walk-in Checkout Validation Polish
+
+Applies camera stream refinements, strict expiration dates, and localized errors.
+
+#### Frontend Tracks
+- **Rear Camera Soft Preference (`LicensePhotoCapture.tsx`)**: Update camera constraints to `{ facingMode: { ideal: 'environment' } }` to prioritize rear cameras on mobile but fallback gracefully to laptop webcams without throwing overconstraint errors.
+- **Customer Expiry Guard (`CustomersPage.tsx`)**: Validate that `licenseExpDate` is in the future.
+- **Counter Walk-in Checks (`ReservationsPage.tsx`)**: Output descriptive localized errors (`common.fieldsRequired`) when validation fields are left blank.
+
+---
+
+### Phase 2.6: Vehicle Image Upload & Secure Proxying
+
+Integrates vehicle file uploading on save and wraps image render paths to secure private blob assets.
+
+#### Frontend Tracks
+- **Uploader Integration (`VehiclesPage.tsx`)**:
+  - Replace raw image URL text input with `<FileUploader>` supporting camera capture and drag-and-drop.
+- **Upload-on-Save Logic (`VehiclesPage.tsx`)**:
+  - In edit mode: uploads the selected file before saving, utilizing `editingItem.id` as `entityId`.
+  - In create mode: creates the vehicle first to obtain its auto-generated database ID, uploads the file using `created.id` as `entityId`, and then updates the vehicle's `imageUrl`.
+  - Tie loading state to Save button spinner.
+- **Proxy Image Wrapping (`getImageProxyUrl`)**:
+  - Wrap image renders with `getImageProxyUrl` across `VehiclesPage.tsx` (table thumbnail), `CatalogPage.tsx` (catalog grid cards and checkout reviews), `MyRentalsPage.tsx` (rental history), and `ReservationsPage.tsx` (staff logs) to ensure Vercel Blobs load via the backend proxy.
 
 ---
 
