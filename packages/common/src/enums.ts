@@ -8,6 +8,7 @@ export const WorkingShift = ['MORNING', 'AFTERNOON', 'NIGHT'] as const;
 export const CustomerType = ['INDIVIDUAL', 'CORPORATE'] as const;
 export const TransactionType = ['PRE_AUTH_HOLD', 'CHARGE', 'REFUND', 'PO_INVOICE'] as const;
 export const UserRole = ['CUSTOMER', 'INSPECTOR', 'AGENT', 'ADMINISTRATOR'] as const;
+export const EmployeeRole = ['INSPECTOR', 'AGENT', 'ADMINISTRATOR'] as const;
 export const EntityStatus = ['ACTIVE', 'INACTIVE'] as const;
 export const TireCondition = ['GOOD', 'WORN', 'DAMAGED', 'MISSING'] as const;
 
@@ -21,5 +22,6 @@ export type WorkingShiftType = typeof WorkingShift[number];
 export type CustomerTypeType = typeof CustomerType[number];
 export type TransactionTypeType = typeof TransactionType[number];
 export type UserRoleType = typeof UserRole[number];
+export type EmployeeRoleType = typeof EmployeeRole[number];
 export type EntityStatusType = typeof EntityStatus[number];
 export type TireConditionType = typeof TireCondition[number];

@@ -50,22 +50,24 @@ export const EmployeesPage: React.FC = () => {
 
   // Form states
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [nationalId, setNationalId] = useState('');
   const [commissionPercentage, setCommissionPercentage] = useState(0);
   const [hireDate, setHireDate] = useState('');
   const [shift, setShift] = useState('MORNING');
-  const [userId, setUserId] = useState('');
+  const [role, setRole] = useState('AGENT');
 
   const [formError, setFormError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const resetForm = () => {
     setName('');
+    setEmail('');
     setNationalId('');
     setCommissionPercentage(0);
     setHireDate(new Date().toISOString().split('T')[0]);
     setShift('MORNING');
-    setUserId('');
+    setRole('AGENT');
     setFormError(null);
   };
 
@@ -77,11 +79,12 @@ export const EmployeesPage: React.FC = () => {
 
   const handleOpenEdit = (item: any) => {
     setName(item.name);
+    setEmail(item.email || '');
     setNationalId(item.nationalId);
     setCommissionPercentage(item.commissionPercentage);
     setHireDate(item.hireDate ? item.hireDate.split('T')[0] : '');
     setShift(item.shift);
-    setUserId(item.userId || '');
+    setRole(item.role || 'AGENT');
     setEditingItem(item);
     setFormError(null);
     setIsFormOpen(true);
@@ -90,6 +93,7 @@ export const EmployeesPage: React.FC = () => {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return setFormError(t('employees.validationNameRequired'));
+    if (!email.trim()) return setFormError(t('employees.validationEmailRequired'));
     if (!nationalId.trim()) return setFormError(t('employees.validationIdRequired'));
     if (commissionPercentage < 0 || commissionPercentage > 100) {
       return setFormError(t('employees.validationCommissionRange'));
@@ -97,11 +101,12 @@ export const EmployeesPage: React.FC = () => {
 
     const payload = {
       name,
+      email,
       nationalId,
       commissionPercentage: Number(commissionPercentage),
       hireDate: hireDate ? new Date(hireDate).toISOString() : new Date().toISOString(),
       shift,
-      userId: userId.trim() || undefined,
+      role,
     };
 
     try {
@@ -262,6 +267,15 @@ export const EmployeesPage: React.FC = () => {
             />
           </FormField>
 
+          <FormField label={t('employees.email')} required>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="e.g. john@company.com"
+            />
+          </FormField>
+
           <div className="grid grid-cols-2 gap-4">
             <FormField label={t('employees.nationalId')} required>
               <Input
@@ -270,6 +284,19 @@ export const EmployeesPage: React.FC = () => {
                 placeholder="National Cedula/ID number"
               />
             </FormField>
+            <SelectField
+              label={t('employees.role')}
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              options={[
+                { value: 'AGENT', label: t('employees.agent') },
+                { value: 'INSPECTOR', label: t('employees.inspector') },
+                { value: 'ADMINISTRATOR', label: t('employees.administrator') },
+              ]}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <SelectField
               label={t('employees.shift')}
               value={shift}
@@ -280,9 +307,6 @@ export const EmployeesPage: React.FC = () => {
                 { value: 'NIGHT', label: t('employees.night') },
               ]}
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <FormField label={t('employees.commissionPercentage')} required>
               <Input
                 type="number"
@@ -291,14 +315,15 @@ export const EmployeesPage: React.FC = () => {
                 placeholder="Commission % e.g. 5"
               />
             </FormField>
-            <FormField label={t('employees.hireDate')} required>
-              <Input
-                type="date"
-                value={hireDate}
-                onChange={(e) => setHireDate(e.target.value)}
-              />
-            </FormField>
           </div>
+
+          <FormField label={t('employees.hireDate')} required>
+            <Input
+              type="date"
+              value={hireDate}
+              onChange={(e) => setHireDate(e.target.value)}
+            />
+          </FormField>
 
           {formError && (
             <p className="text-xs font-semibold text-red-500 bg-red-500/10 border border-red-500/20 p-3 rounded-xl">

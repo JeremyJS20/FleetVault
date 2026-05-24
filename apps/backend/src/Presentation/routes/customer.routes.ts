@@ -34,10 +34,11 @@ router.get('/', authMiddleware, async (req, res, next) => {
     const search = req.query.search?.toString();
     const status = req.query.status?.toString();
     const type = req.query.type?.toString();
+    const excludeWithActiveRentals = req.query.excludeWithActiveRentals === 'true';
     const page = req.query.page ? Number(req.query.page) : undefined;
     const limit = req.query.limit ? Number(req.query.limit) : undefined;
 
-    const result = await service.listCustomers({ search, status, type, page, limit });
+    const result = await service.listCustomers({ search, status, type, excludeWithActiveRentals, page, limit });
     res.status(200).json({ success: true, data: result });
   } catch (error) {
     next(error);

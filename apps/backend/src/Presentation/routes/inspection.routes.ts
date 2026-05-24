@@ -72,4 +72,16 @@ router.get(
   }
 );
 
+// PUT /api/inspections/:id
+router.put('/:id', authMiddleware, requireRole(['AGENT', 'INSPECTOR', 'ADMINISTRATOR']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const result = await service.updateInspectionPhotos(req.params.id, {
+      photoUrls: req.body.photoUrls || [],
+    });
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

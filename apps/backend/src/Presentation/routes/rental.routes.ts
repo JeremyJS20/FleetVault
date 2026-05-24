@@ -76,9 +76,21 @@ router.post(
           rentalDate: req.body.rentalDate,
           scheduledReturnDate: req.body.scheduledReturnDate,
           pricePerDay: Number(req.body.pricePerDay),
+          checkoutOdometer: req.body.checkoutOdometer ? Number(req.body.checkoutOdometer) : undefined,
+          checkoutFuelLevel: req.body.checkoutFuelLevel,
           signatureUrl: req.body.signatureUrl,
           comments: req.body.comments,
-          stripePaymentMethodId: req.body.stripePaymentMethodId
+          stripePaymentMethodId: req.body.stripePaymentMethodId,
+          hasScratches: req.body.hasScratches,
+          hasBrokenGlass: req.body.hasBrokenGlass,
+          missingSpareTire: req.body.missingSpareTire,
+          missingJack: req.body.missingJack,
+          tireConditionFrontLeft: req.body.tireConditionFrontLeft,
+          tireConditionFrontRight: req.body.tireConditionFrontRight,
+          tireConditionRearLeft: req.body.tireConditionRearLeft,
+          tireConditionRearRight: req.body.tireConditionRearRight,
+          photoUrls: req.body.photoUrls,
+          inspectionComments: req.body.inspectionComments
         });
         res.status(201).json({ success: true, data: result });
       }
@@ -119,5 +131,17 @@ router.post(
     }
   }
 );
+
+// PUT /api/rentals/:id
+router.put('/:id', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const result = await service.updateRental(req.params.id, {
+      signatureUrl: req.body.signatureUrl,
+    });
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
 
 export default router;

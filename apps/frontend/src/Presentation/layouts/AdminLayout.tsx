@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/Infrastructure/auth.context.js';
 import { useTranslation } from 'react-i18next';
 import { Sidebar } from './Sidebar.js';
@@ -38,9 +38,24 @@ export const AdminLayout: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
+  const { pathname } = useLocation();
+
   const isStaff = user?.role === 'ADMINISTRATOR' || user?.role === 'AGENT' || user?.role === 'INSPECTOR';
   if (!isStaff) {
     return <Navigate to="/customer/dashboard" replace />;
+  }
+
+  // Check path authorization
+  if (user?.role === 'INSPECTOR') {
+    const allowedInspectorPaths = ['/admin/dashboard', '/admin/reservations', '/admin/inspections', '/admin/vehicles'];
+    if (!allowedInspectorPaths.includes(pathname)) {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+  } else if (user?.role === 'AGENT') {
+    const forbiddenAgentPaths = ['/admin/employees', '/admin/seasonal-rates', '/admin/fee-config', '/admin/settings'];
+    if (forbiddenAgentPaths.includes(pathname)) {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
   }
 
   return (

@@ -3,7 +3,7 @@ import { apiClient } from '../api-client.js';
 
 // Generic List Query Helper
 const createListHook = <T>(queryKey: string, endpoint: string) => {
-  return (params: { search?: string; status?: string; brandId?: string; modelId?: string; vehicleTypeId?: string; fuelTypeId?: string; cleaningStatus?: string; type?: string; shift?: string; page?: number; limit?: number }) => {
+  return (params: { search?: string; status?: string; brandId?: string; modelId?: string; vehicleTypeId?: string; fuelTypeId?: string; cleaningStatus?: string; type?: string; shift?: string; excludeWithActiveRentals?: boolean; page?: number; limit?: number }) => {
     // Convert numbers/booleans to strings for URLSearchParams
     const requestParams: Record<string, string> = {};
     Object.entries(params).forEach(([key, val]) => {
@@ -172,3 +172,6 @@ export const useDeleteCustomerPaymentMethod = (customerId?: string) => {
     },
   });
 };
+
+export const useUpdateRental = createMutationHook<any, any>('PUT', (id) => `/api/rentals/${id}`, ['rentals']);
+export const useUpdateInspection = createMutationHook<any, any>('PUT', (id) => `/api/inspections/${id}`, ['inspections']);

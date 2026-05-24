@@ -201,4 +201,11 @@ export class InspectionService {
 
     return { items: formattedItems, total, page, limit, pages: Math.ceil(total / limit) };
   }
+
+  async updateInspectionPhotos(id: string, input: { photoUrls: string[] }) {
+    return prisma.inspection.update({
+      where: { id },
+      data: { photoUrlsJson: JSON.stringify(input.photoUrls) },
+    });
+  }
 }

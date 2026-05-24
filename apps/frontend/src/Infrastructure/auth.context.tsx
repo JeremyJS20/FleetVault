@@ -68,45 +68,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (emailOrToken: string, passwordOrUser?: any, refreshToken?: string): Promise<User | null> => {
-    setIsLoading(true);
-    try {
-      if (passwordOrUser && typeof passwordOrUser === 'object') {
-        const tokenValue = emailOrToken;
-        const userValue = passwordOrUser;
-        setAccessToken(tokenValue);
-        if (refreshToken) {
-          localStorage.setItem('refresh_token', refreshToken);
-        }
-        const normUser = normalizeUser(userValue);
-        setUser(normUser);
-        return normUser;
-      }
-
-      let tokenValue: string;
-      let refreshTokenValue: string | null = null;
-      let userValue: any;
-      try {
-        const res = await apiClient('/api/auth/login', {
-          method: 'POST',
-          body: JSON.stringify({ email: emailOrToken, password: passwordOrUser }),
-        });
-        tokenValue = res.data.accessToken;
-        refreshTokenValue = res.data.refreshToken;
-        userValue = res.data.user;
-      } catch (err: any) {
-        throw err;
-      }
-
+    if (passwordOrUser && typeof passwordOrUser === 'object') {
+      const tokenValue = emailOrToken;
+      const userValue = passwordOrUser;
       setAccessToken(tokenValue);
-      if (refreshTokenValue) {
-        localStorage.setItem('refresh_token', refreshTokenValue);
+      if (refreshToken) {
+        localStorage.setItem('refresh_token', refreshToken);
       }
       const normUser = normalizeUser(userValue);
       setUser(normUser);
       return normUser;
-    } finally {
-      setIsLoading(false);
     }
+
+    const res = await apiClient('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: emailOrToken, password: passwordOrUser }),
+    });
+
+    setAccessToken(res.data.accessToken);
+    if (res.data.refreshToken) {
+      localStorage.setItem('refresh_token', res.data.refreshToken);
+    }
+    const normUser = normalizeUser(res.data.user);
+    setUser(normUser);
+    return normUser;
   };
 
   const register = async (name: string, email: string, password: string) => {

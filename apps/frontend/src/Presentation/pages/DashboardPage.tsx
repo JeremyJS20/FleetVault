@@ -36,8 +36,8 @@ export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMINISTRATOR' || user?.role === 'AGENT';
 
-  const { data: adminData, isLoading: adminLoading } = useAdminDashboard();
-  const { data: customerData, isLoading: customerLoading } = useCustomerDashboard();
+  const { data: adminData, isLoading: adminLoading } = useAdminDashboard(isAdmin);
+  const { data: customerData, isLoading: customerLoading } = useCustomerDashboard(!isAdmin);
 
   const loading = isAdmin ? adminLoading : customerLoading;
 

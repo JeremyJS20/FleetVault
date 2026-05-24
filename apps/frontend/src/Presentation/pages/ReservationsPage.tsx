@@ -1,24 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../Infrastructure/auth.context.js';
 import { useRentalsList, useCreateRental, useRentalReturn, useRentalReturnEstimate } from '../../Infrastructure/hooks/useRentals.js';
 import { useVehicles } from '../../Infrastructure/hooks/useCatalog.js';
-import { useCustomers, useUpdateCustomer, useCustomerPaymentMethods, useDeleteCustomerPaymentMethod } from '../../Infrastructure/hooks/useCatalog.js';
+import { useCustomers, useUpdateCustomer, useCustomerPaymentMethods, useDeleteCustomerPaymentMethod, useUpdateRental, useUpdateInspection } from '../../Infrastructure/hooks/useCatalog.js';
+import { useUploadImage, getImageProxyUrl } from '../../Infrastructure/hooks/useUploads.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
 import { Input } from '../components/ui/Input.js';
 import { FormField } from '../components/ui/FormField.js';
 import { SignaturePad } from '../components/ui/SignaturePad.js';
+import { LicensePhotoCapture } from '../components/ui/LicensePhotoCapture.js';
 import { Elements } from '@stripe/react-stripe-js';
 import { stripePromise } from '../../Infrastructure/stripe.js';
 import { StripeCardForm } from '../components/ui/StripeCardForm.js';
 import { Toast } from '../components/ui/Toast.js';
+import { FileUploader } from '../components/ui/FileUploader.js';
 import { 
-  Calendar, Check, User, Sparkles, Play, 
-  CornerDownLeft, RefreshCw, AlertCircle, Trash2
+  Calendar, Check, User, Sparkles, Play, Camera,
+  CornerDownLeft, RefreshCw, AlertCircle, Trash2, X
 } from 'lucide-react';
 
 export const ReservationsPage: React.FC = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const canCheckout = user?.role === 'AGENT' || user?.role === 'ADMINISTRATOR';
 
   // Filters state
   const [status, setStatus] = useState<string>('');
@@ -39,6 +45,7 @@ export const ReservationsPage: React.FC = () => {
   const [counterLicenseNumber, setCounterLicenseNumber] = useState('');
   const [counterLicenseCountry, setCounterLicenseCountry] = useState('');
   const [counterLicenseExpDate, setCounterLicenseExpDate] = useState('');
+  const [counterLicensePhotoUrl, setCounterLicensePhotoUrl] = useState('');
   const [isUpdatingCustomer, setIsUpdatingCustomer] = useState(false);
 
   // Returns Wizard State
@@ -61,6 +68,43 @@ export const ReservationsPage: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
   const [walkinUseNewCard, setWalkinUseNewCard] = useState(false);
+  const [walkinStep, setWalkinStep] = useState(1);
+
+  // Walk-in inspection state
+  const [walkinOdometer, setWalkinOdometer] = useState(0);
+  const [walkinFuelLevel, setWalkinFuelLevel] = useState('FULL');
+  const [walkinHasScratches, setWalkinHasScratches] = useState(false);
+  const [walkinHasBrokenGlass, setWalkinHasBrokenGlass] = useState(false);
+  const [walkinMissingSpareTire, setWalkinMissingSpareTire] = useState(false);
+  const [walkinMissingJack, setWalkinMissingJack] = useState(false);
+  const [walkinTireFL, setWalkinTireFL] = useState('GOOD');
+  const [walkinTireFR, setWalkinTireFR] = useState('GOOD');
+  const [walkinTireRL, setWalkinTireRL] = useState('GOOD');
+  const [walkinTireRR, setWalkinTireRR] = useState('GOOD');
+  const [walkinInspComments, setWalkinInspComments] = useState('');
+  interface VehiclePhotoSlot { value: string; file: File | null }
+  const [walkinPhotoSlots, setWalkinPhotoSlots] = useState<VehiclePhotoSlot[]>([]);
+  const updateWalkinPhotoSlot = (index: number, value: string, file: File | null) => {
+    setWalkinPhotoSlots(prev => prev.map((s, i) => i === index ? { value, file } : s));
+  };
+  const removeWalkinPhotoSlot = (index: number) => {
+    const slot = walkinPhotoSlots[index];
+    if (slot.value.startsWith('blob:')) URL.revokeObjectURL(slot.value);
+    setWalkinPhotoSlots(prev => prev.filter((_, i) => i !== index));
+  };
+  const addWalkinPhotoSlot = () => {
+    if (walkinPhotoSlots.length >= 5) return;
+    setWalkinPhotoSlots(prev => [...prev, { value: '', file: null }]);
+  };
+
+  // Walk-in license form state
+  const [walkinLicNationalId, setWalkinLicNationalId] = useState('');
+  const [walkinLicNumber, setWalkinLicNumber] = useState('');
+  const [walkinLicCountry, setWalkinLicCountry] = useState('');
+  const [walkinLicExpDate, setWalkinLicExpDate] = useState('');
+  const [walkinLicPhotoUrl, setWalkinLicPhotoUrl] = useState('');
+  const [walkinPendingLicenseFile, setWalkinPendingLicenseFile] = useState<File | null>(null);
+  const [walkinIsSavingProfile, setWalkinIsSavingProfile] = useState(false);
 
   // Walk-in saved cards queries
   const { data: walkinSavedCards, refetch: refetchWalkinSavedCards } = useCustomerPaymentMethods(walkinCustomer || undefined);
@@ -101,7 +145,7 @@ export const ReservationsPage: React.FC = () => {
 
   // Populate helper lists
   const { data: vehiclesData } = useVehicles({});
-  const { data: customersData } = useCustomers({});
+  const { data: customersData, refetch: refetchCustomers } = useCustomers({ excludeWithActiveRentals: true });
   const availableVehicles = vehiclesData?.items?.filter((v: any) => v.status === 'AVAILABLE') || [];
   const activeCustomers = customersData?.items?.filter((c: any) => c.status === 'ACTIVE') || [];
 
@@ -110,20 +154,32 @@ export const ReservationsPage: React.FC = () => {
   const returnRentalMutation = useRentalReturn();
   const estimateReturnMutation = useRentalReturnEstimate();
   const updateCustomerMutation = useUpdateCustomer();
+  const updateRentalMutation = useUpdateRental();
+  const updateInspectionMutation = useUpdateInspection();
+  const uploadPhotoMutation = useUploadImage();
+  const [pendingLicenseFile, setPendingLicenseFile] = useState<File | null>(null);
+  const [isUploadingCounterPhoto, setIsUploadingCounterPhoto] = useState(false);
+  const [pendingCheckoutSignatureFile, setPendingCheckoutSignatureFile] = useState<File | null>(null);
+  const [pendingReturnSignatureFile, setPendingReturnSignatureFile] = useState<File | null>(null);
+  const [pendingWalkinSignatureFile, setPendingWalkinSignatureFile] = useState<File | null>(null);
 
   // Modal close handlers with full state reset
   const closeCheckout = () => {
+    if (checkoutSignature?.startsWith('blob:')) URL.revokeObjectURL(checkoutSignature);
     setCheckoutRental(null);
     setCheckoutStep(1);
     setCheckoutSignature(null);
+    setPendingCheckoutSignatureFile(null);
     setCheckoutError(null);
     createRentalMutation.reset();
   };
 
   const closeReturn = () => {
+    if (returnSignature?.startsWith('blob:')) URL.revokeObjectURL(returnSignature);
     setReturnRental(null);
     setReturnStep(1);
     setReturnSignature(null);
+    setPendingReturnSignatureFile(null);
     setEstimateData(null);
     setReturnError(null);
     returnRentalMutation.reset();
@@ -131,6 +187,7 @@ export const ReservationsPage: React.FC = () => {
   };
 
   const closeWalkin = () => {
+    if (walkinSignature?.startsWith('blob:')) URL.revokeObjectURL(walkinSignature);
     setIsWalkinOpen(false);
     setWalkinCustomer('');
     setWalkinVehicle('');
@@ -139,7 +196,16 @@ export const ReservationsPage: React.FC = () => {
     setWalkinRate(50);
     setWalkinCardToken(null);
     setWalkinSignature(null);
+    setPendingWalkinSignatureFile(null);
     setWalkinError(null);
+    setWalkinStep(1);
+    setWalkinLicNationalId('');
+    setWalkinLicNumber('');
+    setWalkinLicCountry('');
+    setWalkinLicExpDate('');
+    setWalkinLicPhotoUrl('');
+    setWalkinPendingLicenseFile(null);
+    setWalkinIsSavingProfile(false);
     createRentalMutation.reset();
   };
 
@@ -147,12 +213,23 @@ export const ReservationsPage: React.FC = () => {
     !checkoutRental?.customer.nationalId || 
     !checkoutRental?.customer.licenseNumber || 
     !checkoutRental?.customer.licenseCountry || 
-    !checkoutRental?.customer.licenseExpDate;
+    !checkoutRental?.customer.licenseExpDate ||
+    !checkoutRental?.customer.licensePhotoUrl;
+
+  const selectedWalkinCustomer = customersData?.items?.find((c: any) => c.id === walkinCustomer);
+  const isWalkinProfileIncomplete =
+    !!selectedWalkinCustomer &&
+    (!selectedWalkinCustomer.nationalId ||
+     !selectedWalkinCustomer.licenseNumber ||
+     !selectedWalkinCustomer.licenseCountry ||
+     !selectedWalkinCustomer.licenseExpDate ||
+     !selectedWalkinCustomer.licensePhotoUrl);
 
   const handleStartCheckout = (rental: any) => {
     setCheckoutRental(rental);
     setCheckoutStep(1);
     setCheckoutSignature(null);
+    setPendingCheckoutSignatureFile(null);
     setCheckoutError(null);
 
     setCounterNationalId(rental.customer.nationalId || '');
@@ -163,19 +240,32 @@ export const ReservationsPage: React.FC = () => {
         ? new Date(rental.customer.licenseExpDate).toISOString().split('T')[0] 
         : ''
     );
+    setCounterLicensePhotoUrl(rental.customer.licensePhotoUrl || '');
   };
 
   const handleNextCheckoutStep = async () => {
     setCheckoutError(null);
     if (checkoutStep === 2) {
       if (isCheckoutCustomerProfileIncomplete) {
-        if (!counterNationalId || !counterLicenseNumber || !counterLicenseCountry || !counterLicenseExpDate) {
-          setCheckoutError(t('common.operationFailed'));
+        if (!counterNationalId || !counterLicenseNumber || !counterLicenseCountry || !counterLicenseExpDate || !counterLicensePhotoUrl) {
+          setCheckoutError(t('customers.licensePhotoRequired', 'Driver\'s license photo is required'));
           return;
         }
 
         setIsUpdatingCustomer(true);
         try {
+          let finalPhotoUrl = counterLicensePhotoUrl;
+          if (pendingLicenseFile) {
+            setIsUploadingCounterPhoto(true);
+            try {
+              const uploadResult = await uploadPhotoMutation.mutateAsync({ file: pendingLicenseFile, folder: 'licenses', entityType: 'customer', entityId: checkoutRental.customer.id });
+              finalPhotoUrl = uploadResult.url;
+              setPendingLicenseFile(null);
+            } finally {
+              setIsUploadingCounterPhoto(false);
+            }
+          }
+
           const updatedCustomer = await updateCustomerMutation.mutateAsync({
             id: checkoutRental.customer.id,
             data: {
@@ -184,6 +274,7 @@ export const ReservationsPage: React.FC = () => {
               licenseNumber: counterLicenseNumber,
               licenseCountry: counterLicenseCountry,
               licenseExpDate: new Date(counterLicenseExpDate).toISOString(),
+              licensePhotoUrl: finalPhotoUrl.startsWith('blob:') ? undefined : finalPhotoUrl,
             },
           });
 
@@ -228,9 +319,20 @@ export const ReservationsPage: React.FC = () => {
   const handleConfirmCheckout = async () => {
     try {
       setCheckoutError(null);
+      let finalSignatureUrl = checkoutSignature || '';
+      if (pendingCheckoutSignatureFile) {
+        const uploadResult = await uploadPhotoMutation.mutateAsync({
+          file: pendingCheckoutSignatureFile,
+          folder: 'signatures',
+          entityType: 'rental',
+          entityId: checkoutRental.id,
+        });
+        finalSignatureUrl = uploadResult.url;
+        setPendingCheckoutSignatureFile(null);
+      }
       await createRentalMutation.mutateAsync({
         rentalId: checkoutRental.id,
-        signatureUrl: checkoutSignature || '',
+        signatureUrl: finalSignatureUrl,
       });
       setCheckoutStep(4); // success
       refetch();
@@ -244,6 +346,7 @@ export const ReservationsPage: React.FC = () => {
     setReturnRental(rental);
     setReturnStep(1);
     setReturnSignature(null);
+    setPendingReturnSignatureFile(null);
     setEstimateData(null);
     setReturnError(null);
   };
@@ -272,12 +375,23 @@ export const ReservationsPage: React.FC = () => {
 
     try {
       setReturnError(null);
+      let finalSignatureUrl = returnSignature;
+      if (pendingReturnSignatureFile) {
+        const uploadResult = await uploadPhotoMutation.mutateAsync({
+          file: pendingReturnSignatureFile,
+          folder: 'signatures',
+          entityType: 'rental',
+          entityId: returnRental.id,
+        });
+        finalSignatureUrl = uploadResult.url;
+        setPendingReturnSignatureFile(null);
+      }
       const returnInsp = returnRental.inspections?.find((i: any) => i.type === 'RETURN');
       await returnRentalMutation.mutateAsync({
         id: returnRental.id,
         data: {
           actualReturnDate: new Date().toISOString(),
-          returnSignatureUrl: returnSignature,
+          returnSignatureUrl: finalSignatureUrl,
           comments: `Returned at odometer ${returnInsp?.odometer || '?'}.`
         }
       });
@@ -288,26 +402,136 @@ export const ReservationsPage: React.FC = () => {
     }
   };
 
+  const handleNextWalkinStep = async () => {
+    setWalkinError(null);
+    if (walkinStep === 1) {
+      if (!walkinCustomer || !walkinVehicle || !walkinStart || !walkinEnd || !walkinRate) {
+        setWalkinError(t('common.fieldsRequired'));
+        return;
+      }
+      const start = new Date(walkinStart);
+      const end = new Date(walkinEnd);
+      if (end < start) {
+        setWalkinError(t('reservations.invalidDates', 'Return date must be after start date'));
+        return;
+      }
+    }
+    if (walkinStep === 2 && isWalkinProfileIncomplete) {
+      if (!walkinLicNationalId || !walkinLicNumber || !walkinLicCountry || !walkinLicExpDate || !walkinLicPhotoUrl) {
+        setWalkinError(t('customers.licensePhotoRequired', 'All license fields and photo are required'));
+        return;
+      }
+      setWalkinIsSavingProfile(true);
+      try {
+        let finalPhotoUrl = walkinLicPhotoUrl;
+        if (walkinPendingLicenseFile) {
+          const uploadResult = await uploadPhotoMutation.mutateAsync({
+            file: walkinPendingLicenseFile,
+            folder: 'licenses',
+            entityType: 'customer',
+            entityId: walkinCustomer,
+          });
+          finalPhotoUrl = uploadResult.url;
+          setWalkinPendingLicenseFile(null);
+        }
+        await updateCustomerMutation.mutateAsync({
+          id: walkinCustomer,
+          data: {
+            nationalId: walkinLicNationalId,
+            licenseNumber: walkinLicNumber,
+            licenseCountry: walkinLicCountry,
+            licenseExpDate: new Date(walkinLicExpDate).toISOString(),
+            licensePhotoUrl: finalPhotoUrl.startsWith('blob:') ? undefined : finalPhotoUrl,
+          },
+        });
+        refetchCustomers();
+      } catch (err: any) {
+        setWalkinError(err.message || t('common.operationFailed'));
+        setWalkinIsSavingProfile(false);
+        return;
+      }
+      setWalkinIsSavingProfile(false);
+    }
+    if (walkinStep === 4) {
+      if (!walkinCardToken) {
+        setWalkinError(t('stripe.cardDetailsRequired', 'Please complete the card details'));
+        return;
+      }
+    }
+    setWalkinStep(walkinStep + 1);
+  };
+
   // Direct Walkin counter Booking
   const handleCreateWalkin = async () => {
     if (!walkinCustomer || !walkinVehicle || !walkinStart || !walkinEnd || !walkinCardToken || !walkinSignature) {
-      setWalkinError(t('common.operationFailed'));
+      setWalkinError(t('common.fieldsRequired'));
       return;
     }
 
     try {
       setWalkinError(null);
-      await createRentalMutation.mutateAsync({
+
+      // 1. Create rental first (inspection photos + signature uploaded after)
+      const created = await createRentalMutation.mutateAsync({
         customerId: walkinCustomer,
         vehicleId: walkinVehicle,
         rentalDate: new Date(walkinStart).toISOString(),
         scheduledReturnDate: new Date(walkinEnd).toISOString(),
         pricePerDay: Number(walkinRate),
-        signatureUrl: walkinSignature,
+        checkoutOdometer: Number(walkinOdometer),
+        checkoutFuelLevel: walkinFuelLevel,
         stripePaymentMethodId: walkinCardToken,
+        hasScratches: walkinHasScratches,
+        hasBrokenGlass: walkinHasBrokenGlass,
+        missingSpareTire: walkinMissingSpareTire,
+        missingJack: walkinMissingJack,
+        tireConditionFrontLeft: walkinTireFL,
+        tireConditionFrontRight: walkinTireFR,
+        tireConditionRearLeft: walkinTireRL,
+        tireConditionRearRight: walkinTireRR,
+        inspectionComments: walkinInspComments || null,
       });
 
-      closeWalkin();
+      const rentalId = created.rental?.id || created.id;
+      const inspectionId = created.inspection?.id;
+
+      // 2. Upload signature with real rental ID
+      if (pendingWalkinSignatureFile) {
+        const uploadResult = await uploadPhotoMutation.mutateAsync({
+          file: pendingWalkinSignatureFile,
+          folder: 'signatures',
+          entityType: 'rental',
+          entityId: rentalId,
+        });
+        setPendingWalkinSignatureFile(null);
+
+        await updateRentalMutation.mutateAsync({
+          id: rentalId,
+          data: { signatureUrl: uploadResult.url },
+        });
+      }
+
+      // 3. Upload inspection photos with real rental ID
+      const uploadedPhotoUrls: string[] = [];
+      for (const slot of walkinPhotoSlots) {
+        if (slot.file) {
+          try {
+            const result = await uploadPhotoMutation.mutateAsync({ file: slot.file, folder: 'inspections', entityType: 'rental', entityId: rentalId });
+            uploadedPhotoUrls.push(result.url);
+          } catch { /* skip failed uploads */ }
+        } else if (slot.value) {
+          uploadedPhotoUrls.push(slot.value);
+        }
+      }
+
+      if (uploadedPhotoUrls.length > 0 && inspectionId) {
+        await updateInspectionMutation.mutateAsync({
+          id: inspectionId,
+          data: { photoUrls: uploadedPhotoUrls },
+        });
+      }
+
+      setWalkinStep(6); // success screen
       refetch();
     } catch (err: any) {
       setWalkinError(err.message || t('common.operationFailed'));
@@ -327,10 +551,12 @@ export const ReservationsPage: React.FC = () => {
           </p>
         </div>
 
-        <Button onClick={() => setIsWalkinOpen(true)} className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4" />
-          {t('reservations.walkinBooking')}
-        </Button>
+        {canCheckout && (
+          <Button onClick={() => setIsWalkinOpen(true)} className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            {t('reservations.walkinBooking')}
+          </Button>
+        )}
       </div>
 
       {/* Filters Toolbar */}
@@ -445,7 +671,7 @@ export const ReservationsPage: React.FC = () => {
               </div>
 
               <div className="flex gap-2">
-                {r.status === 'PENDING' && (
+                {r.status === 'PENDING' && canCheckout && (
                   <Button
                     onClick={() => handleStartCheckout(r)}
                     disabled={!r.inspections?.some((i: any) => i.type === 'PICKUP')}
@@ -584,38 +810,63 @@ export const ReservationsPage: React.FC = () => {
                           />
                         </FormField>
                       </div>
+
+                      <div className="mt-3 pt-3 border-t border-border-surface/15">
+                        <LicensePhotoCapture
+                          value={counterLicensePhotoUrl}
+                          onChange={setCounterLicensePhotoUrl}
+                          onFileSelect={setPendingLicenseFile}
+                          required={true}
+                          label={t('customers.licensePhoto', 'Driver\'s License Photo')}
+                        />
+                      </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div>
-                        <span className="text-fg-tertiary block text-xs">{t('reservations.licenseNumberLabel')}</span>
-                        <span className="text-fg-main font-bold font-mono">{checkoutRental.customer.licenseNumber}</span>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <span className="text-fg-tertiary block text-xs">{t('reservations.licenseNumberLabel')}</span>
+                          <span className="text-fg-main font-bold font-mono">{checkoutRental.customer.licenseNumber}</span>
+                        </div>
+                        <div>
+                          <span className="text-fg-tertiary block text-xs">{t('reservations.expirationDate')}</span>
+                          <span className={`font-bold ${new Date(checkoutRental.customer.licenseExpDate) < new Date() ? 'text-accent-error' : 'text-emerald-500'}`}>
+                            {new Date(checkoutRental.customer.licenseExpDate).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-fg-tertiary block text-xs">{t('reservations.licenseCountryLabel')}</span>
+                          <span className="text-fg-main font-bold">{checkoutRental.customer.licenseCountry || '—'}</span>
+                        </div>
+                        <div>
+                          <span className="text-fg-tertiary block text-xs">{t('reservations.nationalIdLabel')}</span>
+                          <span className="text-fg-main font-bold">{checkoutRental.customer.nationalId}</span>
+                        </div>
+                        <div>
+                          <span className="text-fg-tertiary block text-xs">{t('reservations.profileStatus')}</span>
+                          <span className="text-emerald-500 font-bold uppercase">{checkoutRental.customer.status}</span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-fg-tertiary block text-xs">{t('reservations.expirationDate')}</span>
-                        <span className={`font-bold ${new Date(checkoutRental.customer.licenseExpDate) < new Date() ? 'text-accent-error' : 'text-emerald-500'}`}>
-                          {new Date(checkoutRental.customer.licenseExpDate).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-fg-tertiary block text-xs">{t('reservations.licenseCountryLabel')}</span>
-                        <span className="text-fg-main font-bold">{checkoutRental.customer.licenseCountry || '—'}</span>
-                      </div>
-                      <div>
-                        <span className="text-fg-tertiary block text-xs">{t('reservations.nationalIdLabel')}</span>
-                        <span className="text-fg-main font-bold">{checkoutRental.customer.nationalId}</span>
-                      </div>
-                      <div>
-                        <span className="text-fg-tertiary block text-xs">{t('reservations.profileStatus')}</span>
-                        <span className="text-emerald-500 font-bold uppercase">{checkoutRental.customer.status}</span>
-                      </div>
+
+                      {checkoutRental.customer.licensePhotoUrl && (
+                        <div className="mt-3 border-t border-border-surface/15 pt-3">
+                          <span className="text-fg-tertiary block text-xs mb-1.5 uppercase font-bold tracking-wider">{t('customers.licensePhoto', 'Driver\'s License Photo')}</span>
+                          <div className="w-full aspect-[16/10] max-h-48 rounded-xl border border-border-surface/20 overflow-hidden bg-bg-inset">
+                            <img
+                              src={getImageProxyUrl(checkoutRental.customer.licensePhotoUrl)}
+                              alt="License Record"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="secondary" onClick={() => setCheckoutStep(1)}>{t('reservations.back')}</Button>
-                  <Button onClick={handleNextCheckoutStep} isLoading={isUpdatingCustomer}>
+                  <Button onClick={handleNextCheckoutStep} isLoading={isUpdatingCustomer || isUploadingCounterPhoto}>
                     {isCheckoutCustomerProfileIncomplete ? t('reservations.saveContinue') : t('reservations.nextSignature')}
                   </Button>
                 </div>
@@ -626,13 +877,13 @@ export const ReservationsPage: React.FC = () => {
             {checkoutStep === 3 && (
               <div className="space-y-4">
                 <span className="text-xs font-semibold text-fg-secondary block">{t('reservations.signaturePrompt')}</span>
-                <SignaturePad onChange={setCheckoutSignature} />
+                <SignaturePad onChange={setCheckoutSignature} onFileSelect={setPendingCheckoutSignatureFile} />
 
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="secondary" onClick={() => setCheckoutStep(2)}>{t('reservations.back')}</Button>
                   <Button
                     onClick={handleConfirmCheckout}
-                    isLoading={createRentalMutation.isPending}
+                    isLoading={uploadPhotoMutation.isPending || createRentalMutation.isPending}
                     disabled={!checkoutSignature}
                   >
                     {t('reservations.authorizeCheckout')}
@@ -778,14 +1029,14 @@ export const ReservationsPage: React.FC = () => {
 
                 <div className="border-t border-border-surface/15 pt-4">
                   <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block mb-2">{t('reservations.returnSignaturePrompt')}</span>
-                  <SignaturePad onChange={setReturnSignature} />
+                  <SignaturePad onChange={setReturnSignature} onFileSelect={setPendingReturnSignatureFile} />
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="secondary" onClick={() => setReturnStep(1)}>{t('common.cancel')}</Button>
                   <Button
                     onClick={handleConfirmReturn}
-                    isLoading={returnRentalMutation.isPending}
+                    isLoading={uploadPhotoMutation.isPending || returnRentalMutation.isPending}
                     disabled={!returnSignature}
                   >
                     {t('reservations.confirmReturn')}
@@ -818,8 +1069,8 @@ export const ReservationsPage: React.FC = () => {
 
       {/* WALK-IN DIALOG OVERLAY */}
       {isWalkinOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in">
-          <div className="bg-bg-card border border-border-surface max-w-lg w-full rounded-3xl p-6 shadow-2xl backdrop-blur-2xl animate-slide-up relative space-y-5 overflow-y-auto max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" onClick={closeWalkin}>
+          <div className="bg-bg-card border border-border-surface max-w-lg w-full rounded-3xl p-6 shadow-2xl backdrop-blur-2xl animate-slide-up relative space-y-5 overflow-y-auto max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={closeWalkin}
               className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer z-10"
@@ -829,8 +1080,24 @@ export const ReservationsPage: React.FC = () => {
 
             <div>
               <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('reservations.counterDesk')}</span>
-              <h2 className="text-lg font-extrabold text-fg-main mt-0.5 uppercase">{t('reservations.counterWalkin')}</h2>
+              <h2 className="text-lg font-extrabold text-fg-main mt-0.5 uppercase">
+                {walkinStep === 1 && t('reservations.stepWalkinParams')}
+                {walkinStep === 2 && t('reservations.stepWalkinLicense')}
+                {walkinStep === 3 && t('reservations.stepWalkinInspection')}
+                {walkinStep === 4 && t('reservations.stepWalkinCard')}
+                {walkinStep === 5 && t('reservations.stepWalkinSignature')}
+                {walkinStep === 6 && t('reservations.stepWalkinSuccess')}
+              </h2>
             </div>
+
+            {/* Stepper Dots */}
+            {walkinStep !== 6 && (
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4, 5].map(idx => (
+                  <div key={idx} className={`h-1.5 flex-1 rounded-full ${walkinStep >= idx ? 'bg-accent-primary' : 'bg-white/10'}`} />
+                ))}
+              </div>
+            )}
 
             {walkinError && (
               <div className="p-2.5 rounded-lg bg-accent-error/15 border border-accent-error/20 text-accent-error text-xs font-semibold">
@@ -838,86 +1105,367 @@ export const ReservationsPage: React.FC = () => {
               </div>
             )}
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label={t('reservations.selectCustomer')} required>
-                  <select
-                    value={walkinCustomer}
-                    onChange={(e) => setWalkinCustomer(e.target.value)}
-                    className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none"
-                    required
-                  >
-                    <option value="">{t('reservations.chooseCustomer')}</option>
-                    {activeCustomers.map((c: any) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+            {/* Step 1: Parameters */}
+            {walkinStep === 1 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label={t('reservations.selectCustomer')} required>
+                    <select
+                      value={walkinCustomer}
+                      onChange={(e) => {
+                        setWalkinCustomer(e.target.value);
+                        const selected = customersData?.items?.find((c: any) => c.id === e.target.value);
+                        if (selected) {
+                          setWalkinLicNationalId(selected.nationalId || '');
+                          setWalkinLicNumber(selected.licenseNumber || '');
+                          setWalkinLicCountry(selected.licenseCountry || '');
+                          setWalkinLicExpDate(selected.licenseExpDate ? new Date(selected.licenseExpDate).toISOString().split('T')[0] : '');
+                          setWalkinLicPhotoUrl(selected.licensePhotoUrl || '');
+                        }
+                      }}
+                      className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
+                      required
+                    >
+                      <option value="">{t('reservations.chooseCustomer')}</option>
+                      {activeCustomers.map((c: any) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </FormField>
+
+                  <FormField label={t('reservations.selectVehicle')} required>
+                    <select
+                      value={walkinVehicle}
+                      onChange={(e) => {
+                        setWalkinVehicle(e.target.value);
+                        const selected = availableVehicles.find((v: any) => v.id === e.target.value);
+                        if (selected) {
+                          setWalkinRate(selected.vehicleType.baseDailyRate);
+                          setWalkinOdometer(selected.odometer || 0);
+                        }
+                      }}
+                      className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
+                      required
+                    >
+                      <option value="">{t('reservations.chooseCar')}</option>
+                      {availableVehicles.map((v: any) => (
+                        <option key={v.id} value={v.id}>{v.brand.name} {v.model.name} ({v.plateNumber})</option>
+                      ))}
+                    </select>
+                  </FormField>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label={t('reservations.rentalStart')} required>
+                    <Input
+                      type="date"
+                      value={walkinStart}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinStart(e.target.value)}
+                      className="!h-9 rounded-lg"
+                      required
+                    />
+                  </FormField>
+
+                  <FormField label={t('reservations.returnDate')} required>
+                    <Input
+                      type="date"
+                      value={walkinEnd}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinEnd(e.target.value)}
+                      className="!h-9 rounded-lg"
+                      required
+                    />
+                  </FormField>
+                </div>
+
+                <div>
+                  <FormField label={t('reservations.dailyRate')} required>
+                    <Input
+                      type="number"
+                      value={walkinRate}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinRate(Number(e.target.value))}
+                      className="!h-9 rounded-lg"
+                      required
+                      disabled
+                    />
+                  </FormField>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
+                  <Button type="button" variant="secondary" onClick={closeWalkin}>{t('reservations.cancel')}</Button>
+                  <Button type="button" onClick={() => setWalkinStep(2)}>{t('common.next')}</Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: License */}
+            {walkinStep === 2 && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-3">
+                  <span className="text-xs text-fg-tertiary font-bold block uppercase leading-none">
+                    {isWalkinProfileIncomplete ? t('reservations.completeProfile') : t('reservations.registeredCreds')}
+                  </span>
+
+                  {isWalkinProfileIncomplete ? (
+                    <div className="space-y-3">
+                      <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 text-xs text-amber-200">
+                        {t('reservations.profileMissing')}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <FormField label={t('reservations.nationalId')} required>
+                          <Input
+                            type="text"
+                            placeholder={t('customers.placeholderId')}
+                            value={walkinLicNationalId}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinLicNationalId(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+                        <FormField label={t('reservations.driversLicense')} required>
+                          <Input
+                            type="text"
+                            placeholder={t('customers.placeholderLicense')}
+                            value={walkinLicNumber}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinLicNumber(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+                        <FormField label={t('reservations.licenseCountry')} required>
+                          <Input
+                            type="text"
+                            placeholder={t('customers.placeholderCountry')}
+                            value={walkinLicCountry}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinLicCountry(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+                        <FormField label={t('reservations.licenseExpiry')} required>
+                          <Input
+                            type="date"
+                            value={walkinLicExpDate}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinLicExpDate(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+                      </div>
+
+                      <div className="pt-3 border-t border-border-surface/15">
+                        <LicensePhotoCapture
+                          value={walkinLicPhotoUrl}
+                          onChange={setWalkinLicPhotoUrl}
+                          onFileSelect={setWalkinPendingLicenseFile}
+                          required
+                          label={t('customers.licensePhoto', "Driver's License Photo")}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <span className="text-fg-tertiary block text-xs">{t('reservations.licenseNumberLabel')}</span>
+                          <span className="text-fg-main font-bold font-mono">{selectedWalkinCustomer?.licenseNumber}</span>
+                        </div>
+                        <div>
+                          <span className="text-fg-tertiary block text-xs">{t('reservations.expirationDate')}</span>
+                          <span className={`font-bold ${selectedWalkinCustomer?.licenseExpDate && new Date(selectedWalkinCustomer.licenseExpDate) < new Date() ? 'text-accent-error' : 'text-emerald-500'}`}>
+                            {selectedWalkinCustomer?.licenseExpDate ? new Date(selectedWalkinCustomer.licenseExpDate).toLocaleDateString() : '—'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-fg-tertiary block text-xs">{t('reservations.licenseCountryLabel')}</span>
+                          <span className="text-fg-main font-bold">{selectedWalkinCustomer?.licenseCountry || '—'}</span>
+                        </div>
+                        <div>
+                          <span className="text-fg-tertiary block text-xs">{t('reservations.nationalIdLabel')}</span>
+                          <span className="text-fg-main font-bold">{selectedWalkinCustomer?.nationalId}</span>
+                        </div>
+                        <div>
+                          <span className="text-fg-tertiary block text-xs">{t('reservations.profileStatus')}</span>
+                          <span className="text-emerald-500 font-bold uppercase">{selectedWalkinCustomer?.status}</span>
+                        </div>
+                      </div>
+
+                      {selectedWalkinCustomer?.licensePhotoUrl && (
+                        <div className="mt-3 border-t border-border-surface/15 pt-3">
+                          <span className="text-fg-tertiary block text-xs mb-1.5 uppercase font-bold tracking-wider">{t('customers.licensePhoto', "Driver's License Photo")}</span>
+                          <div className="w-full aspect-[16/10] max-h-48 rounded-xl border border-border-surface/20 overflow-hidden bg-bg-inset">
+                            <img
+                              src={getImageProxyUrl(selectedWalkinCustomer.licensePhotoUrl)}
+                              alt="License Record"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="secondary" onClick={() => setWalkinStep(1)}>{t('reservations.back')}</Button>
+                  <Button onClick={handleNextWalkinStep} isLoading={walkinIsSavingProfile}>
+                    {isWalkinProfileIncomplete ? t('reservations.saveContinue') : t('common.next')}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Vehicle Inspection */}
+            {walkinStep === 3 && (
+              <div className="space-y-4">
+                <span className="text-xs font-bold text-accent-primary uppercase tracking-widest flex items-center gap-2">
+                  <Camera className="w-3.5 h-3.5" />
+                  {t('reservations.vehicleInspection')}
+                </span>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label={t('reservations.checkoutOdometer')} required>
+                    <Input
+                      type="number"
+                      value={walkinOdometer}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinOdometer(Number(e.target.value))}
+                      className="!h-9 rounded-lg"
+                      required
+                    />
+                  </FormField>
+
+                  <FormField label={t('reservations.checkoutFuel')} required>
+                    <select
+                      value={walkinFuelLevel}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setWalkinFuelLevel(e.target.value)}
+                      className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
+                    >
+                      <option value="FULL">{t('common.fuelFull')}</option>
+                      <option value="THREE_QUARTERS">{t('common.fuelThreeQuarters')}</option>
+                      <option value="HALF">{t('common.fuelHalf')}</option>
+                      <option value="QUARTER">{t('common.fuelQuarter')}</option>
+                      <option value="EMPTY">{t('common.fuelEmpty')}</option>
+                    </select>
+                  </FormField>
+                </div>
+
+                <div className="border border-border-surface/30 p-3 rounded-xl bg-bg-surface/10 space-y-3">
+                  <span className="text-[10px] font-bold text-fg-secondary uppercase tracking-wider block">{t('reservations.damageChecklist')}</span>
+                  <div className="grid grid-cols-2 gap-3 text-xs font-semibold">
+                    <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
+                      <input type="checkbox" checked={walkinHasScratches} onChange={(e) => setWalkinHasScratches(e.target.checked)} className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary" />
+                      {t('reservations.bodyScratches')}
+                    </label>
+                    <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
+                      <input type="checkbox" checked={walkinHasBrokenGlass} onChange={(e) => setWalkinHasBrokenGlass(e.target.checked)} className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary" />
+                      {t('reservations.brokenGlass')}
+                    </label>
+                    <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
+                      <input type="checkbox" checked={walkinMissingSpareTire} onChange={(e) => setWalkinMissingSpareTire(e.target.checked)} className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary" />
+                      {t('reservations.missingSpareTire')}
+                    </label>
+                    <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
+                      <input type="checkbox" checked={walkinMissingJack} onChange={(e) => setWalkinMissingJack(e.target.checked)} className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary" />
+                      {t('reservations.missingJack')}
+                    </label>
+                  </div>
+
+                  <div className="border-t border-border-surface/10 pt-3 grid grid-cols-2 gap-4">
+                    <FormField label={t('reservations.tireFL')}>
+                      <select value={walkinTireFL} onChange={(e) => setWalkinTireFL(e.target.value)} className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none">
+                        <option value="GOOD">{t('common.tireGood')}</option>
+                        <option value="WORN">{t('common.tireWorn')}</option>
+                        <option value="DAMAGED">{t('common.tireDamaged')}</option>
+                        <option value="MISSING">{t('common.tireMissing')}</option>
+                      </select>
+                    </FormField>
+                    <FormField label={t('reservations.tireFR')}>
+                      <select value={walkinTireFR} onChange={(e) => setWalkinTireFR(e.target.value)} className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none">
+                        <option value="GOOD">{t('common.tireGood')}</option>
+                        <option value="WORN">{t('common.tireWorn')}</option>
+                        <option value="DAMAGED">{t('common.tireDamaged')}</option>
+                        <option value="MISSING">{t('common.tireMissing')}</option>
+                      </select>
+                    </FormField>
+                    <FormField label={t('reservations.tireRL')}>
+                      <select value={walkinTireRL} onChange={(e) => setWalkinTireRL(e.target.value)} className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none">
+                        <option value="GOOD">{t('common.tireGood')}</option>
+                        <option value="WORN">{t('common.tireWorn')}</option>
+                        <option value="DAMAGED">{t('common.tireDamaged')}</option>
+                        <option value="MISSING">{t('common.tireMissing')}</option>
+                      </select>
+                    </FormField>
+                    <FormField label={t('reservations.tireRR')}>
+                      <select value={walkinTireRR} onChange={(e) => setWalkinTireRR(e.target.value)} className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none">
+                        <option value="GOOD">{t('common.tireGood')}</option>
+                        <option value="WORN">{t('common.tireWorn')}</option>
+                        <option value="DAMAGED">{t('common.tireDamaged')}</option>
+                        <option value="MISSING">{t('common.tireMissing')}</option>
+                      </select>
+                    </FormField>
+                  </div>
+                </div>
+
+                <FormField label={t('reservations.inspectionComments')}>
+                  <textarea
+                    value={walkinInspComments}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setWalkinInspComments(e.target.value)}
+                    placeholder={t('reservations.inspectionCommentsPlaceholder')}
+                    className="w-full h-16 p-3 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold text-fg-secondary outline-none focus:border-accent-primary resize-none"
+                  />
+                </FormField>
+
+                {/* Photos */}
+                <div className="border border-border-surface/30 p-3 rounded-xl bg-bg-surface/10 space-y-3">
+                  <span className="text-xs font-bold text-accent-primary uppercase tracking-widest flex items-center gap-2">
+                    <Camera className="w-3.5 h-3.5" />
+                    {t('reservations.vehiclePhotos')} <span className="text-fg-tertiary font-mono">({walkinPhotoSlots.filter(s => s.value).length}/5)</span>
+                  </span>
+                  <div className="flex flex-wrap gap-3">
+                    {walkinPhotoSlots.map((slot, i) => (
+                      <div key={i} className="relative w-full sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.33%-0.5rem)] xl:w-[calc(25%-0.5625rem)] max-w-[240px] group">
+                        <FileUploader
+                          value={slot.value}
+                          onChange={(url) => updateWalkinPhotoSlot(i, url, slot.file)}
+                          onFileSelect={(file) => updateWalkinPhotoSlot(i, slot.value, file)}
+                          showCamera
+                          accept="image/*"
+                          compact
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); removeWalkinPhotoSlot(i); }}
+                          className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-bg-card border border-border-surface/40 flex items-center justify-center text-fg-tertiary hover:text-accent-error hover:border-accent-error/40 transition-all shadow-sm z-10"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
                     ))}
-                  </select>
-                </FormField>
+                    {walkinPhotoSlots.filter(s => s.value).length < 5 && (
+                      <button
+                        type="button"
+                        onClick={addWalkinPhotoSlot}
+                        className="w-full sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.33%-0.5rem)] xl:w-[calc(25%-0.5625rem)] max-w-[240px] aspect-[4/3] rounded-xl border-2 border-dashed border-border-surface/40 bg-bg-inset/50 flex flex-col items-center justify-center gap-1.5 text-fg-tertiary hover:border-accent-primary hover:text-accent-primary transition-all cursor-pointer"
+                      >
+                        <Camera className="w-5 h-5" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">{t('reservations.addPhoto', 'Add Photo')}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-                <FormField label={t('reservations.selectVehicle')} required>
-                  <select
-                    value={walkinVehicle}
-                    onChange={(e) => {
-                      setWalkinVehicle(e.target.value);
-                      const selected = availableVehicles.find((v: any) => v.id === e.target.value);
-                      if (selected) {
-                        const rates: any = { sedan: 45, suv: 75, truck: 85 };
-                        const typeName = selected.vehicleType.name.toLowerCase();
-                        setWalkinRate(rates[typeName] || 50);
-                      }
-                    }}
-                    className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none"
-                    required
-                  >
-                    <option value="">{t('reservations.chooseCar')}</option>
-                    {availableVehicles.map((v: any) => (
-                      <option key={v.id} value={v.id}>{v.brand.name} {v.model.name} ({v.plateNumber})</option>
-                    ))}
-                  </select>
-                </FormField>
+                <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
+                  <Button type="button" variant="secondary" onClick={() => setWalkinStep(2)}>{t('common.back')}</Button>
+                  <Button type="button" onClick={handleNextWalkinStep}>{t('common.next')}</Button>
+                </div>
               </div>
+            )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label={t('reservations.rentalStart')} required>
-                  <Input
-                    type="date"
-                    value={walkinStart}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinStart(e.target.value)}
-                    className="!h-9 rounded-lg"
-                    required
-                  />
-                </FormField>
-
-                <FormField label={t('reservations.returnDate')} required>
-                  <Input
-                    type="date"
-                    value={walkinEnd}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinEnd(e.target.value)}
-                    className="!h-9 rounded-lg"
-                    required
-                  />
-                </FormField>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label={t('reservations.dailyRate')} required>
-                  <Input
-                    type="number"
-                    value={walkinRate}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinRate(Number(e.target.value))}
-                    className="!h-9 rounded-lg"
-                    required
-                  />
-                </FormField>
-              </div>
-
-              <div className="border-t border-border-surface/15 pt-4">
+            {/* Step 4: Credit Card */}
+            {walkinStep === 4 && (
+              <div className="space-y-4">
                 <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block mb-2">{t('reservations.cardDetails')}</span>
                 
                 {walkinCustomer && walkinCardsList.length > 0 && (
                   <div className="mb-4 space-y-2">
                     <span className="text-[10px] font-bold text-fg-secondary uppercase tracking-wider block">
-                      {t('stripe.savedPaymentMethods', 'Saved Payment Methods')}
+                      {t('stripe.savedPaymentMethods')}
                     </span>
                     <div className="space-y-1.5">
                       {walkinCardsList.map((card: any) => (
@@ -954,11 +1502,11 @@ export const ReservationsPage: React.FC = () => {
                             type="button"
                             onClick={async (e) => {
                               e.stopPropagation();
-                              if (confirm(t('stripe.confirmRemoveCard', 'Are you sure you want to remove this card?'))) {
+                              if (confirm(t('stripe.confirmRemoveCard'))) {
                                 try {
                                   setWalkinError(null);
                                   await deleteWalkinCardMutation.mutateAsync(card.id);
-                                  setToastMessage(t('stripe.cardRemoved', 'Card removed successfully'));
+                                  setToastMessage(t('stripe.cardRemoved'));
                                   refetchWalkinSavedCards();
                                 } catch (err: any) {
                                   setWalkinError(err.message || t('common.operationFailed'));
@@ -992,7 +1540,7 @@ export const ReservationsPage: React.FC = () => {
                         />
                         <div className="text-left text-xs">
                           <p className="font-bold text-fg-main uppercase">
-                            {t('stripe.useNewCard', 'Use a new credit card')}
+                            {t('stripe.useNewCard')}
                           </p>
                         </div>
                       </div>
@@ -1007,27 +1555,57 @@ export const ReservationsPage: React.FC = () => {
                 ) : (
                   <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-2">
                     <Check className="w-3.5 h-3.5" />
-                    {t('stripe.savedCardSelected', 'Saved card selected for walk-in authorization.')}
+                    {t('stripe.savedCardSelected')}
                   </div>
                 )}
-              </div>
 
-              <div className="border-t border-border-surface/15 pt-4">
+                <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
+                  <Button type="button" variant="secondary" onClick={() => setWalkinStep(3)}>{t('common.back')}</Button>
+                  <Button type="button" onClick={handleNextWalkinStep} disabled={!walkinCardToken}>{t('common.next')}</Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 5: Signature */}
+            {walkinStep === 5 && (
+              <div className="space-y-4">
                 <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block mb-2">{t('reservations.customerSignature')}</span>
-                <SignaturePad onChange={setWalkinSignature} />
-              </div>
+                <SignaturePad onChange={setWalkinSignature} onFileSelect={setPendingWalkinSignatureFile} />
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
-                <Button type="button" variant="secondary" onClick={closeWalkin}>{t('reservations.cancel')}</Button>
-                <Button
-                  onClick={handleCreateWalkin}
-                  isLoading={createRentalMutation.isPending}
-                  disabled={!walkinCardToken || !walkinSignature}
-                >
-                  {t('reservations.createContract')}
-                </Button>
+                <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
+                  <Button type="button" variant="secondary" onClick={() => setWalkinStep(4)}>{t('common.back')}</Button>
+                  <Button
+                    onClick={handleCreateWalkin}
+                    isLoading={uploadPhotoMutation.isPending || createRentalMutation.isPending}
+                    disabled={!walkinSignature}
+                  >
+                    {t('reservations.createContract')}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Step 6: Success screen */}
+            {walkinStep === 6 && (
+              <div className="flex flex-col items-center justify-center text-center py-6 space-y-4 animate-scale-up">
+                <div className="w-14 h-14 rounded-full bg-emerald-500/10 border-2 border-emerald-500 flex items-center justify-center text-emerald-500">
+                  <Check className="w-8 h-8" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-base font-extrabold text-fg-main uppercase tracking-wider">{t('reservations.stepWalkinSuccess')}</h3>
+                  <p className="text-xs text-fg-secondary max-w-sm">
+                    {t('reservations.walkinCompleteDesc')}
+                  </p>
+                </div>
+
+                <div className="pt-4 w-full">
+                  <Button className="w-full" onClick={closeWalkin}>
+                    {t('reservations.dismiss')}
+                  </Button>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       )}

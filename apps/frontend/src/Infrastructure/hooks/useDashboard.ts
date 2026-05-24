@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api-client.js';
 
-export const useAdminDashboard = () => {
+export const useAdminDashboard = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ['dashboard-admin'],
+    enabled,
     queryFn: async () => {
       const res = await apiClient('/api/dashboard/admin');
       return res.data as {
@@ -30,9 +31,10 @@ export const useAdminDashboard = () => {
   });
 };
 
-export const useCustomerDashboard = () => {
+export const useCustomerDashboard = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ['dashboard-customer'],
+    enabled,
     queryFn: async () => {
       const res = await apiClient('/api/dashboard/customer');
       return res.data as {

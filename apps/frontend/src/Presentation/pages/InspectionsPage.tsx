@@ -497,6 +497,32 @@ export const InspectionsPage: React.FC = () => {
                       <option value="MISSING">{t('common.tireMissing')}</option>
                     </select>
                   </FormField>
+
+                  <FormField label={t('inspections.tireRLCondition')}>
+                    <select
+                      value={tireConditionRearLeft}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTireConditionRearLeft(e.target.value)}
+                      className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none"
+                    >
+                      <option value="GOOD">{t('common.tireGood')}</option>
+                      <option value="WORN">{t('common.tireWorn')}</option>
+                      <option value="DAMAGED">{t('common.tireDamaged')}</option>
+                      <option value="MISSING">{t('common.tireMissing')}</option>
+                    </select>
+                  </FormField>
+
+                  <FormField label={t('inspections.tireRRCondition')}>
+                    <select
+                      value={tireConditionRearRight}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTireConditionRearRight(e.target.value)}
+                      className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none"
+                    >
+                      <option value="GOOD">{t('common.tireGood')}</option>
+                      <option value="WORN">{t('common.tireWorn')}</option>
+                      <option value="DAMAGED">{t('common.tireDamaged')}</option>
+                      <option value="MISSING">{t('common.tireMissing')}</option>
+                    </select>
+                  </FormField>
                 </div>
               </div>
 

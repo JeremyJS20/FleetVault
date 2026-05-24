@@ -10,6 +10,8 @@ import {
   useToggleCustomerStatus,
 } from '../../Infrastructure/hooks/useCatalog.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
+import { LicensePhotoCapture } from '../components/ui/LicensePhotoCapture.js';
+import { useUploadImage } from '../../Infrastructure/hooks/useUploads.js';
 import { Button } from '../components/ui/Button.js';
 import { SearchBar } from '../components/ui/SearchBar.js';
 import { DataTable } from '../components/ui/DataTable.js';
@@ -42,17 +44,23 @@ export const CustomersPage: React.FC = () => {
   const createMutation = useCreateCustomer();
   const updateMutation = useUpdateCustomer();
   const toggleStatusMutation = useToggleCustomerStatus();
+  const uploadMutation = useUploadImage();
+
+  // Pending file to upload on form submit
+  const [pendingLicenseFile, setPendingLicenseFile] = useState<File | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   // Dialog/Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [confirmItem, setConfirmItem] = useState<any>(null);
+  const [formStep, setFormStep] = useState(1);
 
   // Form states
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [nationalId, setNationalId] = useState('');
-  const [creditCardNumber, setCreditCardNumber] = useState('');
   const [creditLimit, setCreditLimit] = useState(0);
   const [type, setType] = useState('INDIVIDUAL');
   const [licenseNumber, setLicenseNumber] = useState('');
@@ -66,8 +74,8 @@ export const CustomersPage: React.FC = () => {
 
   const resetForm = () => {
     setName('');
+    setEmail('');
     setNationalId('');
-    setCreditCardNumber('');
     setCreditLimit(0);
     setType('INDIVIDUAL');
     setLicenseNumber('');
@@ -75,19 +83,21 @@ export const CustomersPage: React.FC = () => {
     setLicenseExpDate('');
     setLicensePhotoUrl('');
     setUserId('');
+    setPendingLicenseFile(null);
     setFormError(null);
   };
 
   const handleOpenCreate = () => {
     resetForm();
     setEditingItem(null);
+    setFormStep(1);
     setIsFormOpen(true);
   };
 
   const handleOpenEdit = (item: any) => {
     setName(item.name);
+    setEmail(item.email || '');
     setNationalId(item.nationalId);
-    setCreditCardNumber(item.creditCardNumber || '');
     setCreditLimit(item.creditLimit || 0);
     setType(item.type);
     setLicenseNumber(item.licenseNumber || '');
@@ -95,8 +105,10 @@ export const CustomersPage: React.FC = () => {
     setLicenseExpDate(item.licenseExpDate ? item.licenseExpDate.split('T')[0] : '');
     setLicensePhotoUrl(item.licensePhotoUrl || '');
     setUserId(item.userId || '');
+    setPendingLicenseFile(null);
     setEditingItem(item);
     setFormError(null);
+    setFormStep(1);
     setIsFormOpen(true);
   };
 
@@ -104,31 +116,97 @@ export const CustomersPage: React.FC = () => {
     e.preventDefault();
     if (!name.trim()) return setFormError(t('customers.validationNameRequired'));
     if (!nationalId.trim()) return setFormError(t('customers.validationIdRequired'));
+    if (!email.trim()) return setFormError(t('customers.validationEmailRequired', 'Email is required'));
 
-    const payload = {
-      name,
-      nationalId,
-      creditCardNumber: creditCardNumber.trim() || undefined,
-      creditLimit: Number(creditLimit) || undefined,
-      type,
-      licenseNumber: licenseNumber.trim() || undefined,
-      licenseCountry: licenseCountry.trim() || undefined,
-      licenseExpDate: licenseExpDate ? new Date(licenseExpDate).toISOString() : undefined,
-      licensePhotoUrl: licensePhotoUrl.trim() || undefined,
-      userId: userId.trim() || undefined,
-    };
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return setFormError(t('customers.validationEmailInvalid', 'Invalid email format'));
+    }
+
+    if (formStep === 1) {
+      setFormError(null);
+      setFormStep(2);
+      return;
+    }
+
+    if (licenseExpDate) {
+      const expDate = new Date(licenseExpDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (expDate < today) {
+        return setFormError(t('customers.validationLicenseExpired'));
+      }
+    }
 
     try {
       if (editingItem) {
+        let finalPhotoUrl = licensePhotoUrl;
+
+        if (pendingLicenseFile) {
+          setIsUploadingPhoto(true);
+          setFormError(t('customers.uploadingPhoto', 'Uploading photo...'));
+          const uploadResult = await uploadMutation.mutateAsync({
+            file: pendingLicenseFile,
+            folder: 'licenses',
+            entityType: 'customer',
+            entityId: editingItem.id,
+          });
+          finalPhotoUrl = uploadResult.url;
+          setPendingLicenseFile(null);
+          setIsUploadingPhoto(false);
+        }
+
+        const payload = {
+          name,
+          email: email.trim() || undefined,
+          nationalId,
+          creditLimit: type === 'CORPORATE' ? (Number(creditLimit) || 0) : 0,
+          type,
+          licenseNumber: licenseNumber.trim() || undefined,
+          licenseCountry: licenseCountry.trim() || undefined,
+          licenseExpDate: licenseExpDate ? new Date(licenseExpDate).toISOString() : undefined,
+          licensePhotoUrl: finalPhotoUrl?.startsWith('blob:') ? undefined : (finalPhotoUrl.trim() || undefined),
+          userId: userId.trim() || undefined,
+        };
+
         await updateMutation.mutateAsync({
           id: editingItem.id,
           data: payload,
         });
         setToast({ message: t('customers.updatedSuccess'), type: 'success' });
       } else {
-        await createMutation.mutateAsync({
-          data: payload,
-        });
+        const payload = {
+          name,
+          email: email.trim() || undefined,
+          nationalId,
+          creditLimit: type === 'CORPORATE' ? (Number(creditLimit) || 0) : 0,
+          type,
+          licenseNumber: licenseNumber.trim() || undefined,
+          licenseCountry: licenseCountry.trim() || undefined,
+          licenseExpDate: licenseExpDate ? new Date(licenseExpDate).toISOString() : undefined,
+          userId: userId.trim() || undefined,
+        };
+
+        const created = await createMutation.mutateAsync({ data: payload });
+
+        if (pendingLicenseFile) {
+          setIsUploadingPhoto(true);
+          setFormError(t('customers.uploadingPhoto', 'Uploading photo...'));
+          const uploadResult = await uploadMutation.mutateAsync({
+            file: pendingLicenseFile,
+            folder: 'licenses',
+            entityType: 'customer',
+            entityId: created.id,
+          });
+          setPendingLicenseFile(null);
+          setIsUploadingPhoto(false);
+
+          await updateMutation.mutateAsync({
+            id: created.id,
+            data: { licensePhotoUrl: uploadResult.url },
+          });
+        }
+
         setToast({ message: t('customers.createdSuccess'), type: 'success' });
       }
       setIsFormOpen(false);
@@ -160,6 +238,11 @@ export const CustomersPage: React.FC = () => {
       cell: (info) => <span className="font-bold text-fg-main">{info.getValue() as string}</span>,
     },
     {
+      accessorKey: 'email',
+      header: t('customers.email', 'Email'),
+      cell: (info) => <span className="text-xs text-fg-secondary">{(info.getValue() as string) || '—'}</span>,
+    },
+    {
       accessorKey: 'nationalId',
       header: t('customers.nationalId'),
       cell: (info) => <span className="font-mono text-xs">{info.getValue() as string}</span>,
@@ -172,7 +255,13 @@ export const CustomersPage: React.FC = () => {
     {
       accessorKey: 'creditLimit',
       header: t('customers.creditLimit'),
-      cell: (info) => <span className="font-mono text-xs">{formatCurrency(info.getValue() as number || 0)}</span>,
+      cell: (info) => {
+        const item = info.row.original;
+        if (item.type === 'INDIVIDUAL') {
+          return <span className="text-fg-tertiary font-bold">—</span>;
+        }
+        return <span className="font-mono text-xs">{formatCurrency(info.getValue() as number || 0)}</span>;
+      },
     },
     {
       accessorKey: 'status',
@@ -264,108 +353,169 @@ export const CustomersPage: React.FC = () => {
       <FormModal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        title={editingItem ? t('customers.editTitle') : t('customers.createTitle')}
+        title={
+          (editingItem ? t('customers.editTitle') : t('customers.createTitle')) + 
+          ` (${formStep}/2)`
+        }
       >
-        <form onSubmit={handleFormSubmit} className="flex flex-col gap-6">
-          <FormField label={t('customers.name')} required>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('customers.placeholderName')}
-            />
-          </FormField>
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label={t('customers.nationalId')} required>
-              <Input
-                value={nationalId}
-                onChange={(e) => setNationalId(e.target.value)}
-                placeholder={t('customers.placeholderId')}
-              />
-            </FormField>
-            <SelectField
-              label={t('customers.type')}
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              options={[
-                { value: 'INDIVIDUAL', label: t('customers.individual') },
-                { value: 'CORPORATE', label: t('customers.corporate') },
-              ]}
-            />
+        <form onSubmit={handleFormSubmit} className="flex flex-col gap-5">
+          {/* Stepper Progress Indicator */}
+          <div className="flex gap-1.5 mb-1">
+            <div className={`h-1 flex-1 rounded-full ${formStep >= 1 ? 'bg-accent-primary' : 'bg-white/10'}`} />
+            <div className={`h-1 flex-1 rounded-full ${formStep >= 2 ? 'bg-accent-primary' : 'bg-white/10'}`} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label={t('customers.creditLimit')}>
-              <Input
-                type="number"
-                value={creditLimit}
-                onChange={(e) => setCreditLimit(Number(e.target.value))}
-                placeholder={t('customers.placeholderLimit')}
-              />
-            </FormField>
-            <FormField label={t('customers.creditCardNumber')}>
-              <Input
-                value={creditCardNumber}
-                onChange={(e) => setCreditCardNumber(e.target.value)}
-                placeholder={t('customers.placeholderCard')}
-              />
-            </FormField>
-          </div>
+          {/* Dynamic Step Header */}
+          <span className="text-[10px] font-extrabold text-accent-primary uppercase tracking-widest block leading-none mb-1">
+            {formStep === 1 
+              ? t('customers.stepGeneral', 'Step 1: General Info & Credit') 
+              : t('customers.stepLicense', 'Step 2: Driver Credentials')
+            }
+          </span>
 
-          <div className="border-t border-surface-border my-2 pt-2">
-            <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider mb-3">
-              {t('customers.driversLicense')}
-            </h4>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label={t('customers.licenseNumber')}>
+          {/* STEP 1: General Info & Credit */}
+          {formStep === 1 && (
+            <div className="space-y-4 animate-fade-in">
+              <FormField label={t('customers.name')} required>
                 <Input
-                  value={licenseNumber}
-                  onChange={(e) => setLicenseNumber(e.target.value)}
-                  placeholder={t('customers.placeholderLicense')}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={t('customers.placeholderName')}
+                  className="!h-9 rounded-lg"
                 />
               </FormField>
-              <FormField label={t('customers.licenseCountry')}>
+
+              <FormField label={t('customers.email', 'Email')} required>
                 <Input
-                  value={licenseCountry}
-                  onChange={(e) => setLicenseCountry(e.target.value)}
-                  placeholder={t('customers.placeholderCountry')}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={t('customers.placeholderEmail', 'customer@example.com')}
+                  className="!h-9 rounded-lg"
                 />
               </FormField>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label={t('customers.nationalId')} required>
+                  <Input
+                    value={nationalId}
+                    onChange={(e) => setNationalId(e.target.value)}
+                    placeholder={t('customers.placeholderId')}
+                    className="!h-9 rounded-lg"
+                  />
+                </FormField>
+                <SelectField
+                  label={t('customers.type')}
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  options={[
+                    { value: 'INDIVIDUAL', label: t('customers.individual') },
+                    { value: 'CORPORATE', label: t('customers.corporate') },
+                  ]}
+                />
+              </div>
+
+              {type === 'CORPORATE' && (
+                <FormField label={t('customers.creditLimit')}>
+                  <Input
+                    type="number"
+                    value={creditLimit}
+                    onChange={(e) => setCreditLimit(Number(e.target.value))}
+                    placeholder={t('customers.placeholderLimit')}
+                    className="!h-9 rounded-lg"
+                  />
+                </FormField>
+              )}
+
+              {formError && (
+                <p className="text-xs font-semibold text-red-500 bg-red-500/10 border border-red-500/20 p-3 rounded-xl">
+                  {formError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="secondary" onClick={() => setIsFormOpen(false)} type="button">
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  variant="primary"
+                  type="button"
+                  onClick={() => {
+                    if (!name.trim()) return setFormError(t('customers.validationNameRequired'));
+                    if (!nationalId.trim()) return setFormError(t('customers.validationIdRequired'));
+                    if (!email.trim()) return setFormError(t('customers.validationEmailRequired', 'Email is required'));
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(email.trim())) return setFormError(t('customers.validationEmailInvalid', 'Invalid email format'));
+                    setFormError(null);
+                    setFormStep(2);
+                  }}
+                >
+                  {t('common.next', 'Continue')}
+                </Button>
+              </div>
             </div>
+          )}
 
-            <div className="grid grid-cols-2 gap-4 mt-3">
+          {/* STEP 2: Driver's license credentials & photo */}
+          {formStep === 2 && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label={t('customers.licenseNumber')}>
+                  <Input
+                    value={licenseNumber}
+                    onChange={(e) => setLicenseNumber(e.target.value)}
+                    placeholder={t('customers.placeholderLicense')}
+                    className="!h-9 rounded-lg"
+                  />
+                </FormField>
+                <FormField label={t('customers.licenseCountry')}>
+                  <Input
+                    value={licenseCountry}
+                    onChange={(e) => setLicenseCountry(e.target.value)}
+                    placeholder={t('customers.placeholderCountry')}
+                    className="!h-9 rounded-lg"
+                  />
+                </FormField>
+              </div>
+
               <FormField label={t('customers.licenseExpDate')}>
                 <Input
                   type="date"
                   value={licenseExpDate}
                   onChange={(e) => setLicenseExpDate(e.target.value)}
+                  className="!h-9 rounded-lg"
                 />
               </FormField>
-              <FormField label={t('customers.licensePhotoUrl')}>
-                <Input
+
+              <div className="pt-1">
+                <LicensePhotoCapture
                   value={licensePhotoUrl}
-                  onChange={(e) => setLicensePhotoUrl(e.target.value)}
-                  placeholder=""
+                  onChange={setLicensePhotoUrl}
+                  onFileSelect={setPendingLicenseFile}
+                  label={t('customers.licensePhoto', "Driver's License Photo")}
                 />
-              </FormField>
+              </div>
+
+              {formError && (
+                <p className="text-xs font-semibold text-red-500 bg-red-500/10 border border-red-500/20 p-3 rounded-xl">
+                  {formError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-border-surface/15">
+                <Button variant="secondary" onClick={() => setFormStep(1)} type="button">
+                  {t('common.back', 'Back')}
+                </Button>
+                <Button
+                  variant="primary"
+                  type="submit"
+                  isLoading={createMutation.isPending || updateMutation.isPending || isUploadingPhoto}
+                >
+                  {t('common.save')}
+                </Button>
+              </div>
             </div>
-          </div>
-
-          {formError && (
-            <p className="text-xs font-semibold text-red-500 bg-red-500/10 border border-red-500/20 p-3 rounded-xl">
-              {formError}
-            </p>
           )}
-
-          <div className="flex justify-end gap-3 mt-2">
-            <Button variant="secondary" onClick={() => setIsFormOpen(false)} type="button">
-              {t('common.cancel')}
-            </Button>
-            <Button variant="primary" type="submit" isLoading={createMutation.isPending || updateMutation.isPending}>
-              {t('common.save')}
-            </Button>
-          </div>
         </form>
       </FormModal>
 

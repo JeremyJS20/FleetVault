@@ -1031,3 +1031,66 @@ npm install -D @types/react-signature-canvas --workspace=apps/frontend
 - MyRentals shows own bookings with correct status badges
 - Customer cannot access admin routes, admin cannot access customer-only endpoints
 - Vehicle cleaning toggle (DIRTY → CLEAN) restores AVAILABLE status
+
+---
+
+## Corporate Checkout & PO Billing Addendum
+
+### Goal
+Implement complete corporate (B2B) billing support for both self-service reservations and counter walk-in rentals. For customers classified as `CORPORATE`, the checkout flow will bypass credit card inputs (Stripe) and instead require a Purchase Order (PO) number. Transactions will be logged as PO invoices against their corporate `creditLimit`.
+
+### Proposed Changes
+
+#### Common Package
+* **[MODIFY] [reservation.ts](file:///c:/Users/jsjer/OneDrive/Bureaublad/New%20folder/OpenSource%20II/rent-car/packages/common/src/schemas/reservation.ts)**: Make `stripePaymentMethodId` optional in `CreateReservationSchema` and add optional `purchaseOrderNumber: z.string().optional().nullable()`.
+
+#### Backend Services
+* **[MODIFY] [reservation.service.ts](file:///c:/Users/jsjer/OneDrive/Bureaublad/New%20folder/OpenSource%20II/rent-car/apps/backend/src/Application/services/reservation.service.ts)**:
+  * Check `customer.type === 'CORPORATE'` in `createReservation`.
+  * If corporate:
+    * Enforce non-empty `purchaseOrderNumber`.
+    * Calculate outstanding balance of customer's active/pending rentals (`status IN ('ACTIVE', 'PENDING')`).
+    * Assert `totalEstimatedCost <= creditLimit - outstandingBalance`.
+    * Skip Stripe pre-authorization hold and payment method attachment.
+    * Record rental as `PENDING` with `purchaseOrderNumber` saved.
+    * Create a `TransactionLedger` entry with type `PO_INVOICE` and amount equal to `totalEstimatedCost`.
+  * Update `cancelReservation` to handle corporate reservations:
+    * If corporate, skip Stripe hold cancellations.
+    * If late cancellation (<24h), log the penalty in the ledger with type `PO_INVOICE` and `purchaseOrderNumber`.
+
+* **[MODIFY] [rental.service.ts](file:///c:/Users/jsjer/OneDrive/Bureaublad/New%20folder/OpenSource%20II/rent-car/apps/backend/src/Application/services/rental.service.ts)**:
+  * Update `createWalkInRental` arguments: make `stripePaymentMethodId` optional and add optional `purchaseOrderNumber`.
+  * If corporate:
+    * Require `purchaseOrderNumber` and skip Stripe pre-auth hold.
+    * Check credit limit validation (limit vs outstanding balance).
+    * Create ledger entry with type `PO_INVOICE`.
+  * Update `processReturn` return processing:
+    * If corporate, bypass the Stripe payment capture and extra charges block.
+    * Create return transaction ledger entry with type `PO_INVOICE`.
+
+#### Frontend Hooks & Components
+* **[MODIFY] [useReservations.ts](file:///c:/Users/jsjer/OneDrive/Bureaublad/New%20folder/OpenSource%20II/rent-car/apps/frontend/src/Infrastructure/hooks/useReservations.ts)**: Update `useCreateReservation` type signature to accept optional `purchaseOrderNumber`.
+* **[MODIFY] [useCatalog.ts](file:///c:/Users/jsjer/OneDrive/Bureaublad/New%20folder/OpenSource%20II/rent-car/apps/frontend/src/Infrastructure/hooks/useCatalog.ts)**: Add `useMyCustomerProfile` query hook fetching `/api/customers/me`.
+* **[MODIFY] [CatalogPage.tsx](file:///c:/Users/jsjer/OneDrive/Bureaublad/New%20folder/OpenSource%20II/rent-car/apps/frontend/src/Presentation/pages/CatalogPage.tsx)**:
+  * Fetch current customer profile using `useMyCustomerProfile()`.
+  * In Step 2 (Payment/Billing) of the booking modal:
+    * If corporate, hide the Stripe card element and show a Purchase Order Number input field.
+    * Query active customer reservations to show remaining credit limit. Warn if the total cost exceeds remaining credit.
+  * In `handleConfirmBooking`, send `purchaseOrderNumber` instead of `stripePaymentMethodId`.
+* **[MODIFY] [ReservationsPage.tsx](file:///c:/Users/jsjer/OneDrive/Bureaublad/New%20folder/OpenSource%20II/rent-car/apps/frontend/src/Presentation/pages/ReservationsPage.tsx)**:
+  * In walk-in step 2:
+    * Detect if the selected customer is corporate.
+    * If corporate, hide Stripe Elements and show a Purchase Order input.
+    * Add validations to prevent proceeding if PO is missing or cost exceeds remaining credit.
+  * In `handleCreateWalkin`, submit the rental with the PO number and bypass Stripe properties.
+
+#### Localization
+* **[MODIFY] [translation.json (EN)](file:///c:/Users/jsjer/OneDrive/Bureaublad/New%20folder/OpenSource%20II/rent-car/apps/frontend/src/locales/en/translation.json)** and **[translation.json (ES)](file:///c:/Users/jsjer/OneDrive/Bureaublad/New%20folder/OpenSource%20II/rent-car/apps/frontend/src/locales/es/translation.json)**:
+  * Add labels for purchase orders, credit line details, and validation errors.
+
+### Verification Plan
+* **Automated & Manual Tests:**
+  * Register a corporate user, set their `creditLimit` via admin Customers CRUD.
+  * Attempt self-checkout from customer portal: verify the checkout requests a PO number, skips card inputs, and verifies credit limit bounds.
+  * Attempt walk-in checkout via admin counter: select corporate client, verify PO input validation, check credit limit enforcement, and verify the transaction is logged as `PO_INVOICE`.
+  * Complete return check-in: verify Stripe hold capture is bypassed, final invoice is logged, and vehicle returns to list.

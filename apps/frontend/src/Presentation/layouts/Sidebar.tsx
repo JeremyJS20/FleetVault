@@ -79,6 +79,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
     }
   ];
 
+  const filteredAdminGroups = adminGroups.map((group) => {
+    const links = group.links.filter((link) => {
+      if (user?.role === 'INSPECTOR') {
+        return ['/admin/dashboard', '/admin/reservations', '/admin/inspections', '/admin/vehicles'].includes(link.to);
+      }
+      if (user?.role === 'AGENT') {
+        return !['/admin/employees', '/admin/seasonal-rates', '/admin/fee-config', '/admin/settings'].includes(link.to);
+      }
+      return true;
+    });
+    return { ...group, links };
+  }).filter((group) => group.links.length > 0);
+
   return (
     <aside className="w-64 h-screen sticky top-0 bg-bg-card/45 border-r border-border-surface/40 backdrop-blur-xl flex flex-col justify-between p-5 overflow-y-auto">
       <div className="space-y-6">
@@ -117,7 +130,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
         {/* Navigation */}
         <nav className="flex flex-col gap-5">
           {role === 'admin' ? (
-            adminGroups.map((group) => (
+            filteredAdminGroups.map((group) => (
               <div key={group.titleKey} className="flex flex-col gap-1.5">
                 <span className="text-xs font-bold uppercase tracking-wider text-fg-tertiary px-3">
                   {t(group.titleKey)}

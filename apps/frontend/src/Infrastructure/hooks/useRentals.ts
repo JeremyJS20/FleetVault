@@ -33,16 +33,28 @@ export const useCreateRental = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
-      rentalId?: string; // set for activating reservation
+      rentalId?: string;
       customerId?: string;
       checkoutEmployeeId?: string;
       vehicleId?: string;
       rentalDate?: string;
       scheduledReturnDate?: string;
       pricePerDay?: number;
-      signatureUrl: string;
+      checkoutOdometer?: number;
+      checkoutFuelLevel?: string;
+      signatureUrl?: string;
       comments?: string | null;
       stripePaymentMethodId?: string;
+      hasScratches?: boolean;
+      hasBrokenGlass?: boolean;
+      missingSpareTire?: boolean;
+      missingJack?: boolean;
+      tireConditionFrontLeft?: string;
+      tireConditionFrontRight?: string;
+      tireConditionRearLeft?: string;
+      tireConditionRearRight?: string;
+      photoUrls?: string[];
+      inspectionComments?: string | null;
     }) => {
       const res = await apiClient('/api/rentals', {
         method: 'POST',

@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { prisma } from '../../Infrastructure/db.js';
 import { NotFoundError, ValidationError, ConflictError } from '../../Domain/errors/index.js';
 import { StripeService } from './stripe.service.js';
@@ -584,7 +585,7 @@ export class CatalogService {
   // ==========================================
   // CUSTOMERS
   // ==========================================
-  async listCustomers(filters: { search?: string; status?: string; type?: string; page?: number; limit?: number }) {
+  async listCustomers(filters: { search?: string; status?: string; type?: string; excludeWithActiveRentals?: boolean; page?: number; limit?: number }) {
     const page = filters.page || 1;
     const limit = filters.limit || 10;
     const skip = (page - 1) * limit;
@@ -601,37 +602,100 @@ export class CatalogService {
       ];
     }
 
+    if (filters.excludeWithActiveRentals) {
+      const activeRenterIds: string[] = await prisma.rental.findMany({
+        where: { status: 'ACTIVE' },
+        select: { customerId: true },
+        distinct: ['customerId']
+      }).then(rows => rows.map(r => r.customerId));
+      if (activeRenterIds.length > 0) {
+        where.NOT = { id: { in: activeRenterIds } };
+      }
+    }
+
     const [items, total] = await Promise.all([
       prisma.customer.findMany({
         where,
         skip,
         take: limit,
+        include: { user: true },
         orderBy: { name: 'asc' }
       }),
       prisma.customer.count({ where })
     ]);
 
-    return { items, total, page, limit, pages: Math.ceil(total / limit) };
+    const itemsWithEmail = items.map(item => ({
+      ...item,
+      email: item.user?.email || null,
+      user: undefined
+    }));
+
+    return { items: itemsWithEmail, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
   async getCustomerById(id: string) {
-    const item = await prisma.customer.findUnique({ where: { id } });
+    const item = await prisma.customer.findUnique({
+      where: { id },
+      include: { user: true }
+    });
     if (!item) throw new NotFoundError('Customer not found');
-    return item;
+    return {
+      ...item,
+      email: item.user?.email || null,
+      user: undefined
+    };
   }
 
   async createCustomer(input: CreateCustomerInput) {
     const existing = await prisma.customer.findUnique({ where: { nationalId: input.nationalId } });
     if (existing) throw new ConflictError('National ID already exists');
 
-    if (input.userId) {
-      const user = await prisma.user.findUnique({ where: { id: input.userId } });
-      if (!user) throw new ValidationError('User profile does not exist');
-      const uniqueUser = await prisma.customer.findUnique({ where: { userId: input.userId } });
+    let finalUserId = input.userId || null;
+    if (input.email) {
+      const emailLower = input.email.toLowerCase().trim();
+      const existingUser = await prisma.user.findUnique({
+        where: { email: emailLower },
+        include: { customer: true }
+      });
+      if (existingUser) {
+        if (existingUser.customer) {
+          throw new ConflictError('A customer profile with this email address already exists');
+        }
+        finalUserId = existingUser.id;
+      } else {
+        // Create a new user with a temporary password
+        const tempPassword = Math.random().toString(36).slice(-10);
+        const bcrypt = await import('bcryptjs');
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(tempPassword, salt);
+
+        const newUser = await prisma.user.create({
+          data: {
+            email: emailLower,
+            passwordHash: hashedPassword,
+            role: 'CUSTOMER'
+          }
+        });
+        finalUserId = newUser.id;
+
+        // Send email with credentials
+        try {
+          const { EmailService } = await import('./email.service.js');
+          const emailService = new EmailService();
+          await emailService.sendTemporaryPassword(emailLower, tempPassword);
+        } catch (err) {
+          console.error('Failed to send credentials email, logging to console:', err);
+          console.log(`[DEVELOPER FALLBACK] New Customer User Created: Email=${emailLower}, TempPassword=${tempPassword}`);
+        }
+      }
+    }
+
+    if (finalUserId) {
+      const uniqueUser = await prisma.customer.findUnique({ where: { userId: finalUserId } });
       if (uniqueUser) throw new ConflictError('User is already linked to another customer');
     }
 
-    return await prisma.customer.create({
+    const newCustomer = await prisma.customer.create({
       data: {
         name: input.name,
         nationalId: input.nationalId,
@@ -643,9 +707,16 @@ export class CatalogService {
         licenseCountry: input.licenseCountry,
         licenseExpDate: new Date(input.licenseExpDate),
         licensePhotoUrl: input.licensePhotoUrl || null,
-        userId: input.userId || null
-      }
+        userId: finalUserId
+      },
+      include: { user: true }
     });
+
+    return {
+      ...newCustomer,
+      email: newCustomer.user?.email || null,
+      user: undefined
+    };
   }
 
   async updateCustomer(id: string, input: UpdateCustomerInput) {
@@ -656,14 +727,55 @@ export class CatalogService {
       if (existing) throw new ConflictError('National ID already exists');
     }
 
-    if (input.userId && input.userId !== current.userId) {
-      const user = await prisma.user.findUnique({ where: { id: input.userId } });
-      if (!user) throw new ValidationError('User profile does not exist');
-      const uniqueUser = await prisma.customer.findUnique({ where: { userId: input.userId } });
+    let finalUserId = input.userId !== undefined ? input.userId : current.userId;
+
+    if (input.email) {
+      const emailLower = input.email.toLowerCase().trim();
+      const otherUser = await prisma.user.findFirst({
+        where: {
+          email: emailLower,
+          NOT: { id: current.userId || '' }
+        }
+      });
+      if (otherUser) throw new ConflictError('Email address is already in use by another user');
+
+      if (current.userId) {
+        await prisma.user.update({
+          where: { id: current.userId },
+          data: { email: emailLower }
+        });
+      } else {
+        const tempPassword = Math.random().toString(36).slice(-10);
+        const bcrypt = await import('bcryptjs');
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(tempPassword, salt);
+
+        const newUser = await prisma.user.create({
+          data: {
+            email: emailLower,
+            passwordHash: hashedPassword,
+            role: 'CUSTOMER'
+          }
+        });
+        finalUserId = newUser.id;
+
+        try {
+          const { EmailService } = await import('./email.service.js');
+          const emailService = new EmailService();
+          await emailService.sendTemporaryPassword(emailLower, tempPassword);
+        } catch (err) {
+          console.error('Failed to send welcome credentials email, logging to console:', err);
+          console.log(`[DEVELOPER FALLBACK] New Customer User Created on Update: Email=${emailLower}, TempPassword=${tempPassword}`);
+        }
+      }
+    }
+
+    if (finalUserId && finalUserId !== current.userId) {
+      const uniqueUser = await prisma.customer.findUnique({ where: { userId: finalUserId } });
       if (uniqueUser) throw new ConflictError('User is already linked to another customer');
     }
 
-    return await prisma.customer.update({
+    const updatedCustomer = await prisma.customer.update({
       where: { id },
       data: {
         name: input.name,
@@ -676,9 +788,16 @@ export class CatalogService {
         licenseCountry: input.licenseCountry,
         licenseExpDate: input.licenseExpDate ? new Date(input.licenseExpDate) : undefined,
         licensePhotoUrl: input.licensePhotoUrl !== undefined ? input.licensePhotoUrl : undefined,
-        userId: input.userId !== undefined ? input.userId : undefined
-      }
+        userId: finalUserId
+      },
+      include: { user: true }
     });
+
+    return {
+      ...updatedCustomer,
+      email: updatedCustomer.user?.email || null,
+      user: undefined
+    };
   }
 
   async toggleCustomerStatus(id: string) {
@@ -771,41 +890,67 @@ export class CatalogService {
         where,
         skip,
         take: limit,
-        orderBy: { name: 'asc' }
+        orderBy: { name: 'asc' },
+        include: { user: { select: { email: true, role: true } } }
       }),
       prisma.employee.count({ where })
     ]);
 
-    return { items, total, page, limit, pages: Math.ceil(total / limit) };
+    const mapped = items.map(({ user, ...emp }) => ({
+      ...emp,
+      email: user?.email || '',
+      role: user?.role || ''
+    }));
+
+    return { items: mapped, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
   async getEmployeeById(id: string) {
-    const item = await prisma.employee.findUnique({ where: { id } });
+    const item = await prisma.employee.findUnique({
+      where: { id },
+      include: { user: { select: { email: true, role: true } } }
+    });
     if (!item) throw new NotFoundError('Employee not found');
-    return item;
+    const { user, ...emp } = item;
+    return { ...emp, email: user?.email || '', role: user?.role || '' };
   }
 
   async createEmployee(input: CreateEmployeeInput) {
     const existing = await prisma.employee.findUnique({ where: { nationalId: input.nationalId } });
     if (existing) throw new ConflictError('National ID already registered for an employee');
 
-    if (input.userId) {
-      const user = await prisma.user.findUnique({ where: { id: input.userId } });
-      if (!user) throw new ValidationError('User profile does not exist');
-      const uniqueUser = await prisma.employee.findUnique({ where: { userId: input.userId } });
-      if (uniqueUser) throw new ConflictError('User is already linked to another employee');
-    }
+    const existingUser = await prisma.user.findUnique({ where: { email: input.email } });
+    if (existingUser) throw new ConflictError('Email already registered');
 
-    return await prisma.employee.create({
-      data: {
-        name: input.name,
-        nationalId: input.nationalId,
-        commissionPercentage: input.commissionPercentage,
-        hireDate: new Date(input.hireDate),
-        shift: input.shift,
-        status: 'ACTIVE',
-        userId: input.userId || null
-      }
+    const tempPassword = Math.random().toString(36).slice(-10);
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    return await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: input.email,
+          passwordHash,
+          role: input.role,
+        }
+      });
+
+      const employee = await tx.employee.create({
+        data: {
+          name: input.name,
+          nationalId: input.nationalId,
+          commissionPercentage: input.commissionPercentage,
+          hireDate: new Date(input.hireDate),
+          shift: input.shift,
+          status: 'ACTIVE',
+          userId: user.id
+        }
+      });
+
+      const { EmailService } = await import('./email.service.js');
+      const emailService = new EmailService();
+      await emailService.sendTemporaryPassword(input.email, tempPassword).catch(() => {});
+
+      return employee;
     });
   }
 
@@ -817,11 +962,22 @@ export class CatalogService {
       if (existing) throw new ConflictError('National ID already registered for an employee');
     }
 
-    if (input.userId && input.userId !== current.userId) {
-      const user = await prisma.user.findUnique({ where: { id: input.userId } });
-      if (!user) throw new ValidationError('User profile does not exist');
-      const uniqueUser = await prisma.employee.findUnique({ where: { userId: input.userId } });
-      if (uniqueUser) throw new ConflictError('User is already linked to another employee');
+    if (current.userId) {
+      const userData: any = {};
+      if (input.email) userData.email = input.email;
+      if (input.role) userData.role = input.role;
+      if (Object.keys(userData).length) {
+        if (input.email) {
+          const existingUser = await prisma.user.findUnique({ where: { email: input.email } });
+          if (existingUser && existingUser.id !== current.userId) {
+            throw new ConflictError('Email already registered');
+          }
+        }
+        await prisma.user.update({
+          where: { id: current.userId },
+          data: userData
+        });
+      }
     }
 
     return await prisma.employee.update({
@@ -832,8 +988,7 @@ export class CatalogService {
         commissionPercentage: input.commissionPercentage,
         hireDate: input.hireDate ? new Date(input.hireDate) : undefined,
         shift: input.shift,
-        status: input.status,
-        userId: input.userId !== undefined ? input.userId : undefined
+        status: input.status
       }
     });
   }
@@ -1072,9 +1227,16 @@ export class CatalogService {
   }
 
   async getCustomerByUserId(userId: string) {
-    const item = await prisma.customer.findUnique({ where: { userId } });
+    const item = await prisma.customer.findUnique({
+      where: { userId },
+      include: { user: true }
+    });
     if (!item) throw new NotFoundError('Customer profile not found for this user');
-    return item;
+    return {
+      ...item,
+      email: item.user?.email || null,
+      user: undefined
+    };
   }
 
   async updateCustomerByUserId(userId: string, input: UpdateCustomerInput) {
