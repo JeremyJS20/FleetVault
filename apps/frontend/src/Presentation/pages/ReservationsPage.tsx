@@ -84,12 +84,15 @@ export const ReservationsPage: React.FC = () => {
   const [walkinInspComments, setWalkinInspComments] = useState('');
   interface VehiclePhotoSlot { value: string; file: File | null }
   const [walkinPhotoSlots, setWalkinPhotoSlots] = useState<VehiclePhotoSlot[]>([]);
-  const updateWalkinPhotoSlot = (index: number, value: string, file: File | null) => {
-    setWalkinPhotoSlots(prev => prev.map((s, i) => i === index ? { value, file } : s));
+  const updateWalkinPhotoSlotValue = (index: number, value: string) => {
+    setWalkinPhotoSlots(prev => prev.map((s, i) => i === index ? { ...s, value } : s));
+  };
+  const updateWalkinPhotoSlotFile = (index: number, file: File | null) => {
+    setWalkinPhotoSlots(prev => prev.map((s, i) => i === index ? { ...s, file } : s));
   };
   const removeWalkinPhotoSlot = (index: number) => {
     const slot = walkinPhotoSlots[index];
-    if (slot.value.startsWith('blob:')) URL.revokeObjectURL(slot.value);
+    if (slot?.value?.startsWith('blob:')) URL.revokeObjectURL(slot.value);
     setWalkinPhotoSlots(prev => prev.filter((_, i) => i !== index));
   };
   const addWalkinPhotoSlot = () => {
@@ -1422,8 +1425,8 @@ export const ReservationsPage: React.FC = () => {
                       <div key={i} className="relative w-full sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.33%-0.5rem)] xl:w-[calc(25%-0.5625rem)] max-w-[240px] group">
                         <FileUploader
                           value={slot.value}
-                          onChange={(url) => updateWalkinPhotoSlot(i, url, slot.file)}
-                          onFileSelect={(file) => updateWalkinPhotoSlot(i, slot.value, file)}
+                          onChange={(url) => updateWalkinPhotoSlotValue(i, url)}
+                          onFileSelect={(file) => updateWalkinPhotoSlotFile(i, file)}
                           showCamera
                           accept="image/*"
                           compact
