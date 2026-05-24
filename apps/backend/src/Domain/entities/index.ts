@@ -108,7 +108,6 @@ export interface Inspection {
   employeeId: string;
   hasScratches: boolean;
   fuelGaugeLevel: string;
-  fuelGaugePhotoUrl: string;
   missingSpareTire: boolean;
   missingJack: boolean;
   hasBrokenGlass: boolean;

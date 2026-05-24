@@ -8,7 +8,6 @@ interface OfflineInspection {
   customerId?: string | null;
   hasScratches: boolean;
   fuelGaugeLevel: string;
-  fuelGaugePhotoUrl: string; // Base64 or local URL representation
   missingSpareTire: boolean;
   missingJack: boolean;
   hasBrokenGlass: boolean;

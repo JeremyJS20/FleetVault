@@ -10,7 +10,6 @@ export const InspectionSchema = z.object({
   employeeId: z.string(),
   hasScratches: z.boolean(),
   fuelGaugeLevel: z.enum(FuelLevel),
-  fuelGaugePhotoUrl: z.string(), // Mandatory fuel gauge photo
   missingSpareTire: z.boolean(),
   missingJack: z.boolean(),
   hasBrokenGlass: z.boolean(),
@@ -33,7 +32,6 @@ export const CreateInspectionSchema = z.object({
   employeeId: z.string().optional().nullable(),
   hasScratches: z.boolean(),
   fuelGaugeLevel: z.enum(FuelLevel),
-  fuelGaugePhotoUrl: z.string().url('Mandatory fuel gauge photo URL is required'),
   missingSpareTire: z.boolean(),
   missingJack: z.boolean(),
   hasBrokenGlass: z.boolean(),

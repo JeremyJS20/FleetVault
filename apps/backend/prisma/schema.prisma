@@ -134,7 +134,6 @@ model Inspection {
   employeeId              String
   hasScratches            Boolean  @default(false)
   fuelGaugeLevel          String
-  fuelGaugePhotoUrl       String
   missingSpareTire        Boolean  @default(false)
   missingJack             Boolean  @default(false)
   hasBrokenGlass          Boolean  @default(false)

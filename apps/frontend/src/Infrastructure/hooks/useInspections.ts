@@ -38,7 +38,6 @@ export const useCreateInspection = () => {
       employeeId?: string;
       hasScratches: boolean;
       fuelGaugeLevel: string;
-      fuelGaugePhotoUrl: string;
       missingSpareTire: boolean;
       missingJack: boolean;
       hasBrokenGlass: boolean;

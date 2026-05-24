@@ -31,27 +31,11 @@ export const NetworkStatusProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const uploadInspection = async (inspection: any) => {
-    // 1. If photo is base64, upload first
-    let finalFuelPhoto = inspection.fuelGaugePhotoUrl;
-    if (finalFuelPhoto && finalFuelPhoto.startsWith('data:image')) {
-      try {
-        const uploadRes = await apiClient('/api/uploads', {
-          method: 'POST',
-          body: JSON.stringify({ fileData: finalFuelPhoto, fileName: 'offline-fuel.png' })
-        });
-        finalFuelPhoto = uploadRes.data.url;
-      } catch (err) {
-        console.error('Failed to upload offline fuel photo, fallback to data url:', err);
-      }
-    }
-
-    // Upload main inspection
     return await apiClient('/api/inspections', {
       method: 'POST',
       body: JSON.stringify({
         ...inspection,
-        fuelGaugePhotoUrl: finalFuelPhoto,
-        id: undefined, // let backend assign uuid
+        id: undefined,
         queuedAt: undefined
       })
     });

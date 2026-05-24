@@ -11,7 +11,8 @@ import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
 import { Input } from '../components/ui/Input.js';
 import { FormField } from '../components/ui/FormField.js';
-import { AlertCircle, Camera, Check, CheckCircle2, ClipboardCheck, AlertTriangle } from 'lucide-react';
+import { AlertCircle, Camera, CheckCircle2, ClipboardCheck, AlertTriangle, X } from 'lucide-react';
+import { FileUploader } from '../components/ui/FileUploader.js';
 
 export const InspectionsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -35,7 +36,6 @@ export const InspectionsPage: React.FC = () => {
   const [selectedRental, setSelectedRental] = useState<any | null>(null);
   const [odometer, setOdometer] = useState(0);
   const [fuelGaugeLevel, setFuelGaugeLevel] = useState('FULL');
-  const [fuelGaugePhotoUrl, setFuelGaugePhotoUrl] = useState('');
   const [hasScratches, setHasScratches] = useState(false);
   const [hasBrokenGlass, setHasBrokenGlass] = useState(false);
   const [missingSpareTire, setMissingSpareTire] = useState(false);
@@ -45,10 +45,24 @@ export const InspectionsPage: React.FC = () => {
   const [tireConditionRearLeft, setTireConditionRearLeft] = useState('GOOD');
   const [tireConditionRearRight, setTireConditionRearRight] = useState('GOOD');
   const [comments, setComments] = useState('');
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  interface VehiclePhotoSlot { value: string; file: File | null }
+  const [vehiclePhotoSlots, setVehiclePhotoSlots] = useState<VehiclePhotoSlot[]>([]);
 
-  // Photo uploading states
-  const [isUploadingFuel, setIsUploadingFuel] = useState(false);
+  const updateVehiclePhotoSlotValue = (index: number, value: string) => {
+    setVehiclePhotoSlots(prev => prev.map((s, i) => i === index ? { ...s, value } : s));
+  };
+  const updateVehiclePhotoSlotFile = (index: number, file: File | null) => {
+    setVehiclePhotoSlots(prev => prev.map((s, i) => i === index ? { ...s, file } : s));
+  };
+  const removeVehiclePhotoSlot = (index: number) => {
+    const slot = vehiclePhotoSlots[index];
+    if (slot?.value.startsWith('blob:')) URL.revokeObjectURL(slot.value);
+    setVehiclePhotoSlots(prev => prev.filter((_, i) => i !== index));
+  };
+  const addVehiclePhotoSlot = () => {
+    if (vehiclePhotoSlots.length >= 5) return;
+    setVehiclePhotoSlots(prev => [...prev, { value: '', file: null }]);
+  };
 
   // Queries
   const { data: inspectionsData, isLoading: isInspectionsLoading, refetch } = useInspectionsList({ search, type: filterType, status: filterStatus, page, limit });
@@ -62,62 +76,41 @@ export const InspectionsPage: React.FC = () => {
   const createInspectionMutation = useCreateInspection();
   const uploadImageMutation = useUploadImage();
 
-  const handleFuelPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setIsUploadingFuel(true);
-      setErrorMsg(null);
-
-      if (!isOnline) {
-        // If offline, store image locally as a base64 Data URL temporarily
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setFuelGaugePhotoUrl(reader.result as string);
-          setIsUploadingFuel(false);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        const uploadResult = await uploadImageMutation.mutateAsync(file);
-        setFuelGaugePhotoUrl(uploadResult.url);
-        setIsUploadingFuel(false);
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || t('common.operationFailed'));
-      setFuelGaugePhotoUrl('https://images.unsplash.com/photo-1551524559-8af4e6624178?auto=format&fit=crop&q=80&w=200');
-      setIsUploadingFuel(false);
-    }
-  };
-
-
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rentalId || !fuelGaugePhotoUrl) {
+    if (!rentalId) {
       setErrorMsg(t('common.operationFailed'));
       return;
     }
 
-    const payload = {
-      rentalId,
-      type,
-      hasScratches,
-      fuelGaugeLevel,
-      fuelGaugePhotoUrl,
-      missingSpareTire,
-      missingJack,
-      hasBrokenGlass,
-      tireConditionFrontLeft,
-      tireConditionFrontRight,
-      tireConditionRearLeft,
-      tireConditionRearRight,
-      odometer,
-      photoUrls,
-      comments: comments || null
-    };
-
     try {
       setErrorMsg(null);
+
+      const uploadedPhotoUrls: string[] = [];
+      for (const slot of vehiclePhotoSlots) {
+        if (slot.file && isOnline) {
+          const uploadResult = await uploadImageMutation.mutateAsync({ file: slot.file, folder: 'inspections', entityType: 'rental', entityId: rentalId });
+          uploadedPhotoUrls.push(uploadResult.url);
+        }
+      }
+
+      const payload = {
+        rentalId,
+        type,
+        hasScratches,
+        fuelGaugeLevel,
+        missingSpareTire,
+        missingJack,
+        hasBrokenGlass,
+        tireConditionFrontLeft,
+        tireConditionFrontRight,
+        tireConditionRearLeft,
+        tireConditionRearRight,
+        odometer,
+        photoUrls: uploadedPhotoUrls,
+        comments: comments || null
+      };
+
       if (!isOnline) {
         // Queue Offline
         await queueOfflineInspection(payload);
@@ -137,12 +130,14 @@ export const InspectionsPage: React.FC = () => {
   };
 
   const resetForm = () => {
+    vehiclePhotoSlots.forEach(s => { if (s.value.startsWith('blob:')) URL.revokeObjectURL(s.value); });
+    setVehiclePhotoSlots([]);
     setType('PICKUP');
     setRentalId('');
     setSelectedRental(null);
     setOdometer(0);
     setFuelGaugeLevel('FULL');
-    setFuelGaugePhotoUrl('');
+
     setHasScratches(false);
     setHasBrokenGlass(false);
     setMissingSpareTire(false);
@@ -152,7 +147,6 @@ export const InspectionsPage: React.FC = () => {
     setTireConditionRearLeft('GOOD');
     setTireConditionRearRight('GOOD');
     setComments('');
-    setPhotoUrls([]);
   };
 
   return (
@@ -392,29 +386,41 @@ export const InspectionsPage: React.FC = () => {
                 </FormField>
               </div>
 
-              {/* Fuel photo camera attachment */}
-              <div className="border border-border-surface/30 p-3 rounded-xl bg-bg-surface/10 space-y-2">
-                <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block">{t('inspections.fuelGaugeAttachment')}</span>
-                
-                <div className="flex items-center gap-3">
-                  <label className="h-9 px-4 rounded-lg bg-bg-inset border border-border-surface/40 flex items-center justify-center gap-2 cursor-pointer text-xs font-semibold hover:bg-bg-surface text-fg-secondary">
-                    <Camera className="w-4 h-4 text-accent-primary" />
-                    {t('inspections.takePhoto')}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFuelPhotoUpload}
-                      className="hidden"
-                    />
-                  </label>
-                  {isUploadingFuel ? (
-                    <span className="text-xs font-bold text-accent-primary animate-pulse uppercase">{t('inspections.processingImage')}</span>
-                  ) : fuelGaugePhotoUrl ? (
-                    <span className="text-xs text-emerald-500 font-bold flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" /> {t('inspections.photoAttached')}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-accent-error font-bold uppercase leading-none">{t('inspections.photoRequired')}</span>
+              {/* Vehicle Photos Gallery */}
+              <div className="border border-border-surface/30 p-3 rounded-xl bg-bg-surface/10 space-y-3">
+                <span className="text-xs font-bold text-accent-primary uppercase tracking-widest flex items-center gap-2">
+                  <Camera className="w-3.5 h-3.5" />
+                  {t('inspections.vehiclePhotos', 'Vehicle Photos')} <span className="text-fg-tertiary font-mono">({vehiclePhotoSlots.filter(s => s.value).length}/5)</span>
+                </span>
+                <div className="flex flex-wrap gap-3">
+                  {vehiclePhotoSlots.map((slot, i) => (
+                    <div key={i} className="relative w-full sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.33%-0.5rem)] xl:w-[calc(25%-0.5625rem)] max-w-[240px] group">
+                      <FileUploader
+                        value={slot.value}
+                        onChange={(url) => updateVehiclePhotoSlotValue(i, url)}
+                        onFileSelect={(file) => updateVehiclePhotoSlotFile(i, file)}
+                        showCamera
+                        accept="image/*"
+                        compact
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeVehiclePhotoSlot(i); }}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-bg-card border border-border-surface/40 flex items-center justify-center text-fg-tertiary hover:text-accent-error hover:border-accent-error/40 transition-all shadow-sm z-10"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {vehiclePhotoSlots.filter(s => s.value).length < 5 && (
+                    <button
+                      type="button"
+                      onClick={addVehiclePhotoSlot}
+                      className="w-full sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.33%-0.5rem)] xl:w-[calc(25%-0.5625rem)] max-w-[240px] aspect-[4/3] rounded-xl border-2 border-dashed border-border-surface/40 bg-bg-inset/50 flex flex-col items-center justify-center gap-1.5 text-fg-tertiary hover:border-accent-primary hover:text-accent-primary transition-all cursor-pointer"
+                    >
+                      <Camera className="w-5 h-5" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">{t('inspections.addPhoto', 'Add Photo')}</span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -505,7 +511,7 @@ export const InspectionsPage: React.FC = () => {
 
               <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
                 <Button type="button" variant="secondary" onClick={() => { setIsOpen(false); resetForm(); }}>{t('inspections.cancel')}</Button>
-                <Button type="submit" isLoading={createInspectionMutation.isPending}>
+                <Button type="submit" isLoading={createInspectionMutation.isPending || uploadImageMutation.isPending}>
                   {t('inspections.submitAudit')}
                 </Button>
               </div>

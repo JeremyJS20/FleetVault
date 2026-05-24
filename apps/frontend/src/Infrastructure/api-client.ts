@@ -17,14 +17,23 @@ interface RequestOptions extends RequestInit {
 }
 
 let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+interface RefreshSubscriber {
+  resolve: (token: string) => void;
+  reject: (err: any) => void;
+}
+let refreshSubscribers: RefreshSubscriber[] = [];
 
-const subscribeTokenRefresh = (cb: (token: string) => void) => {
-  refreshSubscribers.push(cb);
+const subscribeTokenRefresh = (resolve: (token: string) => void, reject: (err: any) => void) => {
+  refreshSubscribers.push({ resolve, reject });
 };
 
 const onRefreshed = (token: string) => {
-  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers.forEach((sub) => sub.resolve(token));
+  refreshSubscribers = [];
+};
+
+const onRefreshFailed = (err: any) => {
+  refreshSubscribers.forEach((sub) => sub.reject(err));
   refreshSubscribers = [];
 };
 
@@ -81,40 +90,65 @@ export const apiClient = async (path: string, options: RequestOptions = {}): Pro
             }
             onRefreshed(newToken);
             isRefreshing = false;
+
+            // Retry the original request with the new token
+            const retryHeaders = {
+              ...authHeaders,
+              ...headers,
+              Authorization: `Bearer ${newToken}`,
+            };
+            const retryRes = await fetch(url, {
+              headers: retryHeaders,
+              ...rest,
+            });
+            if (!retryRes.ok) {
+              const retryErr = await retryRes.json().catch(() => ({}));
+              throw new Error(retryErr.message || retryErr.error || `Request failed with status ${retryRes.status}`);
+            }
+            if (retryRes.status === 204) return null;
+            return retryRes.json();
           } else {
             isRefreshing = false;
             setAccessToken(null);
             window.dispatchEvent(new CustomEvent('auth:logout'));
-            throw new Error('Session expired');
+            const err = new Error('Session expired');
+            onRefreshFailed(err);
+            throw err;
           }
         } catch (err) {
           isRefreshing = false;
           setAccessToken(null);
           window.dispatchEvent(new CustomEvent('auth:logout'));
+          onRefreshFailed(err);
           throw err;
         }
       }
 
       return new Promise((resolve, reject) => {
-        subscribeTokenRefresh((newToken) => {
-          const retriedHeaders = {
-            ...authHeaders,
-            ...headers,
-            Authorization: `Bearer ${newToken}`,
-          };
-          fetch(url, {
-            headers: retriedHeaders,
-            ...rest,
-          })
-            .then((res) => {
-              if (!res.ok) {
-                return res.json().then((err) => reject(err));
-              }
-              return res.json();
+        subscribeTokenRefresh(
+          (newToken) => {
+            const retriedHeaders = {
+              ...authHeaders,
+              ...headers,
+              Authorization: `Bearer ${newToken}`,
+            };
+            fetch(url, {
+              headers: retriedHeaders,
+              ...rest,
             })
-            .then((data) => resolve(data))
-            .catch((err) => reject(err));
-        });
+              .then((res) => {
+                if (!res.ok) {
+                  return res.json().then((err) => reject(err));
+                }
+                return res.json();
+              })
+              .then((data) => resolve(data))
+              .catch((err) => reject(err));
+          },
+          (err) => {
+            reject(err);
+          }
+        );
       });
     }
 

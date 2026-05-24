@@ -8,7 +8,6 @@ export class InspectionService {
     employeeId: string;
     hasScratches: boolean;
     fuelGaugeLevel: string;
-    fuelGaugePhotoUrl: string;
     missingSpareTire: boolean;
     missingJack: boolean;
     hasBrokenGlass: boolean;
@@ -94,7 +93,6 @@ export class InspectionService {
           employeeId: input.employeeId,
           hasScratches: input.hasScratches,
           fuelGaugeLevel: input.fuelGaugeLevel,
-          fuelGaugePhotoUrl: input.fuelGaugePhotoUrl,
           missingSpareTire: input.missingSpareTire,
           missingJack: input.missingJack,
           hasBrokenGlass: input.hasBrokenGlass,
