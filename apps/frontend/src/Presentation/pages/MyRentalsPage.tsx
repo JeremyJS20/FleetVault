@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { getImageProxyUrl } from '../../Infrastructure/hooks/useUploads.js';
 import { apiClient } from '../../Infrastructure/api-client.js';
 import { useOwnReservations, useCancelReservation } from '../../Infrastructure/hooks/useReservations.js';
 import { FormModal } from '../components/ui/FormModal.js';
@@ -136,7 +137,7 @@ export const MyRentalsPage: React.FC = () => {
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-xl bg-bg-inset border border-border-surface/40 p-2 flex items-center justify-center shrink-0">
                     <img
-                      src={booking.vehicle.imageUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=400'}
+                      src={getImageProxyUrl(booking.vehicle.imageUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=400')}
                       alt={booking.vehicle.model.name}
                       className="max-h-full max-w-full object-contain filter drop-shadow-md"
                     />

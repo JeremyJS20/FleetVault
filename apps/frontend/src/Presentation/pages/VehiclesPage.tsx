@@ -26,6 +26,8 @@ import { Input } from '../components/ui/Input.js';
 import { SelectField } from '../components/ui/SelectField.js';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.js';
 import { Toast } from '../components/ui/Toast.js';
+import { FileUploader } from '../components/ui/FileUploader.js';
+import { useUploadImage, getImageProxyUrl } from '../../Infrastructure/hooks/useUploads.js';
 
 export const VehiclesPage: React.FC = () => {
   const { t } = useTranslation();
@@ -60,6 +62,7 @@ export const VehiclesPage: React.FC = () => {
   const toggleStatusMutation = useToggleVehicleStatus();
   const updateCleaningMutation = useUpdateVehicleCleaning();
   const passInspectionMutation = usePassInspection();
+  const uploadMutation = useUploadImage();
 
   // Dialog/Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -82,6 +85,8 @@ export const VehiclesPage: React.FC = () => {
   const [fuelTypeId, setFuelTypeId] = useState('');
   const [odometer, setOdometer] = useState(0);
   const [imageUrl, setImageUrl] = useState('');
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const [formError, setFormError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -98,6 +103,8 @@ export const VehiclesPage: React.FC = () => {
     setFuelTypeId(fuelTypesData?.items?.[0]?.id || '');
     setOdometer(0);
     setImageUrl('');
+    setPendingImageFile(null);
+    setIsUploadingPhoto(false);
     setFormError(null);
   };
 
@@ -143,34 +150,81 @@ export const VehiclesPage: React.FC = () => {
     if (!modelId) return setFormError(t('vehicles.validationModelRequired'));
     if (!fuelTypeId) return setFormError(t('vehicles.validationFuelRequired'));
 
-    const payload = {
-      description,
-      chassisNumber,
-      engineNumber,
-      plateNumber,
-      vehicleTypeId,
-      brandId,
-      modelId,
-      fuelTypeId,
-      odometer: Number(odometer),
-      imageUrl: imageUrl.trim() || undefined,
-    };
-
     try {
       if (editingItem) {
+        let finalImageUrl = imageUrl;
+        if (pendingImageFile) {
+          setIsUploadingPhoto(true);
+          setFormError(t('vehicles.uploadingPhoto', 'Uploading photo...'));
+          const uploadResult = await uploadMutation.mutateAsync({
+            file: pendingImageFile,
+            folder: 'vehicles',
+            entityType: 'vehicle',
+            entityId: editingItem.id,
+          });
+          finalImageUrl = uploadResult.url;
+          setPendingImageFile(null);
+          setIsUploadingPhoto(false);
+        }
+
+        const payload = {
+          description,
+          chassisNumber,
+          engineNumber,
+          plateNumber,
+          vehicleTypeId,
+          brandId,
+          modelId,
+          fuelTypeId,
+          odometer: Number(odometer),
+          imageUrl: finalImageUrl.startsWith('blob:') ? undefined : (finalImageUrl.trim() || undefined),
+        };
+
         await updateMutation.mutateAsync({
           id: editingItem.id,
           data: payload,
         });
         setToast({ message: t('vehicles.updatedSuccess'), type: 'success' });
       } else {
-        await createMutation.mutateAsync({
+        const payload = {
+          description,
+          chassisNumber,
+          engineNumber,
+          plateNumber,
+          vehicleTypeId,
+          brandId,
+          modelId,
+          fuelTypeId,
+          odometer: Number(odometer),
+          imageUrl: imageUrl.startsWith('blob:') ? undefined : (imageUrl.trim() || undefined),
+        };
+
+        const created = await createMutation.mutateAsync({
           data: payload,
         });
+
+        if (pendingImageFile) {
+          setIsUploadingPhoto(true);
+          setFormError(t('vehicles.uploadingPhoto', 'Uploading photo...'));
+          const uploadResult = await uploadMutation.mutateAsync({
+            file: pendingImageFile,
+            folder: 'vehicles',
+            entityType: 'vehicle',
+            entityId: created.id,
+          });
+          setPendingImageFile(null);
+          setIsUploadingPhoto(false);
+
+          await updateMutation.mutateAsync({
+            id: created.id,
+            data: { imageUrl: uploadResult.url },
+          });
+        }
         setToast({ message: t('vehicles.createdSuccess'), type: 'success' });
       }
       setIsFormOpen(false);
     } catch (err: any) {
+      setIsUploadingPhoto(false);
       setFormError(err.message || t('common.operationFailed'));
     }
   };
@@ -236,7 +290,7 @@ export const VehiclesPage: React.FC = () => {
         return (
           <div className="flex items-center gap-3">
             {item.imageUrl ? (
-              <img src={item.imageUrl} alt={item.plateNumber} className="w-12 h-8 rounded-lg object-cover border border-surface-border" />
+              <img src={getImageProxyUrl(item.imageUrl)} alt={item.plateNumber} className="w-12 h-8 rounded-lg object-cover border border-surface-border" />
             ) : (
               <div className="w-12 h-8 rounded-lg bg-surface-inset flex items-center justify-center text-xs font-bold text-fg-tertiary">
                 {t('vehicles.noPic')}
@@ -478,13 +532,14 @@ export const VehiclesPage: React.FC = () => {
             />
           </div>
 
-          <FormField label={t('vehicles.imageUrl')}>
-            <Input
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder={t('vehicles.placeholderImage')}
-            />
-          </FormField>
+          <FileUploader
+            value={imageUrl}
+            onChange={setImageUrl}
+            onFileSelect={setPendingImageFile}
+            label={t('vehicles.imageUrl')}
+            accept="image/*"
+            showCamera
+          />
 
           <FormField label={t('vehicles.description')}>
             <Input
@@ -505,7 +560,7 @@ export const VehiclesPage: React.FC = () => {
             <Button variant="secondary" onClick={() => setIsFormOpen(false)} type="button">
               {t('common.cancel')}
             </Button>
-            <Button variant="primary" type="submit" isLoading={createMutation.isPending || updateMutation.isPending}>
+            <Button variant="primary" type="submit" isLoading={createMutation.isPending || updateMutation.isPending || isUploadingPhoto}>
               {t('common.save')}
             </Button>
           </div>

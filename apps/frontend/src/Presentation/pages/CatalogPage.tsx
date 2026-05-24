@@ -15,6 +15,7 @@ import { Elements } from '@stripe/react-stripe-js';
 import { stripePromise } from '../../Infrastructure/stripe.js';
 import { StripeCardForm } from '../components/ui/StripeCardForm.js';
 import { Toast } from '../components/ui/Toast.js';
+import { getImageProxyUrl } from '../../Infrastructure/hooks/useUploads.js';
 import { Search, Calendar, Shield, CreditCard, Check, Sparkles, AlertCircle, Trash2 } from 'lucide-react';
 
 export const CatalogPage: React.FC = () => {
@@ -313,7 +314,7 @@ export const CatalogPage: React.FC = () => {
                   {v.vehicleType.name}
                 </div>
                 <img
-                  src={v.imageUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=400'}
+                  src={getImageProxyUrl(v.imageUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=400')}
                   alt={v.model.name}
                   className="max-h-full object-contain filter drop-shadow-xl group-hover:scale-105 transition-transform duration-300"
                 />
@@ -394,7 +395,7 @@ export const CatalogPage: React.FC = () => {
               <div className="space-y-4">
                 <div className="p-4 rounded-2xl bg-bg-inset border border-border-surface/40 flex items-center gap-4">
                   <img
-                    src={selectedVehicle.imageUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=400'}
+                    src={getImageProxyUrl(selectedVehicle.imageUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=400')}
                     alt={selectedVehicle.model.name}
                     className="w-20 object-contain"
                   />

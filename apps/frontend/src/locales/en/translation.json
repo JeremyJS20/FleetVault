@@ -168,7 +168,8 @@
     "validationTypeRequired": "Vehicle type selection is required",
     "validationBrandRequired": "Brand selection is required",
     "validationModelRequired": "Model selection is required",
-    "validationFuelRequired": "Fuel type selection is required"
+    "validationFuelRequired": "Fuel type selection is required",
+    "uploadingPhoto": "Uploading photo..."
   },
   "customers": {
     "title": "Customers",

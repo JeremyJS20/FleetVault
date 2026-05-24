@@ -625,7 +625,7 @@ export const ReservationsPage: React.FC = () => {
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-xl bg-bg-inset border border-border-surface/40 p-1 flex items-center justify-center shrink-0">
                   <img
-                    src={r.vehicle.imageUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=400'}
+                    src={getImageProxyUrl(r.vehicle.imageUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=400')}
                     alt={r.vehicle.model.name}
                     className="max-h-full max-w-full object-contain"
                   />

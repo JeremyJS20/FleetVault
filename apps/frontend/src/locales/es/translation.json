@@ -168,7 +168,8 @@
     "validationTypeRequired": "La selección de tipo de vehículo es requerida",
     "validationBrandRequired": "La selección de marca es requerida",
     "validationModelRequired": "La selección de modelo es requerida",
-    "validationFuelRequired": "La selección de tipo de combustible es requerida"
+    "validationFuelRequired": "La selección de tipo de combustible es requerida",
+    "uploadingPhoto": "Subiendo foto..."
   },
   "customers": {
     "title": "Clientes",
