@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Award, DollarSign, CheckCircle2, UserCheck, ShieldAlert } from 'lucide-react';
+import { Award, DollarSign, CheckCircle2, UserCheck, ShieldAlert, Printer } from 'lucide-react';
 import { formatCurrency } from '@rent-car/common';
 import { useCommissionsReport } from '../../Infrastructure/hooks/useReports.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
@@ -45,7 +45,17 @@ export const CommissionsReportPage: React.FC = () => {
       <PageHeader
         title={t('commissionsPage.title')}
         description={t('commissionsPage.subtitle')}
-      />
+      >
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => window.print()}
+          className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs print-keep"
+        >
+          <Printer size={13} />
+          <span>{t('common.exportPdf')}</span>
+        </Button>
+      </PageHeader>
 
       {isLoading ? (
         <div className="p-12 text-center rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md text-fg-secondary font-mono text-xs">

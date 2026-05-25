@@ -1,9 +1,10 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { BarChart3, TrendingUp, HelpCircle } from 'lucide-react';
+import { BarChart3, TrendingUp, HelpCircle, Printer } from 'lucide-react';
 import { useUtilizationReport } from '../../Infrastructure/hooks/useReports.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
+import { Button } from '../components/ui/Button.js';
 
 export const UtilizationReportPage: React.FC = () => {
   const { t } = useTranslation();
@@ -19,7 +20,17 @@ export const UtilizationReportPage: React.FC = () => {
       <PageHeader
         title={t('utilizationPage.title')}
         description={t('utilizationPage.subtitle')}
-      />
+      >
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => window.print()}
+          className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs print-keep"
+        >
+          <Printer size={13} />
+          <span>{t('common.exportPdf')}</span>
+        </Button>
+      </PageHeader>
 
       {isLoading ? (
         <div className="p-12 text-center rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md text-fg-secondary font-mono text-xs">

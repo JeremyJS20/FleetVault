@@ -62,6 +62,10 @@ export const RentalQueryPage: React.FC = () => {
 
   // Client-side download mock for contract PDF
   const handleDownloadContract = (rental: any) => {
+    if (rental.contractPdfUrl) {
+      window.open(rental.contractPdfUrl, '_blank');
+      return;
+    }
     const docContent = `
 =========================================
           FLEETVAULT RENTAL CONTRACT

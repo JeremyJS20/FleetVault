@@ -1,10 +1,11 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DollarSign, TrendingUp, Landmark } from 'lucide-react';
+import { DollarSign, TrendingUp, Landmark, Printer } from 'lucide-react';
 import { formatCurrency } from '@rent-car/common';
 import { useRevenueReport } from '../../Infrastructure/hooks/useReports.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
+import { Button } from '../components/ui/Button.js';
 
 export const RevenueReportPage: React.FC = () => {
   const { t } = useTranslation();
@@ -35,7 +36,17 @@ export const RevenueReportPage: React.FC = () => {
       <PageHeader
         title={t('revenuePage.title')}
         description={t('revenuePage.subtitle')}
-      />
+      >
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => window.print()}
+          className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs print-keep"
+        >
+          <Printer size={13} />
+          <span>{t('common.exportPdf')}</span>
+        </Button>
+      </PageHeader>
 
       {isLoading ? (
         <div className="p-12 text-center rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md text-fg-secondary font-mono text-xs">

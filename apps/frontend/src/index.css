@@ -129,3 +129,29 @@ body {
   background-color: var(--surface-elevated);
   color: var(--text-primary);
 }
+
+/* Print Styles for PDF Generation */
+@media print {
+  aside, nav, button, .no-print, .btn, button:not(.print-keep) {
+    display: none !important;
+  }
+  body, main, .print-full {
+    width: 100% !important;
+    max-width: 100% !important;
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    backdrop-filter: none !important;
+    background-color: white !important;
+  }
+  .glass-card, .bg-bg-card, [class*="bg-bg-card"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    padding: 10px !important;
+  }
+}
