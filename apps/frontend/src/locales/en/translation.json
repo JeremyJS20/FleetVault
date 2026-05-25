@@ -676,7 +676,9 @@
     "selectVehicle": "Select Vehicle",
     "noVehicles": "No active vehicles in transit",
     "speed": "Speed:",
-    "heading": "Heading:"
+    "heading": "Heading:",
+    "viewTrail": "View Trail",
+    "viewHistoricalTrail": "View Historical Trail"
   },
   "geofencePage": {
     "title": "Geofence Configurations",
@@ -685,18 +687,39 @@
     "alertEmail": "Alert Email",
     "saveGeofence": "Save Geofence",
     "savedSuccess": "Geofence saved successfully",
-    "vertices": "Polygon Vertices:"
+    "vertices": "Polygon Vertices:",
+    "defineNewBoundary": "Define New Boundary",
+    "configuredGeofences": "Configured Geofences",
+    "nameRequired": "Name is required",
+    "emailRequired": "Alert Email is required",
+    "drawRequired": "Please draw a polygon on the map with at least 3 points",
+    "parseError": "Failed to parse geofence coordinates"
   },
   "utilizationPage": {
     "title": "Utilization Analytics",
     "subtitle": "Analyze rental frequency and active vehicle deployment percentages.",
     "rateLabel": "Utilization Rate (%)",
-    "periodLabel": "Month"
+    "periodLabel": "Month",
+    "liveMetrics": "Live Metrics",
+    "averageUtilization": "Average Fleet Utilization",
+    "insightsTitle": "Analytics Insights",
+    "insight1": "Peak rental activity observed mid-month across all categories.",
+    "insight2": "Electric sedans lead fleet category utilization at 92%.",
+    "insight3": "Weekend utilization jumps by an average of 15% due to individual short-term leisure contracts.",
+    "byMonth": "Utilization rate by month",
+    "targetDesc": "Represents active rentals as a ratio of the total operational fleet count. Standard operational target is 75-85%."
   },
   "revenuePage": {
     "title": "Revenue Performance",
     "subtitle": "Track rental revenue stream breakdowns across vehicle categories.",
-    "revenueLabel": "Revenue (RD$)"
+    "revenueLabel": "Revenue (RD$)",
+    "financialSummary": "Financial Summary",
+    "totalRevenue": "Total Revenue (6 Months)",
+    "totalRevenueDesc": "Aggregated revenue generated across all rental contracts, penalties, and refueling fees.",
+    "latestMonth": "Latest Month",
+    "billingsTitle": "{{month}} Billings",
+    "categoryBreakdown": "Category Breakdown ({{month}})",
+    "byCategory": "Revenue stream breakdown by category"
   },
   "commissionsPage": {
     "title": "Commissions Ledger",
@@ -709,6 +732,26 @@
     "unpaid": "Unpaid",
     "paid": "Paid",
     "markPaid": "Mark Paid",
-    "payoutSuccess": "Commission marked as paid"
+    "payoutSuccess": "Commission marked as paid",
+    "totalPaidOut": "Total Paid Out",
+    "pendingPayouts": "Pending Payouts",
+    "activeAgents": "Active Agents Logged",
+    "rateLabel": "Commission Rate",
+    "settled": "Settled"
+  },
+  "trailPage": {
+    "title": "Vehicle Historical Trail",
+    "subtitle": "View coordinates trail path on map and analyze vehicle speed logs.",
+    "vehicleLabel": "Vehicle:",
+    "selectPlaceholder": "Select vehicle...",
+    "pleaseSelect": "Please select a vehicle from the dropdown to visualize its historical logs.",
+    "loading": "Loading GPS trail logs...",
+    "noLogs": "No GPS logs found for this vehicle.",
+    "activeDetails": "Active Vehicle Details",
+    "plate": "Plate:",
+    "chassis": "Chassis:",
+    "odometer": "Odometer:",
+    "pointsCount": "Logs Count:",
+    "speedProfile": "Speed Profile (km/h) over Time"
   }
 }

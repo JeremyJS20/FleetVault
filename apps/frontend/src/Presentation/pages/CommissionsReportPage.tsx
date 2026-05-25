@@ -61,7 +61,7 @@ export const CommissionsReportPage: React.FC = () => {
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-fg-tertiary">
-                  Total Paid Out
+                  {t('commissionsPage.totalPaidOut')}
                 </span>
                 <span className="text-xl font-bold font-mono text-fg-main mt-0.5">
                   {formatCurrency(totalCommissionsPaid)}
@@ -75,7 +75,7 @@ export const CommissionsReportPage: React.FC = () => {
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-fg-tertiary">
-                  Pending Payouts
+                  {t('commissionsPage.pendingPayouts')}
                 </span>
                 <span className="text-xl font-bold font-mono text-fg-main mt-0.5">
                   {formatCurrency(totalCommissionsUnpaid)}
@@ -89,7 +89,7 @@ export const CommissionsReportPage: React.FC = () => {
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-fg-tertiary">
-                  Active Agents Logged
+                  {t('commissionsPage.activeAgents')}
                 </span>
                 <span className="text-xl font-bold font-mono text-fg-main mt-0.5">
                   {commissions.length}
@@ -110,7 +110,7 @@ export const CommissionsReportPage: React.FC = () => {
                 <thead>
                   <tr className="border-b border-border-surface/35 text-fg-tertiary font-bold uppercase tracking-wider text-[10px]">
                     <th className="py-3 px-4">{t('commissionsPage.agent')}</th>
-                    <th className="py-3 px-4 text-center">Commission Rate</th>
+                    <th className="py-3 px-4 text-center">{t('commissionsPage.rateLabel')}</th>
                     <th className="py-3 px-4 text-center">{t('commissionsPage.salesCount')}</th>
                     <th className="py-3 px-4 text-right">{t('commissionsPage.commissionAmount')}</th>
                     <th className="py-3 px-4 text-center">{t('commissionsPage.payoutStatus')}</th>
@@ -164,7 +164,7 @@ export const CommissionsReportPage: React.FC = () => {
                             {t('commissionsPage.markPaid')}
                           </Button>
                         ) : (
-                          <span className="text-[10px] text-fg-tertiary italic">Settled</span>
+                          <span className="text-[10px] text-fg-tertiary italic">{t('commissionsPage.settled')}</span>
                         )}
                       </td>
                     </tr>

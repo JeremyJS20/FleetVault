@@ -48,10 +48,10 @@ export const RevenueReportPage: React.FC = () => {
             <div className="p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-2 relative overflow-hidden">
               <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-accent-primary/5 rounded-full blur-xl pointer-events-none" />
               <span className="text-[10px] font-bold uppercase tracking-wider text-accent-primary flex items-center gap-1">
-                <Landmark size={12} /> Financial Summary
+                <Landmark size={12} /> {t('revenuePage.financialSummary')}
               </span>
               <h4 className="text-sm font-bold text-fg-secondary uppercase tracking-tight mt-1">
-                Total Revenue (6 Months)
+                {t('revenuePage.totalRevenue')}
               </h4>
               <div className="flex items-baseline gap-2 mt-2">
                 <span className="text-3xl font-extrabold text-fg-main font-mono">
@@ -59,16 +59,16 @@ export const RevenueReportPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-fg-tertiary mt-3 leading-relaxed">
-                Aggregated revenue generated across all rental contracts, penalties, and refueling fees.
+                {t('revenuePage.totalRevenueDesc')}
               </p>
             </div>
 
             <div className="p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-accent-primary flex items-center gap-1">
-                <TrendingUp size={12} /> Latest Month
+                <TrendingUp size={12} /> {t('revenuePage.latestMonth')}
               </span>
               <h4 className="text-sm font-bold text-fg-secondary uppercase tracking-tight mt-1">
-                {latestMonthData?.month} Billings
+                {t('revenuePage.billingsTitle', { month: latestMonthData?.month })}
               </h4>
               <div className="flex items-baseline gap-2 mt-2">
                 <span className="text-3xl font-extrabold text-fg-main font-mono">
@@ -77,7 +77,7 @@ export const RevenueReportPage: React.FC = () => {
               </div>
               <div className="mt-4 pt-4 border-t border-border-surface/20 flex flex-col gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-fg-tertiary">
-                  Category Breakdown ({latestMonthData?.month})
+                  {t('revenuePage.categoryBreakdown', { month: latestMonthData?.month })}
                 </span>
                 <div className="flex flex-col gap-1.5 font-mono text-xs">
                   {categoryKeys.map((cat, i) => (
@@ -98,7 +98,7 @@ export const RevenueReportPage: React.FC = () => {
           <div className="lg:col-span-2 p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-4 min-h-[420px]">
             <h3 className="text-xs font-bold uppercase tracking-wider text-fg-secondary flex items-center gap-1.5 border-b border-border-surface/20 pb-2">
               <DollarSign size={14} className="text-accent-primary" />
-              <span>Revenue stream breakdown by category</span>
+              <span>{t('revenuePage.byCategory')}</span>
             </h3>
 
             <div className="flex-1 min-h-0">

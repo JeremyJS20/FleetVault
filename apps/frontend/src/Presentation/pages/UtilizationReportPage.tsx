@@ -32,10 +32,10 @@ export const UtilizationReportPage: React.FC = () => {
             <div className="p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-2 relative overflow-hidden">
               <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-accent-primary/5 rounded-full blur-xl pointer-events-none" />
               <span className="text-[10px] font-bold uppercase tracking-wider text-accent-primary flex items-center gap-1">
-                <BarChart3 size={12} /> Live Metrics
+                <BarChart3 size={12} /> {t('utilizationPage.liveMetrics')}
               </span>
               <h4 className="text-sm font-bold text-fg-secondary uppercase tracking-tight mt-1">
-                Average Fleet Utilization
+                {t('utilizationPage.averageUtilization')}
               </h4>
               <div className="flex items-baseline gap-2 mt-2">
                 <span className="text-4xl font-extrabold text-fg-main font-mono">
@@ -46,18 +46,18 @@ export const UtilizationReportPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-fg-tertiary mt-3 leading-relaxed">
-                Represents active rentals as a ratio of the total operational fleet count. Standard operational target is 75-85%.
+                {t('utilizationPage.targetDesc')}
               </p>
             </div>
 
             <div className="p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary flex items-center gap-1">
-                <HelpCircle size={12} /> Analytics Insights
+                <HelpCircle size={12} /> {t('utilizationPage.insightsTitle')}
               </span>
               <ul className="text-xs text-fg-secondary mt-2 flex flex-col gap-3 list-inside list-disc">
-                <li>Peak rental activity observed mid-month across all categories.</li>
-                <li>Electric sedans lead fleet category utilization at 92%.</li>
-                <li>Weekend utilization jumps by an average of 15% due to individual short-term leisure contracts.</li>
+                <li>{t('utilizationPage.insight1')}</li>
+                <li>{t('utilizationPage.insight2')}</li>
+                <li>{t('utilizationPage.insight3')}</li>
               </ul>
             </div>
           </div>
@@ -66,7 +66,7 @@ export const UtilizationReportPage: React.FC = () => {
           <div className="lg:col-span-2 p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-4 min-h-[400px]">
             <h3 className="text-xs font-bold uppercase tracking-wider text-fg-secondary flex items-center gap-1.5 border-b border-border-surface/20 pb-2">
               <BarChart3 size={14} className="text-accent-primary" />
-              <span>Utilization rate by month</span>
+              <span>{t('utilizationPage.byMonth')}</span>
             </h3>
 
             <div className="flex-1 min-h-0">

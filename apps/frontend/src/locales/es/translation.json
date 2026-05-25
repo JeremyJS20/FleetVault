@@ -574,7 +574,9 @@
     "selectVehicle": "Seleccionar Vehículo",
     "noVehicles": "No hay vehículos activos en tránsito",
     "speed": "Velocidad:",
-    "heading": "Rumbo:"
+    "heading": "Rumbo:",
+    "viewTrail": "Ver Recorrido",
+    "viewHistoricalTrail": "Ver Recorrido Histórico"
   },
   "geofencePage": {
     "title": "Configuraciones de Geocercas",
@@ -583,18 +585,39 @@
     "alertEmail": "Correo de Alerta",
     "saveGeofence": "Guardar Geocerca",
     "savedSuccess": "Geocerca guardada exitosamente",
-    "vertices": "Vértices del Polígono:"
+    "vertices": "Vértices del Polígono:",
+    "defineNewBoundary": "Definir Nuevo Límite",
+    "configuredGeofences": "Geocercas Configuradas",
+    "nameRequired": "El nombre es requerido",
+    "emailRequired": "El correo de alerta es requerido",
+    "drawRequired": "Por favor dibuje un polígono en el mapa con al menos 3 puntos",
+    "parseError": "Error al analizar las coordenadas de la geocerca"
   },
   "utilizationPage": {
     "title": "Análisis de Utilización",
     "subtitle": "Analice la frecuencia de alquiler y los porcentajes de despliegue de vehículos activos.",
     "rateLabel": "Tasa de Utilización (%)",
-    "periodLabel": "Mes"
+    "periodLabel": "Mes",
+    "liveMetrics": "Métricas en Vivo",
+    "averageUtilization": "Utilización Promedio de la Flota",
+    "insightsTitle": "Perspectivas de Análisis",
+    "insight1": "Pico de actividad de alquiler observado a mitad de mes en todas las categorías.",
+    "insight2": "Los sedanes eléctricos lideran la utilización de la categoría de flota con un 92%.",
+    "insight3": "La utilización de fin de semana aumenta en promedio un 15% debido a contratos de ocio individuales a corto plazo.",
+    "byMonth": "Tasa de utilización por mes",
+    "targetDesc": "Representa los alquileres activos como una proporción del conteo total de la flota operativa. El objetivo operativo estándar es del 75-85%."
   },
   "revenuePage": {
     "title": "Rendimiento de Ingresos",
     "subtitle": "Realice un seguimiento de los desgloses de ingresos por categorías de vehículos.",
-    "revenueLabel": "Ingresos (RD$)"
+    "revenueLabel": "Ingresos (RD$)",
+    "financialSummary": "Resumen Financiero",
+    "totalRevenue": "Ingresos Totales (6 Meses)",
+    "totalRevenueDesc": "Ingresos agregados generados en todos los contratos de alquiler, penalizaciones y tarifas de reabastecimiento de combustible.",
+    "latestMonth": "Último Mes",
+    "billingsTitle": "Facturación de {{month}}",
+    "categoryBreakdown": "Desglose por Categoría ({{month}})",
+    "byCategory": "Desglose del flujo de ingresos por categoría"
   },
   "commissionsPage": {
     "title": "Libro de Comisiones",
@@ -607,6 +630,26 @@
     "unpaid": "No Pagado",
     "paid": "Pagado",
     "markPaid": "Marcar Como Pagado",
-    "payoutSuccess": "Comisión marcada como pagada"
+    "payoutSuccess": "Comisión marcada como pagada",
+    "totalPaidOut": "Total Pagado",
+    "pendingPayouts": "Pagos Pendientes",
+    "activeAgents": "Agentes Activos Registrados",
+    "rateLabel": "Tasa de Comisión",
+    "settled": "Liquidado"
+  },
+  "trailPage": {
+    "title": "Recorrido Histórico del Vehículo",
+    "subtitle": "Ver la ruta del recorrido de coordenadas en el mapa y analizar los registros de velocidad del vehículo.",
+    "vehicleLabel": "Vehículo:",
+    "selectPlaceholder": "Seleccionar vehículo...",
+    "pleaseSelect": "Por favor, seleccione un vehículo del menú desplegable para visualizar sus registros históricos.",
+    "loading": "Cargando registros de recorrido GPS...",
+    "noLogs": "No se encontraron registros GPS para este vehículo.",
+    "activeDetails": "Detalles del Vehículo Activo",
+    "plate": "Placa:",
+    "chassis": "Chasis:",
+    "odometer": "Odómetro:",
+    "pointsCount": "Cantidad de Registros:",
+    "speedProfile": "Perfil de Velocidad (km/h) a lo Largo del Tiempo"
   }
 }

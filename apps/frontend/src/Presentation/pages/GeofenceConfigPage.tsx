@@ -103,15 +103,15 @@ export const GeofenceConfigPage: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setToast({ message: 'Name is required', type: 'error' });
+      setToast({ message: t('geofencePage.nameRequired'), type: 'error' });
       return;
     }
     if (!alertEmail.trim()) {
-      setToast({ message: 'Alert Email is required', type: 'error' });
+      setToast({ message: t('geofencePage.emailRequired'), type: 'error' });
       return;
     }
     if (drawnCoords.length < 3) {
-      setToast({ message: 'Please draw a polygon on the map with at least 3 points', type: 'error' });
+      setToast({ message: t('geofencePage.drawRequired'), type: 'error' });
       return;
     }
 
@@ -143,7 +143,7 @@ export const GeofenceConfigPage: React.FC = () => {
       });
       setDrawnCoords([]); // clear currently drawing polygon
     } catch (e) {
-      setToast({ message: 'Failed to parse geofence coordinates', type: 'error' });
+      setToast({ message: t('geofencePage.parseError'), type: 'error' });
     }
   };
 
@@ -162,7 +162,7 @@ export const GeofenceConfigPage: React.FC = () => {
           <form onSubmit={handleSave} className="p-5 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-fg-secondary flex items-center gap-1.5 border-b border-border-surface/20 pb-2">
               <Shield size={14} className="text-accent-primary" />
-              <span>Define New Boundary</span>
+              <span>{t('geofencePage.defineNewBoundary')}</span>
             </h3>
 
             <FormField label={t('geofencePage.name')} required>
@@ -222,7 +222,7 @@ export const GeofenceConfigPage: React.FC = () => {
           <div className="p-5 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex-1 flex flex-col gap-4 min-h-[250px]">
             <h3 className="text-xs font-bold uppercase tracking-wider text-fg-secondary flex items-center gap-1.5 border-b border-border-surface/20 pb-2">
               <List size={14} className="text-accent-primary" />
-              <span>Configured Geofences</span>
+              <span>{t('geofencePage.configuredGeofences')}</span>
             </h3>
 
             {geofences.length === 0 ? (

@@ -132,7 +132,7 @@ export const GpsMapPage: React.FC = () => {
                       className="text-[10px] font-semibold text-accent-primary hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <Eye size={10} />
-                      <span>View Trail</span>
+                      <span>{t('gpsPage.viewTrail')}</span>
                     </button>
                     <span className="text-[10px] font-mono text-fg-tertiary">
                       {new Date(v.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -189,7 +189,7 @@ export const GpsMapPage: React.FC = () => {
                       onClick={() => navigate(`/admin/gps/trail/${v.vehicleId}`)}
                       className="mt-2 text-[10px] !min-h-[28px] !py-1 !px-2 rounded-lg"
                     >
-                      View Historical Trail
+                      {t('gpsPage.viewHistoricalTrail')}
                     </Button>
                   </div>
                 </Popup>

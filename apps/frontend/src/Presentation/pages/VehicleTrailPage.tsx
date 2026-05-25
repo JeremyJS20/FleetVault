@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import { useQuery } from '@tanstack/react-query';
@@ -34,6 +35,7 @@ const FitTrailBounds: React.FC<{ positions: [number, number][] }> = ({ positions
 };
 
 export const VehicleTrailPage: React.FC = () => {
+  const { t } = useTranslation();
 
   const { vehicleId = '' } = useParams<{ vehicleId: string }>();
   const navigate = useNavigate();
@@ -89,20 +91,20 @@ export const VehicleTrailPage: React.FC = () => {
             <ArrowLeft size={16} />
           </Button>
           <PageHeader
-            title="Vehicle Historical Trail"
-            description="View coordinates trail path on map and analyze vehicle speed logs."
+            title={t('trailPage.title')}
+            description={t('trailPage.subtitle')}
           />
         </div>
 
         {/* Dropdown to select vehicle */}
         <div className="flex items-center gap-2 mt-2 w-full sm:w-auto">
-          <span className="text-xs font-bold uppercase tracking-wider text-fg-secondary">Vehicle:</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-fg-secondary">{t('trailPage.vehicleLabel')}</span>
           <select
             value={activeVehicleId}
             onChange={(e) => handleVehicleChange(e.target.value)}
             className="text-xs min-h-[40px] px-3 rounded-xl bg-bg-card border border-border-surface/45 text-fg-main focus:outline-none focus:border-accent-primary transition-all w-full sm:w-56"
           >
-            <option value="">Select vehicle...</option>
+            <option value="">{t('trailPage.selectPlaceholder')}</option>
             {vehicles.map((v) => (
               <option key={v.id} value={v.id}>
                 {v.brand?.name} {v.model?.name} ({v.plateNumber})
@@ -114,15 +116,15 @@ export const VehicleTrailPage: React.FC = () => {
 
       {!activeVehicleId ? (
         <div className="p-12 text-center rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md text-fg-secondary">
-          Please select a vehicle from the dropdown to visualize its historical logs.
+          {t('trailPage.pleaseSelect')}
         </div>
       ) : isLoading ? (
         <div className="p-12 text-center rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md text-fg-secondary font-mono text-xs">
-          Loading GPS trail logs...
+          {t('trailPage.loading')}
         </div>
       ) : trailLogs.length === 0 ? (
         <div className="p-12 text-center rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md text-fg-secondary">
-          No GPS logs found for this vehicle.
+          {t('trailPage.noLogs')}
         </div>
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 h-[calc(100vh-180px)] min-h-[600px]">
@@ -169,26 +171,26 @@ export const VehicleTrailPage: React.FC = () => {
             {selectedVehicle && (
               <div className="p-5 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-2 shrink-0">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-accent-primary flex items-center gap-1.5">
-                  <Navigation size={12} className="rotate-45" /> Active Vehicle Details
+                  <Navigation size={12} className="rotate-45" /> {t('trailPage.activeDetails')}
                 </span>
                 <h3 className="text-sm font-extrabold text-fg-main uppercase">
                   {selectedVehicle.brand?.name} {selectedVehicle.model?.name}
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-2 font-mono text-xs text-fg-secondary">
                   <div>
-                    <span className="text-fg-tertiary block text-[10px] uppercase">Plate:</span>
+                    <span className="text-fg-tertiary block text-[10px] uppercase">{t('trailPage.plate')}</span>
                     {selectedVehicle.plateNumber}
                   </div>
                   <div>
-                    <span className="text-fg-tertiary block text-[10px] uppercase">Chassis:</span>
+                    <span className="text-fg-tertiary block text-[10px] uppercase">{t('trailPage.chassis')}</span>
                     {selectedVehicle.chassisNumber}
                   </div>
                   <div>
-                    <span className="text-fg-tertiary block text-[10px] uppercase">Odometer:</span>
+                    <span className="text-fg-tertiary block text-[10px] uppercase">{t('trailPage.odometer')}</span>
                     {selectedVehicle.odometer} km
                   </div>
                   <div>
-                    <span className="text-fg-tertiary block text-[10px] uppercase">Logs Count:</span>
+                    <span className="text-fg-tertiary block text-[10px] uppercase">{t('trailPage.pointsCount')}</span>
                     {trailLogs.length} points
                   </div>
                 </div>
@@ -199,7 +201,7 @@ export const VehicleTrailPage: React.FC = () => {
             <div className="flex-1 p-5 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-4 min-h-0">
               <h3 className="text-xs font-bold uppercase tracking-wider text-fg-secondary flex items-center gap-1.5 shrink-0">
                 <Activity size={14} className="text-accent-primary" />
-                <span>Speed Profile (km/h) over Time</span>
+                <span>{t('trailPage.speedProfile')}</span>
               </h3>
 
               <div className="flex-1 min-h-0">
