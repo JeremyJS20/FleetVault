@@ -44,7 +44,9 @@ export const useCreateRental = () => {
       checkoutFuelLevel?: string;
       signatureUrl?: string;
       comments?: string | null;
-      stripePaymentMethodId?: string;
+      stripePaymentMethodId?: string | null;
+      paymentMethod?: 'STRIPE' | 'CASH' | null;
+      purchaseOrderNumber?: string | null;
       hasScratches?: boolean;
       hasBrokenGlass?: boolean;
       missingSpareTire?: boolean;

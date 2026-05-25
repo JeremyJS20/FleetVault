@@ -9,7 +9,8 @@ export class ReservationService {
     vehicleId: string;
     rentalDate: string;
     scheduledReturnDate: string;
-    stripePaymentMethodId: string;
+    stripePaymentMethodId?: string | null;
+    purchaseOrderNumber?: string | null;
   }) {
     const start = new Date(input.rentalDate);
     const end = new Date(input.scheduledReturnDate);
@@ -38,7 +39,7 @@ export class ReservationService {
     }
 
     // License expiration check (date-only comparison)
-    if (customer.licenseExpDate) {
+    if (customer.type !== 'CORPORATE' && customer.licenseExpDate) {
       const expDate = new Date(customer.licenseExpDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -127,25 +128,53 @@ export class ReservationService {
       };
     });
 
-    // 5. Attach payment method to Stripe customer (if real)
-    if (customer.stripeCustomerId && input.stripePaymentMethodId && !input.stripePaymentMethodId.startsWith('pm_mock_')) {
-      await stripeService.attachPaymentMethod(customer.stripeCustomerId, input.stripePaymentMethodId);
+    // 5. Attach payment method to Stripe customer (if real) & hold
+    let holdResultId: string | null = null;
+
+    if (customer.type === 'CORPORATE') {
+      if (!input.purchaseOrderNumber) {
+        throw new ValidationError('Purchase Order number is required for corporate accounts');
+      }
+
+      // Check outstanding balance of pending or active rentals
+      const outstandingSum = await prisma.rental.aggregate({
+        where: {
+          customerId: customer.id,
+          status: { in: ['PENDING', 'ACTIVE'] }
+        },
+        _sum: {
+          totalCost: true
+        }
+      });
+      const outstandingCost = outstandingSum._sum.totalCost || 0;
+
+      if (result.totalEstimatedCost + outstandingCost > customer.creditLimit) {
+        throw new ValidationError(`Corporate credit limit exceeded. Remaining limit: RD$${customer.creditLimit - outstandingCost}, requested: RD$${result.totalEstimatedCost}`);
+      }
+    } else {
+      if (!input.stripePaymentMethodId) {
+        throw new ValidationError('Payment card is required for individual reservations');
+      }
+
+      if (customer.stripeCustomerId && !input.stripePaymentMethodId.startsWith('pm_mock_')) {
+        await stripeService.attachPaymentMethod(customer.stripeCustomerId, input.stripePaymentMethodId);
+      }
+
+      const metadata = {
+        customerId: customer.id,
+        customerName: customer.name,
+        vehiclePlate: result.vehicle.plateNumber,
+        dateRange: `${input.rentalDate} to ${input.scheduledReturnDate}`
+      };
+
+      const holdResult = await stripeService.createPreAuthHold(
+        result.holdAmount,
+        customer.stripeCustomerId || undefined,
+        input.stripePaymentMethodId,
+        metadata
+      );
+      holdResultId = holdResult.id;
     }
-
-    // 6. Create pre-auth hold on card via Stripe
-    const metadata = {
-      customerId: customer.id,
-      customerName: customer.name,
-      vehiclePlate: result.vehicle.plateNumber,
-      dateRange: `${input.rentalDate} to ${input.scheduledReturnDate}`
-    };
-
-    const holdResult = await stripeService.createPreAuthHold(
-      result.holdAmount,
-      customer.stripeCustomerId || undefined,
-      input.stripePaymentMethodId,
-      metadata
-    );
 
     // 6. Save pending rental and ledger inside a second transaction
     return await prisma.$transaction(async (tx) => {
@@ -160,7 +189,8 @@ export class ReservationService {
           checkoutOdometer: result.vehicle.odometer,
           checkoutFuelLevel: 'FULL',
           status: 'PENDING',
-          stripePaymentIntentId: holdResult.id,
+          stripePaymentIntentId: holdResultId,
+          purchaseOrderNumber: customer.type === 'CORPORATE' ? input.purchaseOrderNumber : null,
           totalCost: result.totalEstimatedCost
         },
         include: {
@@ -177,10 +207,13 @@ export class ReservationService {
       await tx.transactionLedger.create({
         data: {
           rentalId: rental.id,
-          amount: result.holdAmount,
-          type: 'PRE_AUTH_HOLD',
-          stripePaymentIntentId: holdResult.id,
-          comments: `Pre-auth hold of RD$${result.holdAmount} (Rent: RD$${result.totalEstimatedCost} + Deposit: RD$${result.depositAmount})`
+          amount: customer.type === 'CORPORATE' ? result.totalEstimatedCost : result.holdAmount,
+          type: customer.type === 'CORPORATE' ? 'PO_INVOICE' : 'PRE_AUTH_HOLD',
+          stripePaymentIntentId: holdResultId,
+          purchaseOrderNumber: customer.type === 'CORPORATE' ? input.purchaseOrderNumber : null,
+          comments: customer.type === 'CORPORATE' 
+            ? `Corporate invoice booked under PO ${input.purchaseOrderNumber} for RD$${result.totalEstimatedCost}`
+            : `Pre-auth hold of RD$${result.holdAmount} (Rent: RD$${result.totalEstimatedCost} + Deposit: RD$${result.depositAmount})`
         }
       });
 
@@ -240,11 +273,12 @@ export class ReservationService {
     const hoursToStart = (rental.rentalDate.getTime() - now.getTime()) / (1000 * 60 * 60);
 
     return await prisma.$transaction(async (tx) => {
+      const isCorporate = rental.customer.type === 'CORPORATE';
       if (hoursToStart < 24.0) {
         // Late cancellation fee: 1 full day rate
         const penalty = rental.pricePerDay;
 
-        if (rental.stripePaymentIntentId) {
+        if (rental.stripePaymentIntentId && !isCorporate) {
           // Capture the penalty from the pre-auth hold and release the rest
           await stripeService.capturePayment(rental.stripePaymentIntentId, penalty);
         }
@@ -254,9 +288,12 @@ export class ReservationService {
           data: {
             rentalId: rental.id,
             amount: penalty,
-            type: 'CHARGE',
-            stripePaymentIntentId: rental.stripePaymentIntentId,
-            comments: `Late cancellation charge (less than 24h notice): 1 day rate of RD$${penalty}`
+            type: isCorporate ? 'PO_INVOICE' : 'CHARGE',
+            stripePaymentIntentId: isCorporate ? null : rental.stripePaymentIntentId,
+            purchaseOrderNumber: isCorporate ? rental.purchaseOrderNumber : null,
+            comments: isCorporate
+              ? `Late cancellation invoice (less than 24h notice) under PO ${rental.purchaseOrderNumber}: 1 day rate of RD$${penalty}`
+              : `Late cancellation charge (less than 24h notice): 1 day rate of RD$${penalty}`
           }
         });
 
@@ -273,7 +310,7 @@ export class ReservationService {
         });
       } else {
         // Free cancellation: release the entire hold
-        if (rental.stripePaymentIntentId) {
+        if (rental.stripePaymentIntentId && !isCorporate) {
           await stripeService.cancelHold(rental.stripePaymentIntentId);
         }
 
@@ -281,9 +318,12 @@ export class ReservationService {
           data: {
             rentalId: rental.id,
             amount: 0.0,
-            type: 'REFUND',
-            stripePaymentIntentId: rental.stripePaymentIntentId,
-            comments: `Pre-auth hold released: Reservation cancelled with >24h notice`
+            type: isCorporate ? 'PO_INVOICE' : 'REFUND',
+            stripePaymentIntentId: isCorporate ? null : rental.stripePaymentIntentId,
+            purchaseOrderNumber: isCorporate ? rental.purchaseOrderNumber : null,
+            comments: isCorporate
+              ? `Reservation cancelled under PO ${rental.purchaseOrderNumber} with >24h notice. No charge invoice generated.`
+              : `Pre-auth hold released: Reservation cancelled with >24h notice`
           }
         });
 

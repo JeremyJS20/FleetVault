@@ -129,15 +129,11 @@ export const InspectionsPage: React.FC = () => {
     }
   };
 
-  const resetForm = () => {
+  const resetFormFields = () => {
     vehiclePhotoSlots.forEach(s => { if (s.value.startsWith('blob:')) URL.revokeObjectURL(s.value); });
     setVehiclePhotoSlots([]);
-    setType('PICKUP');
-    setRentalId('');
-    setSelectedRental(null);
     setOdometer(0);
     setFuelGaugeLevel('FULL');
-
     setHasScratches(false);
     setHasBrokenGlass(false);
     setMissingSpareTire(false);
@@ -147,6 +143,13 @@ export const InspectionsPage: React.FC = () => {
     setTireConditionRearLeft('GOOD');
     setTireConditionRearRight('GOOD');
     setComments('');
+  };
+
+  const resetForm = () => {
+    resetFormFields();
+    setType('PICKUP');
+    setRentalId('');
+    setSelectedRental(null);
   };
 
   return (
@@ -301,7 +304,7 @@ export const InspectionsPage: React.FC = () => {
               <div className="flex gap-2 p-1 rounded-xl bg-bg-inset border border-border-surface/20">
                 <button
                   type="button"
-                  onClick={() => { setType('PICKUP'); setRentalId(''); setSelectedRental(null); }}
+                  onClick={() => { setType('PICKUP'); setRentalId(''); setSelectedRental(null); resetFormFields(); }}
                   className={`flex-1 h-8 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     type === 'PICKUP'
                       ? 'bg-accent-primary text-white shadow-sm'
@@ -312,7 +315,7 @@ export const InspectionsPage: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setType('RETURN'); setRentalId(''); setSelectedRental(null); }}
+                  onClick={() => { setType('RETURN'); setRentalId(''); setSelectedRental(null); resetFormFields(); }}
                   className={`flex-1 h-8 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     type === 'RETURN'
                       ? 'bg-accent-primary text-white shadow-sm'
@@ -333,6 +336,33 @@ export const InspectionsPage: React.FC = () => {
                     setSelectedRental(rental || null);
                     if (rental) {
                       setOdometer(rental.returnOdometer || rental.vehicle.odometer);
+                      if (type === 'RETURN') {
+                        const pickupInsp = rental.inspections?.find((i: any) => i.type === 'PICKUP');
+                        if (pickupInsp) {
+                          setHasScratches(pickupInsp.hasScratches || false);
+                          setHasBrokenGlass(pickupInsp.hasBrokenGlass || false);
+                          setMissingSpareTire(pickupInsp.missingSpareTire || false);
+                          setMissingJack(pickupInsp.missingJack || false);
+                          setTireConditionFrontLeft(pickupInsp.tireConditionFrontLeft || 'GOOD');
+                          setTireConditionFrontRight(pickupInsp.tireConditionFrontRight || 'GOOD');
+                          setTireConditionRearLeft(pickupInsp.tireConditionRearLeft || 'GOOD');
+                          setTireConditionRearRight(pickupInsp.tireConditionRearRight || 'GOOD');
+                          setFuelGaugeLevel(pickupInsp.fuelGaugeLevel || 'FULL');
+                        }
+                      } else {
+                        // Reset if switching PICKUP rental
+                        setHasScratches(false);
+                        setHasBrokenGlass(false);
+                        setMissingSpareTire(false);
+                        setMissingJack(false);
+                        setTireConditionFrontLeft('GOOD');
+                        setTireConditionFrontRight('GOOD');
+                        setTireConditionRearLeft('GOOD');
+                        setTireConditionRearRight('GOOD');
+                        setFuelGaugeLevel('FULL');
+                      }
+                    } else {
+                      resetFormFields();
                     }
                   }}
                   className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"

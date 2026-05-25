@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePublicVehicles, usePublicVehicleTypes, usePublicBrands } from '../../Infrastructure/hooks/usePublicCatalog.js';
 import { useCreateReservation } from '../../Infrastructure/hooks/useReservations.js';
-import { useFeeConfigs, useMyPaymentMethods, useDeleteMyPaymentMethod } from '../../Infrastructure/hooks/useCatalog.js';
+import { useFeeConfigs, useMyPaymentMethods, useDeleteMyPaymentMethod, useMyCustomerProfile } from '../../Infrastructure/hooks/useCatalog.js';
 import { useAuth } from '../../Infrastructure/auth.context.js';
 import { useQuickRegister } from '../../Infrastructure/hooks/useQuickRegister.js';
 import { FormModal } from '../components/ui/FormModal.js';
@@ -53,6 +53,11 @@ export const CatalogPage: React.FC = () => {
   const [stripePaymentMethodId, setStripePaymentMethodId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [useNewCard, setUseNewCard] = useState(false);
+  const [purchaseOrderNumber, setPurchaseOrderNumber] = useState('');
+
+  // Fetch customer profile when authenticated
+  const { data: customerProfile } = useMyCustomerProfile(isAuthenticated);
+  const isCorporate = customerProfile?.type === 'CORPORATE';
 
   // Saved Cards Queries & Mutations
   const { data: savedCards, refetch: refetchSavedCards } = useMyPaymentMethods();
@@ -190,16 +195,24 @@ export const CatalogPage: React.FC = () => {
   };
 
   const handleConfirmBooking = async () => {
-    if (!stripePaymentMethodId) {
-      setErrorMessage(t('catalog.cardDetailsRequired'));
-      return;
+    if (isCorporate) {
+      if (!purchaseOrderNumber.trim()) {
+        setErrorMessage(t('catalog.purchaseOrderRequired', 'Purchase Order number is required.'));
+        return;
+      }
+    } else {
+      if (!stripePaymentMethodId) {
+        setErrorMessage(t('catalog.cardDetailsRequired'));
+        return;
+      }
     }
 
     console.log("Booking details:", {
       vehicleId: selectedVehicle.id,
       rentalDate: dateFrom,
       scheduledReturnDate: dateTo,
-      stripePaymentMethodId
+      stripePaymentMethodId: isCorporate ? undefined : stripePaymentMethodId,
+      purchaseOrderNumber: isCorporate ? purchaseOrderNumber : undefined
     });
 
     try {
@@ -208,7 +221,8 @@ export const CatalogPage: React.FC = () => {
         vehicleId: selectedVehicle.id,
         rentalDate: dateFrom,
         scheduledReturnDate: dateTo,
-        stripePaymentMethodId
+        stripePaymentMethodId: isCorporate ? null : stripePaymentMethodId,
+        purchaseOrderNumber: isCorporate ? purchaseOrderNumber : null
       });
       setBookingStep(3); // success
     } catch (err: any) {
@@ -435,122 +449,159 @@ export const CatalogPage: React.FC = () => {
             )}
             {bookingStep === 2 && (
               <div className="space-y-4">
-                <div className="p-3.5 rounded-xl border border-accent-primary/20 bg-accent-primary/5 text-fg-secondary text-xs flex items-start gap-2.5">
-                  <Shield className="w-4 h-4 text-accent-primary shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold text-fg-primary block">{t('catalog.preAuthHold')}</span>
-                    {t('catalog.preAuthDesc', { totalHold: formatCurrency(totalHold), basePrice: formatCurrency(basePrice), securityDeposit: formatCurrency(securityDeposit) })}
+                {isCorporate ? (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="p-3.5 rounded-xl border border-accent-primary/20 bg-accent-primary/5 text-fg-secondary text-xs flex items-start gap-2.5">
+                      <Shield className="w-4 h-4 text-accent-primary shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-fg-primary block">{t('catalog.corporateBilling', 'Corporate Billing')}</span>
+                        {t('catalog.corporateDesc', 'This booking will be charged against your corporate credit line. Your credit limit is {{creditLimit}}.', { creditLimit: formatCurrency(customerProfile?.creditLimit ?? 0) })}
+                      </div>
+                    </div>
+                    <FormField label={t('catalog.purchaseOrderNumber', 'Purchase Order Number')} required>
+                      <Input
+                        type="text"
+                        placeholder="e.g. PO-12345"
+                        value={purchaseOrderNumber}
+                        onChange={(e) => setPurchaseOrderNumber(e.target.value)}
+                        required
+                      />
+                    </FormField>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button variant="secondary" onClick={() => setBookingStep(1)}>
+                        {t('catalog.back')}
+                      </Button>
+                      <Button
+                        onClick={handleConfirmBooking}
+                        isLoading={createReservationMutation.isPending}
+                        disabled={!purchaseOrderNumber.trim()}
+                        className="flex items-center gap-1.5"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        {t('catalog.confirmReservation', 'Confirm Booking')}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                {cardsList.length > 0 && (
-                  <div className="space-y-3">
-                    <span className="text-xs font-bold text-fg-secondary uppercase tracking-wider block">
-                      {t('stripe.savedPaymentMethods', 'Saved Payment Methods')}
-                    </span>
-                    <div className="space-y-2">
-                      {cardsList.map((card: any) => (
-                        <div
-                          key={card.id}
-                          onClick={() => {
-                            setUseNewCard(false);
-                            setStripePaymentMethodId(card.id);
-                          }}
-                          className={`p-4 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
-                            !useNewCard && stripePaymentMethodId === card.id
-                              ? 'border-accent-primary bg-accent-primary/5'
-                              : 'border-border-surface/30 bg-bg-inset/40 hover:border-border-surface/60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-3.5 rounded-xl border border-accent-primary/20 bg-accent-primary/5 text-fg-secondary text-xs flex items-start gap-2.5">
+                      <Shield className="w-4 h-4 text-accent-primary shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-fg-primary block">{t('catalog.preAuthHold')}</span>
+                        {t('catalog.preAuthDesc', { totalHold: formatCurrency(totalHold), basePrice: formatCurrency(basePrice), securityDeposit: formatCurrency(securityDeposit) })}
+                      </div>
+                    </div>
+                    {cardsList.length > 0 && (
+                      <div className="space-y-3">
+                        <span className="text-xs font-bold text-fg-secondary uppercase tracking-wider block">
+                          {t('stripe.savedPaymentMethods', 'Saved Payment Methods')}
+                        </span>
+                        <div className="space-y-2">
+                          {cardsList.map((card: any) => (
+                            <div
+                              key={card.id}
+                              onClick={() => {
+                                setUseNewCard(false);
+                                setStripePaymentMethodId(card.id);
+                              }}
+                              className={`p-4 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
+                                !useNewCard && stripePaymentMethodId === card.id
+                                  ? 'border-accent-primary bg-accent-primary/5'
+                                  : 'border-border-surface/30 bg-bg-inset/40 hover:border-border-surface/60'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="radio"
+                                  name="savedCard"
+                                  checked={!useNewCard && stripePaymentMethodId === card.id}
+                                  onChange={() => {}} // handled by parent click
+                                  className="accent-accent-primary"
+                                />
+                                <div className="text-left">
+                                  <p className="text-xs font-bold text-fg-main uppercase">
+                                    {card.card.brand} ending in {card.card.last4}
+                                  </p>
+                                  <p className="text-[10px] text-fg-tertiary">
+                                    Expires {card.card.exp_month}/{card.card.exp_year}
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (confirm(t('stripe.confirmRemoveCard', 'Are you sure you want to remove this card?'))) {
+                                    try {
+                                      setErrorMessage(null);
+                                      await deleteCardMutation.mutateAsync(card.id);
+                                      setToastMessage(t('stripe.cardRemoved', 'Card removed successfully'));
+                                      refetchSavedCards();
+                                    } catch (err: any) {
+                                      setErrorMessage(err.message || t('common.operationFailed'));
+                                    }
+                                  }
+                                }}
+                                className="p-2 text-fg-tertiary hover:text-accent-error transition-all rounded-lg hover:bg-white/5 cursor-pointer flex items-center justify-center shrink-0"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          ))}
+
+                          <div
+                            onClick={() => {
+                              setUseNewCard(true);
+                              setStripePaymentMethodId(null);
+                            }}
+                            className={`p-4 rounded-xl border transition-all flex items-center gap-3 cursor-pointer ${
+                              useNewCard
+                                ? 'border-accent-primary bg-accent-primary/5'
+                                : 'border-border-surface/30 bg-bg-inset/40 hover:border-border-surface/60'
+                            }`}
+                          >
                             <input
                               type="radio"
                               name="savedCard"
-                              checked={!useNewCard && stripePaymentMethodId === card.id}
-                              onChange={() => {}} // handled by parent click
+                              checked={useNewCard}
+                              onChange={() => {}}
                               className="accent-accent-primary"
                             />
                             <div className="text-left">
                               <p className="text-xs font-bold text-fg-main uppercase">
-                                {card.card.brand} ending in {card.card.last4}
-                              </p>
-                              <p className="text-[10px] text-fg-tertiary">
-                                Expires {card.card.exp_month}/{card.card.exp_year}
+                                {t('stripe.useNewCard', 'Use a new credit card')}
                               </p>
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              if (confirm(t('stripe.confirmRemoveCard', 'Are you sure you want to remove this card?'))) {
-                                try {
-                                  setErrorMessage(null);
-                                  await deleteCardMutation.mutateAsync(card.id);
-                                  setToastMessage(t('stripe.cardRemoved', 'Card removed successfully'));
-                                  refetchSavedCards();
-                                } catch (err: any) {
-                                  setErrorMessage(err.message || t('common.operationFailed'));
-                                }
-                              }
-                            }}
-                            className="p-2 text-fg-tertiary hover:text-accent-error transition-all rounded-lg hover:bg-white/5 cursor-pointer flex items-center justify-center shrink-0"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ))}
-
-                      <div
-                        onClick={() => {
-                          setUseNewCard(true);
-                          setStripePaymentMethodId(null);
-                        }}
-                        className={`p-4 rounded-xl border transition-all flex items-center gap-3 cursor-pointer ${
-                          useNewCard
-                            ? 'border-accent-primary bg-accent-primary/5'
-                            : 'border-border-surface/30 bg-bg-inset/40 hover:border-border-surface/60'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="savedCard"
-                          checked={useNewCard}
-                          onChange={() => {}}
-                          className="accent-accent-primary"
-                        />
-                        <div className="text-left">
-                          <p className="text-xs font-bold text-fg-main uppercase">
-                            {t('stripe.useNewCard', 'Use a new credit card')}
-                          </p>
                         </div>
                       </div>
+                    )}
+                    {useNewCard ? (
+                      <Elements stripe={stripePromise}>
+                        <StripeCardForm onCardComplete={setStripePaymentMethodId} onCardSuccess={() => setToastMessage(t('stripe.cardConfirmed'))} />
+                      </Elements>
+                    ) : (
+                      <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-2">
+                        <Check className="w-4 h-4" />
+                        {t('stripe.savedCardSelected', 'Saved card selected for pre-authorization hold.')}
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button variant="secondary" onClick={() => setBookingStep(1)}>
+                        {t('catalog.back')}
+                      </Button>
+                      <Button
+                        onClick={handleConfirmBooking}
+                        isLoading={createReservationMutation.isPending}
+                        disabled={!stripePaymentMethodId}
+                        className="flex items-center gap-1.5"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        {t('catalog.placeHold')}
+                      </Button>
                     </div>
                   </div>
                 )}
-                {useNewCard ? (
-                  <Elements stripe={stripePromise}>
-                    <StripeCardForm onCardComplete={setStripePaymentMethodId} onCardSuccess={() => setToastMessage(t('stripe.cardConfirmed'))} />
-                  </Elements>
-                ) : (
-                  <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-2">
-                    <Check className="w-4 h-4" />
-                    {t('stripe.savedCardSelected', 'Saved card selected for pre-authorization hold.')}
-                  </div>
-                )}
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setBookingStep(1)}>
-                    {t('catalog.back')}
-                  </Button>
-                  <Button
-                    onClick={handleConfirmBooking}
-                    isLoading={createReservationMutation.isPending}
-                    disabled={!stripePaymentMethodId}
-                    className="flex items-center gap-1.5"
-                  >
-                    <CreditCard className="w-3.5 h-3.5" />
-                    {t('catalog.placeHold')}
-                  </Button>
-                </div>
               </div>
             )}
             {bookingStep === 3 && (

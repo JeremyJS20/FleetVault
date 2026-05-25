@@ -81,6 +81,8 @@ router.post(
           signatureUrl: req.body.signatureUrl,
           comments: req.body.comments,
           stripePaymentMethodId: req.body.stripePaymentMethodId,
+          paymentMethod: req.body.paymentMethod,
+          purchaseOrderNumber: req.body.purchaseOrderNumber,
           hasScratches: req.body.hasScratches,
           hasBrokenGlass: req.body.hasBrokenGlass,
           missingSpareTire: req.body.missingSpareTire,

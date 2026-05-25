@@ -95,84 +95,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (name: string, email: string, password: string) => {
-    setIsLoading(true);
+    let tokenValue: string | null = null;
+    let refreshTokenValue: string | null = null;
+    let userValue: any = null;
+
+    const regRes = await apiClient('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, password }),
+    });
+
     try {
-      let tokenValue: string | null = null;
-      let refreshTokenValue: string | null = null;
-      let userValue: any = null;
-
-      try {
-        // 1. Call Backend Registration
-        const regRes = await apiClient('/api/auth/register', {
-          method: 'POST',
-          body: JSON.stringify({ name, email, password }),
-        });
-
-        // 2. Automatically log in to get tokens
-        try {
-          const loginRes = await apiClient('/api/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ email, password }),
-          });
-          tokenValue = loginRes.data.accessToken;
-          refreshTokenValue = loginRes.data.refreshToken;
-          userValue = loginRes.data.user;
-        } catch (loginErr) {
-          // If login fails after registration, we still set registered user details
-          userValue = regRes.data.user;
-        }
-      } catch (err: any) {
-        throw err;
-      }
-
-      setAccessToken(tokenValue);
-      if (refreshTokenValue) {
-        localStorage.setItem('refresh_token', refreshTokenValue);
-      }
-      setUser(normalizeUser(userValue));
-    } finally {
-      setIsLoading(false);
+      const loginRes = await apiClient('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      tokenValue = loginRes.data.accessToken;
+      refreshTokenValue = loginRes.data.refreshToken;
+      userValue = loginRes.data.user;
+    } catch (loginErr) {
+      userValue = regRes.data.user;
     }
+
+    setAccessToken(tokenValue);
+    if (refreshTokenValue) {
+      localStorage.setItem('refresh_token', refreshTokenValue);
+    }
+    setUser(normalizeUser(userValue));
   };
 
   const registerCustomer = async (data: any) => {
-    setIsLoading(true);
+    let tokenValue: string | null = null;
+    let refreshTokenValue: string | null = null;
+    let userValue: any = null;
+
+    const regRes = await apiClient('/api/auth/register/customer', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
     try {
-      let tokenValue: string | null = null;
-      let refreshTokenValue: string | null = null;
-      let userValue: any = null;
-
-      try {
-        // 1. Call Backend Registration for Customer
-        const regRes = await apiClient('/api/auth/register/customer', {
-          method: 'POST',
-          body: JSON.stringify(data),
-        });
-
-        // 2. Automatically log in to get tokens
-        try {
-          const loginRes = await apiClient('/api/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ email: data.email, password: data.password }),
-          });
-          tokenValue = loginRes.data.accessToken;
-          refreshTokenValue = loginRes.data.refreshToken;
-          userValue = loginRes.data.user;
-        } catch (loginErr) {
-          userValue = regRes.data.user;
-        }
-      } catch (err: any) {
-        throw err;
-      }
-
-      setAccessToken(tokenValue);
-      if (refreshTokenValue) {
-        localStorage.setItem('refresh_token', refreshTokenValue);
-      }
-      setUser(normalizeUser(userValue));
-    } finally {
-      setIsLoading(false);
+      const loginRes = await apiClient('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: data.email, password: data.password }),
+      });
+      tokenValue = loginRes.data.accessToken;
+      refreshTokenValue = loginRes.data.refreshToken;
+      userValue = loginRes.data.user;
+    } catch (loginErr) {
+      userValue = regRes.data.user;
     }
+
+    setAccessToken(tokenValue);
+    if (refreshTokenValue) {
+      localStorage.setItem('refresh_token', refreshTokenValue);
+    }
+    setUser(normalizeUser(userValue));
   };
 
   const logout = () => {

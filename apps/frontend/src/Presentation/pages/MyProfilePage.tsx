@@ -71,9 +71,9 @@ export const MyProfilePage: React.FC = () => {
           nationalId,
           phone,
           address,
-          licenseNumber,
-          licenseCountry,
-          licenseExpDate: new Date(licenseExpDate).toISOString(),
+          licenseNumber: type === 'CORPORATE' ? null : licenseNumber,
+          licenseCountry: type === 'CORPORATE' ? null : licenseCountry,
+          licenseExpDate: (type !== 'CORPORATE' && licenseExpDate) ? new Date(licenseExpDate).toISOString() : null,
           status,
           type
         })
@@ -88,7 +88,9 @@ export const MyProfilePage: React.FC = () => {
     }
   };
 
-  const isProfileComplete = !!(nationalId && licenseNumber && licenseCountry && licenseExpDate);
+  const isProfileComplete = type === 'CORPORATE'
+    ? !!nationalId
+    : !!(nationalId && licenseNumber && licenseCountry && licenseExpDate);
 
   const scrollToForm = () => {
     const element = document.getElementById('profile-form');
@@ -209,46 +211,48 @@ export const MyProfilePage: React.FC = () => {
           </FormField>
         </div>
 
-        <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-4">
-          <span className="text-xs font-bold uppercase tracking-widest text-accent-primary flex items-center gap-2">
-            <Shield className="w-3.5 h-3.5" />
-            {t('profile.drivingCredentials')}
-          </span>
+        {type !== 'CORPORATE' && (
+          <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-4">
+            <span className="text-xs font-bold uppercase tracking-widest text-accent-primary flex items-center gap-2">
+              <Shield className="w-3.5 h-3.5" />
+              {t('profile.drivingCredentials')}
+            </span>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <FormField label={t('profile.licenseNumber')} required>
-              <Input
-                type="text"
-                value={licenseNumber}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLicenseNumber(e.target.value)}
-                placeholder={t('profile.licenseNumber')}
-                className="!h-9 rounded-lg bg-bg-surface/50"
-                required
-              />
-            </FormField>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField label={t('profile.licenseNumber')} required>
+                <Input
+                  type="text"
+                  value={licenseNumber}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLicenseNumber(e.target.value)}
+                  placeholder={t('profile.licenseNumber')}
+                  className="!h-9 rounded-lg bg-bg-surface/50"
+                  required
+                />
+              </FormField>
 
-            <FormField label={t('profile.licenseCountry')} required>
-              <Input
-                type="text"
-                value={licenseCountry}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLicenseCountry(e.target.value)}
-                placeholder={t('profile.licenseCountry')}
-                className="!h-9 rounded-lg bg-bg-surface/50"
-                required
-              />
-            </FormField>
+              <FormField label={t('profile.licenseCountry')} required>
+                <Input
+                  type="text"
+                  value={licenseCountry}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLicenseCountry(e.target.value)}
+                  placeholder={t('profile.licenseCountry')}
+                  className="!h-9 rounded-lg bg-bg-surface/50"
+                  required
+                />
+              </FormField>
 
-            <FormField label={t('profile.licenseExpiry')} required>
-              <Input
-                type="date"
-                value={licenseExpDate}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLicenseExpDate(e.target.value)}
-                className="!h-9 rounded-lg bg-bg-surface/50"
-                required
-              />
-            </FormField>
+              <FormField label={t('profile.licenseExpiry')} required>
+                <Input
+                  type="date"
+                  value={licenseExpDate}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLicenseExpDate(e.target.value)}
+                  className="!h-9 rounded-lg bg-bg-surface/50"
+                  required
+                />
+              </FormField>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex justify-end pt-2">
           <Button type="submit" isLoading={isSaving} className="px-6">

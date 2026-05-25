@@ -123,13 +123,13 @@ export const CustomersPage: React.FC = () => {
       return setFormError(t('customers.validationEmailInvalid', 'Invalid email format'));
     }
 
-    if (formStep === 1) {
+    if (formStep === 1 && type !== 'CORPORATE') {
       setFormError(null);
       setFormStep(2);
       return;
     }
 
-    if (licenseExpDate) {
+    if (type !== 'CORPORATE' && licenseExpDate) {
       const expDate = new Date(licenseExpDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -142,7 +142,7 @@ export const CustomersPage: React.FC = () => {
       if (editingItem) {
         let finalPhotoUrl = licensePhotoUrl;
 
-        if (pendingLicenseFile) {
+        if (pendingLicenseFile && type !== 'CORPORATE') {
           setIsUploadingPhoto(true);
           setFormError(t('customers.uploadingPhoto', 'Uploading photo...'));
           const uploadResult = await uploadMutation.mutateAsync({
@@ -162,10 +162,10 @@ export const CustomersPage: React.FC = () => {
           nationalId,
           creditLimit: type === 'CORPORATE' ? (Number(creditLimit) || 0) : 0,
           type,
-          licenseNumber: licenseNumber.trim() || undefined,
-          licenseCountry: licenseCountry.trim() || undefined,
-          licenseExpDate: licenseExpDate ? new Date(licenseExpDate).toISOString() : undefined,
-          licensePhotoUrl: finalPhotoUrl?.startsWith('blob:') ? undefined : (finalPhotoUrl.trim() || undefined),
+          licenseNumber: type === 'CORPORATE' ? null : (licenseNumber.trim() || undefined),
+          licenseCountry: type === 'CORPORATE' ? null : (licenseCountry.trim() || undefined),
+          licenseExpDate: (type !== 'CORPORATE' && licenseExpDate) ? new Date(licenseExpDate).toISOString() : null,
+          licensePhotoUrl: type === 'CORPORATE' ? null : (finalPhotoUrl?.startsWith('blob:') ? undefined : (finalPhotoUrl.trim() || undefined)),
           userId: userId.trim() || undefined,
         };
 
@@ -181,15 +181,15 @@ export const CustomersPage: React.FC = () => {
           nationalId,
           creditLimit: type === 'CORPORATE' ? (Number(creditLimit) || 0) : 0,
           type,
-          licenseNumber: licenseNumber.trim() || undefined,
-          licenseCountry: licenseCountry.trim() || undefined,
-          licenseExpDate: licenseExpDate ? new Date(licenseExpDate).toISOString() : undefined,
+          licenseNumber: type === 'CORPORATE' ? null : (licenseNumber.trim() || undefined),
+          licenseCountry: type === 'CORPORATE' ? null : (licenseCountry.trim() || undefined),
+          licenseExpDate: (type !== 'CORPORATE' && licenseExpDate) ? new Date(licenseExpDate).toISOString() : null,
           userId: userId.trim() || undefined,
         };
 
         const created = await createMutation.mutateAsync({ data: payload });
 
-        if (pendingLicenseFile) {
+        if (pendingLicenseFile && type !== 'CORPORATE') {
           setIsUploadingPhoto(true);
           setFormError(t('customers.uploadingPhoto', 'Uploading photo...'));
           const uploadResult = await uploadMutation.mutateAsync({
@@ -355,23 +355,27 @@ export const CustomersPage: React.FC = () => {
         onClose={() => setIsFormOpen(false)}
         title={
           (editingItem ? t('customers.editTitle') : t('customers.createTitle')) + 
-          ` (${formStep}/2)`
+          (type === 'CORPORATE' ? '' : ` (${formStep}/2)`)
         }
       >
         <form onSubmit={handleFormSubmit} className="flex flex-col gap-5">
           {/* Stepper Progress Indicator */}
-          <div className="flex gap-1.5 mb-1">
-            <div className={`h-1 flex-1 rounded-full ${formStep >= 1 ? 'bg-accent-primary' : 'bg-white/10'}`} />
-            <div className={`h-1 flex-1 rounded-full ${formStep >= 2 ? 'bg-accent-primary' : 'bg-white/10'}`} />
-          </div>
+          {type !== 'CORPORATE' && (
+            <div className="flex gap-1.5 mb-1">
+              <div className={`h-1 flex-1 rounded-full ${formStep >= 1 ? 'bg-accent-primary' : 'bg-white/10'}`} />
+              <div className={`h-1 flex-1 rounded-full ${formStep >= 2 ? 'bg-accent-primary' : 'bg-white/10'}`} />
+            </div>
+          )}
 
           {/* Dynamic Step Header */}
-          <span className="text-[10px] font-extrabold text-accent-primary uppercase tracking-widest block leading-none mb-1">
-            {formStep === 1 
-              ? t('customers.stepGeneral', 'Step 1: General Info & Credit') 
-              : t('customers.stepLicense', 'Step 2: Driver Credentials')
-            }
-          </span>
+          {type !== 'CORPORATE' && (
+            <span className="text-[10px] font-extrabold text-accent-primary uppercase tracking-widest block leading-none mb-1">
+              {formStep === 1 
+                ? t('customers.stepGeneral', 'Step 1: General Info & Credit') 
+                : t('customers.stepLicense', 'Step 2: Driver Credentials')
+              }
+            </span>
+          )}
 
           {/* STEP 1: General Info & Credit */}
           {formStep === 1 && (
@@ -439,7 +443,7 @@ export const CustomersPage: React.FC = () => {
                 </Button>
                 <Button
                   variant="primary"
-                  type="button"
+                  type={type === 'CORPORATE' ? 'submit' : 'button'}
                   onClick={() => {
                     if (!name.trim()) return setFormError(t('customers.validationNameRequired'));
                     if (!nationalId.trim()) return setFormError(t('customers.validationIdRequired'));
@@ -447,10 +451,11 @@ export const CustomersPage: React.FC = () => {
                     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                     if (!emailRegex.test(email.trim())) return setFormError(t('customers.validationEmailInvalid', 'Invalid email format'));
                     setFormError(null);
+                    if (type === 'CORPORATE') return;
                     setFormStep(2);
                   }}
                 >
-                  {t('common.next', 'Continue')}
+                  {type === 'CORPORATE' ? t('common.save') : t('common.next', 'Continue')}
                 </Button>
               </div>
             </div>

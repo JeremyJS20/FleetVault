@@ -365,7 +365,7 @@ export const VehiclesPage: React.FC = () => {
             )}
             {canClean && (
               <>
-                {item.status === 'UNDER_INSPECTION' && (
+                {(item.status === 'UNDER_INSPECTION' || item.status === 'MAINTENANCE') && (
                   <Button
                     variant="secondary"
                     size="sm"

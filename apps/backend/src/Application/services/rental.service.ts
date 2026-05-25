@@ -36,6 +36,9 @@ export class RentalService {
   }
 
   private validateCustomerProfileComplete(customer: any, scheduledReturnDate: Date) {
+    if (customer.type === 'CORPORATE') {
+      return;
+    }
     const missingFields: string[] = [];
     if (!customer.nationalId) missingFields.push('nationalId');
     if (!customer.licenseNumber) missingFields.push('licenseNumber');
@@ -133,7 +136,9 @@ export class RentalService {
     checkoutFuelLevel?: string;
     signatureUrl: string;
     comments?: string | null;
-    stripePaymentMethodId: string; // for direct pre-auth hold
+    stripePaymentMethodId?: string | null;
+    paymentMethod?: 'STRIPE' | 'CASH' | null;
+    purchaseOrderNumber?: string | null;
     hasScratches?: boolean;
     hasBrokenGlass?: boolean;
     missingSpareTire?: boolean;
@@ -197,22 +202,54 @@ export class RentalService {
       });
       if (customerActive) throw new ConflictError('Customer already has an active rental');
 
+      // Corporate credit limit verification
+      if (customer.type === 'CORPORATE') {
+        if (!input.purchaseOrderNumber) {
+          throw new ValidationError('Purchase Order number is required for corporate accounts');
+        }
+
+        const outstandingSum = await tx.rental.aggregate({
+          where: {
+            customerId: customer.id,
+            status: { in: ['PENDING', 'ACTIVE'] }
+          },
+          _sum: {
+            totalCost: true
+          }
+        });
+        const outstandingCost = outstandingSum._sum.totalCost || 0;
+
+        if (totalCost + outstandingCost > customer.creditLimit) {
+          throw new ValidationError(`Corporate credit limit exceeded. Remaining limit: RD$${customer.creditLimit - outstandingCost}, requested: RD$${totalCost}`);
+        }
+      }
+
       return { vehicle, totalCost, holdAmount, depositAmount, checkoutOdometer, checkoutFuelLevel };
     });
 
-    // Stripe Hold
-    const metadata = {
-      customerId: customer.id,
-      customerName: customer.name,
-      vehiclePlate: result.vehicle.plateNumber,
-      walkin: 'true'
-    };
-    const hold = await stripeService.createPreAuthHold(
-      result.holdAmount,
-      customer.stripeCustomerId || undefined,
-      input.stripePaymentMethodId,
-      metadata
-    );
+    // Stripe Hold (only if not corporate and paymentMethod is STRIPE)
+    let holdId: string | null = null;
+    const isCorporate = customer.type === 'CORPORATE';
+    const isCash = !isCorporate && input.paymentMethod === 'CASH';
+
+    if (!isCorporate && !isCash) {
+      if (!input.stripePaymentMethodId) {
+        throw new ValidationError('Stripe payment method is required for credit card checkout');
+      }
+      const metadata = {
+        customerId: customer.id,
+        customerName: customer.name,
+        vehiclePlate: result.vehicle.plateNumber,
+        walkin: 'true'
+      };
+      const hold = await stripeService.createPreAuthHold(
+        result.holdAmount,
+        customer.stripeCustomerId || undefined,
+        input.stripePaymentMethodId,
+        metadata
+      );
+      holdId = hold.id;
+    }
 
     return await prisma.$transaction(async (tx) => {
       const rental = await tx.rental.create({
@@ -227,7 +264,8 @@ export class RentalService {
           checkoutFuelLevel: result.checkoutFuelLevel,
           status: 'ACTIVE',
           signatureUrl: input.signatureUrl || null,
-          stripePaymentIntentId: hold.id,
+          stripePaymentIntentId: holdId,
+          purchaseOrderNumber: isCorporate ? input.purchaseOrderNumber : null,
           totalCost: result.totalCost,
           comments: input.comments
         }
@@ -270,19 +308,35 @@ export class RentalService {
           tireConditionRearLeft: input.tireConditionRearLeft ?? 'GOOD',
           tireConditionRearRight: input.tireConditionRearRight ?? 'GOOD',
           odometer: result.checkoutOdometer,
-          photoUrlsJson: '[]',
+          photoUrlsJson: JSON.stringify(input.photoUrls || []),
           status: isFlagged ? 'FLAGGED' : 'PASSED',
           comments: input.inspectionComments || null
         }
       });
 
+      // Transaction Ledger entry based on billing type
+      let ledgerType = 'PRE_AUTH_HOLD';
+      let ledgerAmount = result.holdAmount;
+      let ledgerComments = `Counter pre-auth hold of RD$${result.holdAmount} (Rent: RD$${result.totalCost} + Deposit: RD$${result.depositAmount})`;
+
+      if (isCorporate) {
+        ledgerType = 'PO_INVOICE';
+        ledgerAmount = result.totalCost;
+        ledgerComments = `Corporate invoice under PO ${input.purchaseOrderNumber} for RD$${result.totalCost}`;
+      } else if (isCash) {
+        ledgerType = 'CASH';
+        ledgerAmount = result.holdAmount;
+        ledgerComments = `Upfront cash payment collected for RD$${result.holdAmount} (Rent: RD$${result.totalCost} + Deposit: RD$${result.depositAmount})`;
+      }
+
       await tx.transactionLedger.create({
         data: {
           rentalId: rental.id,
-          amount: result.holdAmount,
-          type: 'PRE_AUTH_HOLD',
-          stripePaymentIntentId: hold.id,
-          comments: `Counter pre-auth hold of RD$${result.holdAmount} (Rent: RD$${result.totalCost} + Deposit: RD$${result.depositAmount})`
+          amount: ledgerAmount,
+          type: ledgerType,
+          stripePaymentIntentId: holdId,
+          purchaseOrderNumber: isCorporate ? input.purchaseOrderNumber : null,
+          comments: ledgerComments
         }
       });
 
@@ -420,8 +474,14 @@ export class RentalService {
     // 1. Calculate final costs and fees
     const calcs = await this.calculatePenalties(rentalId, input);
 
-    // 2. Stripe charge / hold capture
-    if (rental.stripePaymentIntentId) {
+    const checkoutLedger = await prisma.transactionLedger.findFirst({
+      where: { rentalId, type: { in: ['PRE_AUTH_HOLD', 'CASH', 'PO_INVOICE'] } }
+    });
+    const isCash = checkoutLedger?.type === 'CASH';
+    const isCorporate = rental.customer.type === 'CORPORATE';
+
+    // 2. Stripe charge / hold capture (only if stripe pre-auth hold exists, i.e., individual + credit card)
+    if (rental.stripePaymentIntentId && !isCash && !isCorporate) {
       try {
         // Capture what is needed from pre-auth hold. Stripe capture allows capturing up to the authorized amount.
         // If final cost <= authorized, capture final cost. If final cost > authorized, capture full and charge extra.
@@ -448,14 +508,33 @@ export class RentalService {
 
     // 3. Update database record in a transaction
     return await prisma.$transaction(async (tx) => {
+      let ledgerType = 'CHARGE';
+      let ledgerComments = `Final check-in charge of RD$${calcs.totalFinalCost} (Rent: RD$${calcs.baseCost}, Late Fee: RD$${calcs.lateFee}, Fuel Fee: RD$${calcs.fuelFee}, Damage Fee: RD$${calcs.totalDamageFee})`;
+      
+      if (isCorporate) {
+        ledgerType = 'PO_INVOICE';
+        ledgerComments = `Corporate invoice return check-in under PO ${rental.purchaseOrderNumber} for RD$${calcs.totalFinalCost} (Rent: RD$${calcs.baseCost}, Late Fee: RD$${calcs.lateFee}, Fuel Fee: RD$${calcs.fuelFee}, Damage Fee: RD$${calcs.totalDamageFee})`;
+      } else if (isCash) {
+        ledgerType = 'CASH';
+        // Calculate cash reconciliation adjustments
+        const initialCashPaid = checkoutLedger?.amount || 0;
+        const diff = initialCashPaid - calcs.totalFinalCost;
+        if (diff >= 0) {
+          ledgerComments = `Cash return check-in completed. Refunded RD$${diff.toFixed(2)} in cash (Initial: RD$${initialCashPaid}, Final Cost: RD$${calcs.totalFinalCost})`;
+        } else {
+          ledgerComments = `Cash return check-in completed. Collected additional RD$${Math.abs(diff).toFixed(2)} in cash (Initial: RD$${initialCashPaid}, Final Cost: RD$${calcs.totalFinalCost})`;
+        }
+      }
+
       // Create ledger charge record
       await tx.transactionLedger.create({
         data: {
           rentalId: rentalId,
           amount: calcs.totalFinalCost,
-          type: 'CHARGE',
-          stripePaymentIntentId: rental.stripePaymentIntentId,
-          comments: `Final check-in charge of RD$${calcs.totalFinalCost} (Rent: RD$${calcs.baseCost}, Late Fee: RD$${calcs.lateFee}, Fuel Fee: RD$${calcs.fuelFee}, Damage Fee: RD$${calcs.totalDamageFee})`
+          type: ledgerType,
+          stripePaymentIntentId: isCorporate || isCash ? null : rental.stripePaymentIntentId,
+          purchaseOrderNumber: isCorporate ? rental.purchaseOrderNumber : null,
+          comments: ledgerComments
         }
       });
 
@@ -522,6 +601,7 @@ export class RentalService {
           customer: true,
           checkoutEmployee: true,
           returnEmployee: true,
+          transactions: true,
           inspections: {
             select: {
               type: true,

@@ -9,6 +9,8 @@
   
   --color-accent-primary: var(--accent-primary);
   --color-accent-primary-end: var(--accent-primary-end);
+  --color-accent-error: var(--accent-error);
+  --color-accent-error-glow: var(--accent-error-glow);
   
   --color-fg-main: var(--text-primary);
   --color-fg-secondary: var(--text-secondary);
@@ -33,6 +35,9 @@
   --accent-primary-end: #0D6B7A;
   --accent-primary-glow: rgba(14, 142, 154, 0.15);
   
+  --accent-error: #DC2626;
+  --accent-error-glow: rgba(220, 38, 38, 0.15);
+  
   --text-primary: #1B2A4A;
   --text-secondary: #4B5563;
   --text-tertiary: #9CA3AF;
@@ -51,6 +56,9 @@
   --accent-primary: #00B4D8;
   --accent-primary-end: #0E8E9A;
   --accent-primary-glow: rgba(0, 180, 216, 0.25);
+  
+  --accent-error: #EF4444;
+  --accent-error-glow: rgba(239, 68, 68, 0.25);
   
   --text-primary: #F9FAFB;
   --text-secondary: #9CA3AF;

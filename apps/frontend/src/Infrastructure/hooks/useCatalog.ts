@@ -175,3 +175,14 @@ export const useDeleteCustomerPaymentMethod = (customerId?: string) => {
 
 export const useUpdateRental = createMutationHook<any, any>('PUT', (id) => `/api/rentals/${id}`, ['rentals']);
 export const useUpdateInspection = createMutationHook<any, any>('PUT', (id) => `/api/inspections/${id}`, ['inspections']);
+
+export const useMyCustomerProfile = (enabled = true) => {
+  return useQuery({
+    queryKey: ['my-customer-profile'],
+    queryFn: async () => {
+      const res = await apiClient('/api/customers/me');
+      return res.data;
+    },
+    enabled,
+  });
+};

@@ -21,7 +21,8 @@ export const useCreateReservation = () => {
       vehicleId: string;
       rentalDate: string;
       scheduledReturnDate: string;
-      stripePaymentMethodId: string;
+      stripePaymentMethodId?: string | null;
+      purchaseOrderNumber?: string | null;
     }) => {
       const res = await apiClient('/api/reservations', {
         method: 'POST',

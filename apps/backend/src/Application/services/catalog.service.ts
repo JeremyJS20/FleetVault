@@ -563,8 +563,8 @@ export class CatalogService {
 
   async passInspection(id: string) {
     const item = await this.getVehicleById(id);
-    if (item.status !== 'UNDER_INSPECTION') {
-      throw new ValidationError('Only vehicles UNDER_INSPECTION can be marked as passed');
+    if (item.status !== 'UNDER_INSPECTION' && item.status !== 'MAINTENANCE') {
+      throw new ValidationError('Only vehicles UNDER_INSPECTION or MAINTENANCE can be marked as passed');
     }
 
     return await prisma.vehicle.update({
@@ -695,6 +695,7 @@ export class CatalogService {
       if (uniqueUser) throw new ConflictError('User is already linked to another customer');
     }
 
+    const isCorporate = input.type === 'CORPORATE';
     const newCustomer = await prisma.customer.create({
       data: {
         name: input.name,
@@ -703,14 +704,30 @@ export class CatalogService {
         creditLimit: input.creditLimit,
         type: input.type,
         status: 'ACTIVE',
-        licenseNumber: input.licenseNumber,
-        licenseCountry: input.licenseCountry,
-        licenseExpDate: new Date(input.licenseExpDate),
-        licensePhotoUrl: input.licensePhotoUrl || null,
+        licenseNumber: isCorporate ? null : (input.licenseNumber || null),
+        licenseCountry: isCorporate ? null : (input.licenseCountry || null),
+        licenseExpDate: (isCorporate || !input.licenseExpDate) ? null : new Date(input.licenseExpDate),
+        licensePhotoUrl: isCorporate ? null : (input.licensePhotoUrl || null),
         userId: finalUserId
       },
       include: { user: true }
     });
+
+    // Create Stripe customer for card transactions
+    if (input.email) {
+      try {
+        const stripeService = new StripeService();
+        const stripeCustomer = await stripeService.createCustomer(input.email, input.name);
+        if (stripeCustomer.id) {
+          await prisma.customer.update({
+            where: { id: newCustomer.id },
+            data: { stripeCustomerId: stripeCustomer.id },
+          });
+        }
+      } catch (err) {
+        console.error('Failed to create Stripe customer:', err);
+      }
+    }
 
     return {
       ...newCustomer,
@@ -775,6 +792,7 @@ export class CatalogService {
       if (uniqueUser) throw new ConflictError('User is already linked to another customer');
     }
 
+    const isCorporate = (input.type === 'CORPORATE') || (!input.type && current.type === 'CORPORATE');
     const updatedCustomer = await prisma.customer.update({
       where: { id },
       data: {
@@ -784,10 +802,10 @@ export class CatalogService {
         creditLimit: input.creditLimit,
         type: input.type,
         status: input.status,
-        licenseNumber: input.licenseNumber,
-        licenseCountry: input.licenseCountry,
-        licenseExpDate: input.licenseExpDate ? new Date(input.licenseExpDate) : undefined,
-        licensePhotoUrl: input.licensePhotoUrl !== undefined ? input.licensePhotoUrl : undefined,
+        licenseNumber: isCorporate ? null : (input.licenseNumber !== undefined ? input.licenseNumber : undefined),
+        licenseCountry: isCorporate ? null : (input.licenseCountry !== undefined ? input.licenseCountry : undefined),
+        licenseExpDate: isCorporate ? null : (input.licenseExpDate ? new Date(input.licenseExpDate) : undefined),
+        licensePhotoUrl: isCorporate ? null : (input.licensePhotoUrl !== undefined ? input.licensePhotoUrl : undefined),
         userId: finalUserId
       },
       include: { user: true }

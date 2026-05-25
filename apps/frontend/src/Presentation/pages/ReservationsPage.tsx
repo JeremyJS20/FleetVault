@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../Infrastructure/auth.context.js';
 import { useRentalsList, useCreateRental, useRentalReturn, useRentalReturnEstimate } from '../../Infrastructure/hooks/useRentals.js';
 import { useVehicles } from '../../Infrastructure/hooks/useCatalog.js';
-import { useCustomers, useUpdateCustomer, useCustomerPaymentMethods, useDeleteCustomerPaymentMethod, useUpdateRental, useUpdateInspection } from '../../Infrastructure/hooks/useCatalog.js';
+import { useCustomers, useUpdateCustomer, useCustomerPaymentMethods, useDeleteCustomerPaymentMethod, useUpdateRental, useUpdateInspection, useFeeConfigs } from '../../Infrastructure/hooks/useCatalog.js';
 import { useUploadImage, getImageProxyUrl } from '../../Infrastructure/hooks/useUploads.js';
+import { formatCurrency } from '@rent-car/common';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
 import { Input } from '../components/ui/Input.js';
@@ -69,6 +70,8 @@ export const ReservationsPage: React.FC = () => {
   
   const [walkinUseNewCard, setWalkinUseNewCard] = useState(false);
   const [walkinStep, setWalkinStep] = useState(1);
+  const [walkinPaymentMethod, setWalkinPaymentMethod] = useState<'STRIPE' | 'CASH'>('STRIPE');
+  const [walkinPurchaseOrderNumber, setWalkinPurchaseOrderNumber] = useState('');
 
   // Walk-in inspection state
   const [walkinOdometer, setWalkinOdometer] = useState(0);
@@ -202,6 +205,8 @@ export const ReservationsPage: React.FC = () => {
     setPendingWalkinSignatureFile(null);
     setWalkinError(null);
     setWalkinStep(1);
+    setWalkinPaymentMethod('STRIPE');
+    setWalkinPurchaseOrderNumber('');
     setWalkinLicNationalId('');
     setWalkinLicNumber('');
     setWalkinLicCountry('');
@@ -213,20 +218,54 @@ export const ReservationsPage: React.FC = () => {
   };
 
   const isCheckoutCustomerProfileIncomplete = 
-    !checkoutRental?.customer.nationalId || 
-    !checkoutRental?.customer.licenseNumber || 
-    !checkoutRental?.customer.licenseCountry || 
-    !checkoutRental?.customer.licenseExpDate ||
-    !checkoutRental?.customer.licensePhotoUrl;
+    checkoutRental?.customer.type !== 'CORPORATE' && (
+      !checkoutRental?.customer.nationalId || 
+      !checkoutRental?.customer.licenseNumber || 
+      !checkoutRental?.customer.licenseCountry || 
+      !checkoutRental?.customer.licenseExpDate ||
+      !checkoutRental?.customer.licensePhotoUrl
+    );
 
   const selectedWalkinCustomer = customersData?.items?.find((c: any) => c.id === walkinCustomer);
   const isWalkinProfileIncomplete =
     !!selectedWalkinCustomer &&
+    selectedWalkinCustomer.type !== 'CORPORATE' &&
     (!selectedWalkinCustomer.nationalId ||
      !selectedWalkinCustomer.licenseNumber ||
      !selectedWalkinCustomer.licenseCountry ||
      !selectedWalkinCustomer.licenseExpDate ||
      !selectedWalkinCustomer.licensePhotoUrl);
+
+  const isWalkinCorporate = selectedWalkinCustomer?.type === 'CORPORATE';
+
+  // Fee configs
+  const { data: feeConfigs } = useFeeConfigs();
+
+  // Fetch rentals for selected customer if corporate (to calculate credit line)
+  const { data: customerRentalsData } = useRentalsList({
+    customerId: isWalkinCorporate ? walkinCustomer : undefined,
+    limit: 100,
+  });
+
+  const customerRentals = customerRentalsData?.items || [];
+  const walkinOutstandingBalance = customerRentals
+    .filter((r: any) => r.status === 'ACTIVE' || r.status === 'PENDING')
+    .reduce((sum: number, r: any) => sum + (r.totalCost || 0), 0);
+
+  const walkinRemainingCredit = (selectedWalkinCustomer?.creditLimit || 0) - walkinOutstandingBalance;
+
+  const getWalkinDays = () => {
+    if (!walkinStart || !walkinEnd) return 0;
+    const start = new Date(walkinStart);
+    const end = new Date(walkinEnd);
+    const diff = Math.abs(end.getTime() - start.getTime());
+    return Math.ceil(diff / (1000 * 60 * 60 * 24)) || 1;
+  };
+
+  const walkinDays = getWalkinDays();
+  const walkinRentCost = walkinRate * walkinDays;
+  const securityDepositAmount = (feeConfigs as any[])?.find((f: any) => f.key === 'SECURITY_DEPOSIT')?.amount ?? 15000;
+  const walkinUpfrontCash = walkinRentCost + securityDepositAmount;
 
   const handleStartCheckout = (rental: any) => {
     setCheckoutRental(rental);
@@ -456,9 +495,20 @@ export const ReservationsPage: React.FC = () => {
       setWalkinIsSavingProfile(false);
     }
     if (walkinStep === 4) {
-      if (!walkinCardToken) {
-        setWalkinError(t('stripe.cardDetailsRequired', 'Please complete the card details'));
-        return;
+      if (isWalkinCorporate) {
+        if (!walkinPurchaseOrderNumber.trim()) {
+          setWalkinError(t('reservations.purchaseOrderRequired', 'Purchase Order number is required'));
+          return;
+        }
+        if (walkinRentCost > walkinRemainingCredit) {
+          setWalkinError(t('reservations.creditLimitExceeded', 'Corporate credit limit exceeded'));
+          return;
+        }
+      } else if (walkinPaymentMethod === 'STRIPE') {
+        if (!walkinCardToken) {
+          setWalkinError(t('stripe.cardDetailsRequired', 'Please complete the card details'));
+          return;
+        }
       }
     }
     setWalkinStep(walkinStep + 1);
@@ -466,7 +516,8 @@ export const ReservationsPage: React.FC = () => {
 
   // Direct Walkin counter Booking
   const handleCreateWalkin = async () => {
-    if (!walkinCustomer || !walkinVehicle || !walkinStart || !walkinEnd || !walkinCardToken || !walkinSignature) {
+    const isCcRequired = !isWalkinCorporate && walkinPaymentMethod === 'STRIPE';
+    if (!walkinCustomer || !walkinVehicle || !walkinStart || !walkinEnd || (isCcRequired && !walkinCardToken) || !walkinSignature) {
       setWalkinError(t('common.fieldsRequired'));
       return;
     }
@@ -483,7 +534,9 @@ export const ReservationsPage: React.FC = () => {
         pricePerDay: Number(walkinRate),
         checkoutOdometer: Number(walkinOdometer),
         checkoutFuelLevel: walkinFuelLevel,
-        stripePaymentMethodId: walkinCardToken,
+        stripePaymentMethodId: (isWalkinCorporate || walkinPaymentMethod === 'CASH') ? null : walkinCardToken,
+        paymentMethod: isWalkinCorporate ? null : walkinPaymentMethod,
+        purchaseOrderNumber: isWalkinCorporate ? walkinPurchaseOrderNumber : null,
         hasScratches: walkinHasScratches,
         hasBrokenGlass: walkinHasBrokenGlass,
         missingSpareTire: walkinMissingSpareTire,
@@ -727,9 +780,16 @@ export const ReservationsPage: React.FC = () => {
             {/* Stepper Dots */}
             {checkoutStep !== 4 && (
               <div className="flex gap-1.5">
-                {[1, 2, 3].map(idx => (
-                  <div key={idx} className={`h-1.5 flex-1 rounded-full ${checkoutStep >= idx ? 'bg-accent-primary' : 'bg-white/10'}`} />
-                ))}
+                {checkoutRental?.customer.type === 'CORPORATE' ? (
+                  <>
+                    <div className={`h-1.5 flex-1 rounded-full ${checkoutStep >= 1 ? 'bg-accent-primary' : 'bg-white/10'}`} />
+                    <div className={`h-1.5 flex-1 rounded-full ${checkoutStep >= 3 ? 'bg-accent-primary' : 'bg-white/10'}`} />
+                  </>
+                ) : (
+                  [1, 2, 3].map(idx => (
+                    <div key={idx} className={`h-1.5 flex-1 rounded-full ${checkoutStep >= idx ? 'bg-accent-primary' : 'bg-white/10'}`} />
+                  ))
+                )}
               </div>
             )}
 
@@ -754,7 +814,9 @@ export const ReservationsPage: React.FC = () => {
 
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="secondary" onClick={closeCheckout}>{t('reservations.cancel')}</Button>
-                  <Button onClick={() => setCheckoutStep(2)}>{t('reservations.nextVerify')}</Button>
+                  <Button onClick={() => setCheckoutStep(checkoutRental?.customer.type === 'CORPORATE' ? 3 : 2)}>
+                    {checkoutRental?.customer.type === 'CORPORATE' ? t('reservations.nextSignature') : t('reservations.nextVerify')}
+                  </Button>
                 </div>
               </div>
             )}
@@ -883,7 +945,7 @@ export const ReservationsPage: React.FC = () => {
                 <SignaturePad onChange={setCheckoutSignature} onFileSelect={setPendingCheckoutSignatureFile} />
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setCheckoutStep(2)}>{t('reservations.back')}</Button>
+                  <Button variant="secondary" onClick={() => setCheckoutStep(checkoutRental?.customer.type === 'CORPORATE' ? 1 : 2)}>{t('reservations.back')}</Button>
                   <Button
                     onClick={handleConfirmCheckout}
                     isLoading={uploadPhotoMutation.isPending || createRentalMutation.isPending}
@@ -1014,7 +1076,7 @@ export const ReservationsPage: React.FC = () => {
                   )}
                   {estimateData.fuelFee > 0 && (
                     <div className="flex justify-between py-1">
-                      <span className="text-fg-tertiary">{t('reservations.refuelPenalty', { steps: estimateData.fuelDifference })}</span>
+                      <span className="text-fg-tertiary">{t('reservations.refuelPenalty', { count: estimateData.fuelDifference })}</span>
                       <span className="font-bold font-mono text-accent-error">+RD${estimateData.fuelFee?.toFixed(2)}</span>
                     </div>
                   )}
@@ -1029,6 +1091,107 @@ export const ReservationsPage: React.FC = () => {
                     <span className="text-sm font-extrabold font-mono text-fg-main">RD${estimateData.totalFinalCost?.toFixed(2)}</span>
                   </div>
                 </div>
+
+                {/* Cash reconciliation / Corporate Invoicing instructions */}
+                {(() => {
+                  const isCashRental = returnRental?.transactions?.some((t: any) => t.type === 'CASH');
+                  const isCorporateRental = returnRental?.customer?.type === 'CORPORATE';
+                  if (isCorporateRental) {
+                    return (
+                      <div className="p-3.5 rounded-xl border border-accent-primary/20 bg-accent-primary/5 text-fg-secondary text-xs space-y-1 animate-fade-in">
+                        <span className="font-bold text-fg-primary block">
+                          {t('reservations.corporateInvoiceTitle', 'Corporate Invoicing')}
+                        </span>
+                        <p className="leading-normal">
+                          {t('reservations.corporateInvoiceDesc', 'Bill PO {{poNumber}} for {{amount}}.', {
+                            poNumber: returnRental.purchaseOrderNumber || 'N/A',
+                            amount: formatCurrency(estimateData.totalFinalCost ?? 0)
+                          })}
+                        </p>
+                      </div>
+                    );
+                  }
+                  if (isCashRental) {
+                    const cashTransaction = returnRental?.transactions?.find((t: any) => t.type === 'CASH');
+                    const initialPaidCash = cashTransaction?.amount ?? 0;
+                    const diff = initialPaidCash - (estimateData.totalFinalCost ?? 0);
+                    const isRefund = diff >= 0;
+                    return (
+                      <div className={`p-3.5 rounded-xl border text-fg-secondary text-xs space-y-2 animate-fade-in ${
+                        isRefund
+                          ? 'border-emerald-500/20 bg-emerald-500/5'
+                          : 'border-accent-error/20 bg-accent-error/15'
+                      }`}>
+                        <span className={`font-bold block ${isRefund ? 'text-emerald-400' : 'text-accent-error'}`}>
+                          {t('reservations.cashReconciliationTitle', 'Cash Reconciliation')}
+                        </span>
+                        <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold">
+                          <div>
+                            <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.initialCashPaid', 'Initial Paid (Rent+Deposit)')}</span>
+                            <span className="text-fg-main font-mono">{formatCurrency(initialPaidCash)}</span>
+                          </div>
+                          <div>
+                            <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.actualFinalCost', 'Actual Cost')}</span>
+                            <span className="text-fg-main font-mono">{formatCurrency(estimateData.totalFinalCost ?? 0)}</span>
+                          </div>
+                        </div>
+                        <div className="pt-2 border-t border-border-surface/10">
+                          {isRefund ? (
+                            <p className="text-emerald-400 font-bold leading-normal">
+                              {t('reservations.refundCashDesc', 'Refund {{amount}} in cash to customer.', { amount: formatCurrency(diff) })}
+                            </p>
+                          ) : (
+                            <p className="text-accent-error font-bold leading-normal">
+                              {t('reservations.collectCashDesc', 'Collect additional {{amount}} in cash from customer.', { amount: formatCurrency(Math.abs(diff)) })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+                  // Stripe Credit Card Billing summary
+                  const authAmount = (returnRental?.totalCost || 0) + securityDepositAmount;
+                  const finalCost = estimateData.totalFinalCost ?? 0;
+                  const isExcess = finalCost > authAmount;
+                  const excessAmount = finalCost - authAmount;
+                  return (
+                    <div className={`p-3.5 rounded-xl border text-fg-secondary text-xs space-y-2 animate-fade-in ${
+                      isExcess
+                        ? 'border-accent-error/20 bg-accent-error/15'
+                        : 'border-emerald-500/20 bg-emerald-500/5'
+                    }`}>
+                      <span className={`font-bold block ${isExcess ? 'text-accent-error' : 'text-emerald-400'}`}>
+                        {t('reservations.stripeBillingTitle', 'Stripe Credit Card Processing')}
+                      </span>
+                      <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold">
+                        <div>
+                          <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.preAuthAuthorized', 'Authorized Hold')}</span>
+                          <span className="text-fg-main font-mono">{formatCurrency(authAmount)}</span>
+                        </div>
+                        <div>
+                          <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.actualFinalCost', 'Actual Cost')}</span>
+                          <span className="text-fg-main font-mono">{formatCurrency(finalCost)}</span>
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-border-surface/10">
+                        {isExcess ? (
+                          <p className="text-accent-error font-bold leading-normal">
+                            {t('reservations.stripeExcessDesc', 'Capture full hold of {{auth}} and charge an additional {{excess}} on credit card.', {
+                              auth: formatCurrency(authAmount),
+                              excess: formatCurrency(excessAmount)
+                            })}
+                          </p>
+                        ) : (
+                          <p className="text-emerald-400 font-bold leading-normal">
+                            {t('reservations.stripeCaptureDesc', 'Capture {{amount}} from the pre-authorized hold and release the remainder.', {
+                              amount: formatCurrency(finalCost)
+                            })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="border-t border-border-surface/15 pt-4">
                   <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block mb-2">{t('reservations.returnSignaturePrompt')}</span>
@@ -1056,7 +1219,23 @@ export const ReservationsPage: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-base font-extrabold text-fg-main uppercase tracking-wider">{t('reservations.returnFinalized')}</h3>
-                  <p className="text-xs text-fg-secondary max-w-sm" dangerouslySetInnerHTML={{ __html: t('reservations.returnDesc') }} />
+                  {(() => {
+                    const isCashRental = returnRental?.transactions?.some((t: any) => t.type === 'CASH');
+                    const isCorporateRental = returnRental?.customer?.type === 'CORPORATE';
+                    if (isCorporateRental) {
+                      return (
+                        <p className="text-xs text-fg-secondary max-w-sm" dangerouslySetInnerHTML={{ __html: t('reservations.returnDescCorporate', 'Corporate return finalized. The vehicle is now set to **UNDER INSPECTION** or **MAINTENANCE** and will be processed for cleaning before becoming available.') }} />
+                      );
+                    }
+                    if (isCashRental) {
+                      return (
+                        <p className="text-xs text-fg-secondary max-w-sm" dangerouslySetInnerHTML={{ __html: t('reservations.returnDescCash', 'Cash return finalized and reconciled. The vehicle is now set to **UNDER INSPECTION** or **MAINTENANCE**.') }} />
+                      );
+                    }
+                    return (
+                      <p className="text-xs text-fg-secondary max-w-sm" dangerouslySetInnerHTML={{ __html: t('reservations.returnDesc') }} />
+                    );
+                  })()}
                 </div>
                 <div className="pt-4 w-full">
                   <Button className="w-full" onClick={closeReturn}>
@@ -1096,9 +1275,18 @@ export const ReservationsPage: React.FC = () => {
             {/* Stepper Dots */}
             {walkinStep !== 6 && (
               <div className="flex gap-1.5">
-                {[1, 2, 3, 4, 5].map(idx => (
-                  <div key={idx} className={`h-1.5 flex-1 rounded-full ${walkinStep >= idx ? 'bg-accent-primary' : 'bg-white/10'}`} />
-                ))}
+                {isWalkinCorporate ? (
+                  <>
+                    <div className={`h-1.5 flex-1 rounded-full ${walkinStep >= 1 ? 'bg-accent-primary' : 'bg-white/10'}`} />
+                    <div className={`h-1.5 flex-1 rounded-full ${walkinStep >= 3 ? 'bg-accent-primary' : 'bg-white/10'}`} />
+                    <div className={`h-1.5 flex-1 rounded-full ${walkinStep >= 4 ? 'bg-accent-primary' : 'bg-white/10'}`} />
+                    <div className={`h-1.5 flex-1 rounded-full ${walkinStep >= 5 ? 'bg-accent-primary' : 'bg-white/10'}`} />
+                  </>
+                ) : (
+                  [1, 2, 3, 4, 5].map(idx => (
+                    <div key={idx} className={`h-1.5 flex-1 rounded-full ${walkinStep >= idx ? 'bg-accent-primary' : 'bg-white/10'}`} />
+                  ))
+                )}
               </div>
             )}
 
@@ -1195,7 +1383,7 @@ export const ReservationsPage: React.FC = () => {
 
                 <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
                   <Button type="button" variant="secondary" onClick={closeWalkin}>{t('reservations.cancel')}</Button>
-                  <Button type="button" onClick={() => setWalkinStep(2)}>{t('common.next')}</Button>
+                  <Button type="button" onClick={() => setWalkinStep(isWalkinCorporate ? 3 : 2)}>{t('common.next')}</Button>
                 </div>
               </div>
             )}
@@ -1454,7 +1642,7 @@ export const ReservationsPage: React.FC = () => {
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
-                  <Button type="button" variant="secondary" onClick={() => setWalkinStep(2)}>{t('common.back')}</Button>
+                  <Button type="button" variant="secondary" onClick={() => setWalkinStep(isWalkinCorporate ? 1 : 2)}>{t('common.back')}</Button>
                   <Button type="button" onClick={handleNextWalkinStep}>{t('common.next')}</Button>
                 </div>
               </div>
@@ -1463,108 +1651,223 @@ export const ReservationsPage: React.FC = () => {
             {/* Step 4: Credit Card */}
             {walkinStep === 4 && (
               <div className="space-y-4">
-                <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block mb-2">{t('reservations.cardDetails')}</span>
-                
-                {walkinCustomer && walkinCardsList.length > 0 && (
-                  <div className="mb-4 space-y-2">
-                    <span className="text-[10px] font-bold text-fg-secondary uppercase tracking-wider block">
-                      {t('stripe.savedPaymentMethods')}
+                {isWalkinCorporate ? (
+                  <div className="space-y-4 animate-fade-in">
+                    <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block mb-2">
+                      {t('reservations.corporateBilling', 'Corporate Billing')}
                     </span>
-                    <div className="space-y-1.5">
-                      {walkinCardsList.map((card: any) => (
-                        <div
-                          key={card.id}
-                          onClick={() => {
-                            setWalkinUseNewCard(false);
-                            setWalkinCardToken(card.id);
-                          }}
-                          className={`p-3 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
-                            !walkinUseNewCard && walkinCardToken === card.id
-                              ? 'border-accent-primary bg-accent-primary/5'
-                              : 'border-border-surface/30 bg-bg-inset/40 hover:border-border-surface/60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <input
-                              type="radio"
-                              name="walkinSavedCard"
-                              checked={!walkinUseNewCard && walkinCardToken === card.id}
-                              onChange={() => {}}
-                              className="accent-accent-primary"
-                            />
-                            <div className="text-left text-xs">
-                              <p className="font-bold text-fg-main uppercase">
-                                {card.card.brand} ending in {card.card.last4}
-                              </p>
-                              <p className="text-[10px] text-fg-tertiary">
-                                Expires {card.card.exp_month}/{card.card.exp_year}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              if (confirm(t('stripe.confirmRemoveCard'))) {
-                                try {
-                                  setWalkinError(null);
-                                  await deleteWalkinCardMutation.mutateAsync(card.id);
-                                  setToastMessage(t('stripe.cardRemoved'));
-                                  refetchWalkinSavedCards();
-                                } catch (err: any) {
-                                  setWalkinError(err.message || t('common.operationFailed'));
-                                }
-                              }
-                            }}
-                            className="p-1.5 text-fg-tertiary hover:text-accent-error transition-all rounded-lg hover:bg-white/5 cursor-pointer flex items-center justify-center shrink-0"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                    <div className="p-3.5 rounded-xl border border-accent-primary/20 bg-accent-primary/5 text-fg-secondary text-xs flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-accent-primary shrink-0" />
+                        <span className="font-bold text-fg-primary block">
+                          {t('catalog.corporateBilling', 'Corporate Billing')}
+                        </span>
+                      </div>
+                      <p className="text-fg-secondary leading-normal">
+                        {t('catalog.corporateDesc', 'This booking will be charged against your corporate credit line. Your credit limit is {{creditLimit}}.', { creditLimit: formatCurrency(selectedWalkinCustomer?.creditLimit ?? 0) })}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 mt-1 pt-2 border-t border-border-surface/10 font-semibold">
+                        <div>
+                          <span className="text-fg-tertiary block text-[10px] uppercase">{t('reservations.outstandingBalance', 'Outstanding Balance')}</span>
+                          <span className="text-fg-main text-xs">{formatCurrency(walkinOutstandingBalance)}</span>
                         </div>
-                      ))}
-
-                      <div
-                        onClick={() => {
-                          setWalkinUseNewCard(true);
-                          setWalkinCardToken(null);
-                        }}
-                        className={`p-3 rounded-xl border transition-all flex items-center gap-2.5 cursor-pointer ${
-                          walkinUseNewCard
-                            ? 'border-accent-primary bg-accent-primary/5'
-                            : 'border-border-surface/30 bg-bg-inset/40 hover:border-border-surface/60'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="walkinSavedCard"
-                          checked={walkinUseNewCard}
-                          onChange={() => {}}
-                          className="accent-accent-primary"
-                        />
-                        <div className="text-left text-xs">
-                          <p className="font-bold text-fg-main uppercase">
-                            {t('stripe.useNewCard')}
-                          </p>
+                        <div>
+                          <span className="text-fg-tertiary block text-[10px] uppercase">{t('reservations.remainingCredit', 'Remaining Credit')}</span>
+                          <span className={`text-xs ${walkinRemainingCredit < walkinRentCost ? 'text-accent-error font-extrabold' : 'text-emerald-500 font-extrabold'}`}>
+                            {formatCurrency(walkinRemainingCredit)}
+                          </span>
                         </div>
                       </div>
+                      {walkinRemainingCredit < walkinRentCost && (
+                        <div className="mt-2 p-2 rounded-lg bg-accent-error/15 border border-accent-error/20 text-accent-error text-[10px] font-bold">
+                          {t('reservations.creditLimitExceededWarning', 'WARNING: Estimated cost ({{cost}}) exceeds the available remaining credit limit.', { cost: formatCurrency(walkinRentCost) })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
 
-                {walkinUseNewCard ? (
-                  <Elements stripe={stripePromise}>
-                    <StripeCardForm onCardComplete={setWalkinCardToken} onCardSuccess={() => setToastMessage(t('stripe.cardConfirmed'))} />
-                  </Elements>
+                    <FormField label={t('catalog.purchaseOrderNumber', 'Purchase Order Number')} required>
+                      <Input
+                        type="text"
+                        placeholder="e.g. PO-12345"
+                        value={walkinPurchaseOrderNumber}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinPurchaseOrderNumber(e.target.value)}
+                        className="!h-9 rounded-lg"
+                        required
+                      />
+                    </FormField>
+                  </div>
                 ) : (
-                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5" />
-                    {t('stripe.savedCardSelected')}
+                  <div className="space-y-4 animate-fade-in">
+                    <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block mb-2">
+                      {t('reservations.paymentAndBilling', 'Payment & Billing')}
+                    </span>
+
+                    <FormField label={t('reservations.paymentMethod', 'Payment Method')} required>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 text-xs font-bold text-fg-secondary cursor-pointer">
+                          <input
+                            type="radio"
+                            name="walkinPaymentMethod"
+                            value="STRIPE"
+                            checked={walkinPaymentMethod === 'STRIPE'}
+                            onChange={() => setWalkinPaymentMethod('STRIPE')}
+                            className="w-3.5 h-3.5 accent-accent-primary"
+                          />
+                          {t('reservations.payStripe', 'Stripe Credit Card')}
+                        </label>
+                        <label className="flex items-center gap-2 text-xs font-bold text-fg-secondary cursor-pointer">
+                          <input
+                            type="radio"
+                            name="walkinPaymentMethod"
+                            value="CASH"
+                            checked={walkinPaymentMethod === 'CASH'}
+                            onChange={() => setWalkinPaymentMethod('CASH')}
+                            className="w-3.5 h-3.5 accent-accent-primary"
+                          />
+                          {t('reservations.payCash', 'Cash Payment')}
+                        </label>
+                      </div>
+                    </FormField>
+
+                    {walkinPaymentMethod === 'CASH' ? (
+                      <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-fg-secondary text-xs space-y-2">
+                        <div className="flex items-center gap-2 text-emerald-400 font-bold">
+                          <Check className="w-4 h-4 shrink-0" />
+                          <span>{t('reservations.cashPaymentUpfrontTitle', 'Collect Cash Upfront')}</span>
+                        </div>
+                        <p className="leading-normal">
+                          {t('reservations.cashPaymentUpfrontDesc', 'Collect the rental amount plus the security deposit upfront at checkout.')}
+                        </p>
+                        <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-border-surface/10 font-bold text-[11px]">
+                          <div>
+                            <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.rentCost', 'Estimated Rent')}</span>
+                            <span className="text-fg-main font-mono text-xs">{formatCurrency(walkinRentCost)}</span>
+                          </div>
+                          <div>
+                            <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.securityDeposit', 'Security Deposit')}</span>
+                            <span className="text-fg-main font-mono text-xs">{formatCurrency(securityDepositAmount)}</span>
+                          </div>
+                          <div>
+                            <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.totalUpfront', 'Total Upfront')}</span>
+                            <span className="text-emerald-400 font-mono text-xs">{formatCurrency(walkinUpfrontCash)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {walkinCustomer && walkinCardsList.length > 0 && (
+                          <div className="mb-4 space-y-2">
+                            <span className="text-[10px] font-bold text-fg-secondary uppercase tracking-wider block">
+                              {t('stripe.savedPaymentMethods')}
+                            </span>
+                            <div className="space-y-1.5">
+                              {walkinCardsList.map((card: any) => (
+                                <div
+                                  key={card.id}
+                                  onClick={() => {
+                                    setWalkinUseNewCard(false);
+                                    setWalkinCardToken(card.id);
+                                  }}
+                                  className={`p-3 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
+                                    !walkinUseNewCard && walkinCardToken === card.id
+                                      ? 'border-accent-primary bg-accent-primary/5'
+                                      : 'border-border-surface/30 bg-bg-inset/40 hover:border-border-surface/60'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <input
+                                      type="radio"
+                                      name="walkinSavedCard"
+                                      checked={!walkinUseNewCard && walkinCardToken === card.id}
+                                      onChange={() => {}}
+                                      className="accent-accent-primary"
+                                    />
+                                    <div className="text-left text-xs">
+                                      <p className="font-bold text-fg-main uppercase">
+                                        {card.card.brand} ending in {card.card.last4}
+                                      </p>
+                                      <p className="text-[10px] text-fg-tertiary">
+                                        Expires {card.card.exp_month}/{card.card.exp_year}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (confirm(t('stripe.confirmRemoveCard'))) {
+                                        try {
+                                          setWalkinError(null);
+                                          await deleteWalkinCardMutation.mutateAsync(card.id);
+                                          setToastMessage(t('stripe.cardRemoved'));
+                                          refetchWalkinSavedCards();
+                                        } catch (err: any) {
+                                          setWalkinError(err.message || t('common.operationFailed'));
+                                        }
+                                      }
+                                    }}
+                                    className="p-1.5 text-fg-tertiary hover:text-accent-error transition-all rounded-lg hover:bg-white/5 cursor-pointer flex items-center justify-center shrink-0"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              ))}
+
+                              <div
+                                onClick={() => {
+                                  setWalkinUseNewCard(true);
+                                  setWalkinCardToken(null);
+                                }}
+                                className={`p-3 rounded-xl border transition-all flex items-center gap-2.5 cursor-pointer ${
+                                  walkinUseNewCard
+                                    ? 'border-accent-primary bg-accent-primary/5'
+                                    : 'border-border-surface/30 bg-bg-inset/40 hover:border-border-surface/60'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="walkinSavedCard"
+                                  checked={walkinUseNewCard}
+                                  onChange={() => {}}
+                                  className="accent-accent-primary"
+                                />
+                                <div className="text-left text-xs">
+                                  <p className="font-bold text-fg-main uppercase">
+                                    {t('stripe.useNewCard')}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {walkinUseNewCard ? (
+                          <Elements stripe={stripePromise}>
+                            <StripeCardForm onCardComplete={setWalkinCardToken} onCardSuccess={() => setToastMessage(t('stripe.cardConfirmed'))} />
+                          </Elements>
+                        ) : (
+                          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-2">
+                            <Check className="w-3.5 h-3.5" />
+                            {t('stripe.savedCardSelected')}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
 
                 <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
                   <Button type="button" variant="secondary" onClick={() => setWalkinStep(3)}>{t('common.back')}</Button>
-                  <Button type="button" onClick={handleNextWalkinStep} disabled={!walkinCardToken}>{t('common.next')}</Button>
+                  <Button
+                    type="button"
+                    onClick={handleNextWalkinStep}
+                    disabled={
+                      (isWalkinCorporate && !walkinPurchaseOrderNumber.trim()) ||
+                      (!isWalkinCorporate && walkinPaymentMethod === 'STRIPE' && !walkinCardToken)
+                    }
+                  >
+                    {t('common.next')}
+                  </Button>
                 </div>
               </div>
             )}
