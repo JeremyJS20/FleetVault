@@ -1,13 +1,16 @@
 import { Router } from 'express';
 import { RentalService } from '../../Application/services/rental.service.js';
+import { PdfService } from '../../Application/services/pdf.service.js';
 import { authMiddleware, AuthenticatedRequest } from '../../Application/middleware/auth.middleware.js';
 import { requireRole } from '../../Application/middleware/require-role.middleware.js';
 import { validateBody } from '../../Application/middleware/validation.middleware.js';
 import { CreateRentalSchema, ReturnRentalSchema } from '@rent-car/common';
 import { prisma } from '../../Infrastructure/db.js';
+import { get } from '@vercel/blob';
 
 const router = Router();
 const service = new RentalService();
+const pdfService = new PdfService();
 
 async function resolveEmployeeId(userId: string): Promise<string> {
   const employee = await prisma.employee.findFirst({ where: { userId } });
@@ -152,6 +155,72 @@ router.put('/:id', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), asyn
       driverLicensePhotoUrl: req.body.driverLicensePhotoUrl,
     });
     res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/rentals/:id/contract — generate or serve contract PDF on demand
+router.get('/:id/contract', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const rental = await prisma.rental.findUnique({
+      where: { id: req.params.id },
+      include: {
+        vehicle: {
+          include: {
+            brand: true,
+            model: true,
+            vehicleType: true
+          }
+        },
+        customer: true,
+        checkoutEmployee: true,
+        returnEmployee: true,
+        inspections: {
+          include: {
+            employee: true
+          }
+        },
+        transactions: true
+      }
+    });
+
+    if (!rental) {
+      return res.status(404).json({ success: false, error: 'Rental not found' });
+    }
+
+    let pdfUrl = rental.contractPdfUrl;
+
+    if (!pdfUrl) {
+      pdfUrl = await pdfService.generateContractPdf(rental);
+      await prisma.rental.update({
+        where: { id: rental.id },
+        data: { contractPdfUrl: pdfUrl }
+      });
+    }
+
+    const result = await get(pdfUrl, {
+      access: 'private',
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+
+    if (!result || result.statusCode !== 200) {
+      return res.status(502).json({ success: false, error: 'Failed to fetch contract PDF' });
+    }
+
+    const reader = result.stream.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    const buffer = Buffer.concat(chunks);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Contract_${rental.id.slice(0, 8)}.pdf"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
   } catch (error) {
     next(error);
   }

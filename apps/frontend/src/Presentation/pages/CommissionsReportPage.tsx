@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Award, DollarSign, CheckCircle2, UserCheck, ShieldAlert, Printer } from 'lucide-react';
+import { Award, DollarSign, CheckCircle2, UserCheck, ShieldAlert, Printer, FileDown } from 'lucide-react';
 import { formatCurrency } from '@rent-car/common';
 import { useCommissionsReport } from '../../Infrastructure/hooks/useReports.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
 import { Button } from '../components/ui/Button.js';
 import { Toast } from '../components/ui/Toast.js';
+import { apiClient } from '../../Infrastructure/api-client.js';
 
 export const CommissionsReportPage: React.FC = () => {
   const { t } = useTranslation();
   const { data: serverCommissions = [], isLoading } = useCommissionsReport();
+  const [downloading, setDownloading] = useState(false);
   
   // Local state to track payouts interactively
   const [commissions, setCommissions] = useState<any[]>([]);
@@ -40,21 +42,48 @@ export const CommissionsReportPage: React.FC = () => {
     .filter(c => c.payoutStatus === 'PAID')
     .reduce((sum, curr) => sum + curr.commissionAmount, 0);
 
+  const handleDownloadPdf = async () => {
+    setDownloading(true);
+    try {
+      const res = await apiClient('/api/reports/commissions?format=pdf');
+      const pdfUrl = res.data?.pdfUrl;
+      if (pdfUrl) {
+        window.open(`/api/uploads/proxy?url=${encodeURIComponent(pdfUrl)}`, '_blank');
+      }
+    } catch (err) {
+      console.error('Failed to download PDF', err);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 w-full animate-fade-in">
       <PageHeader
         title={t('commissionsPage.title')}
         description={t('commissionsPage.subtitle')}
       >
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => window.print()}
-          className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs print-keep"
-        >
-          <Printer size={13} />
-          <span>{t('common.exportPdf')}</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleDownloadPdf}
+            disabled={downloading}
+            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs print-keep"
+          >
+            <FileDown size={13} />
+            <span>{downloading ? t('common.loading') : t('common.downloadPdf')}</span>
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs print-keep"
+          >
+            <Printer size={13} />
+            <span>{t('common.print')}</span>
+          </Button>
+        </div>
       </PageHeader>
 
       {isLoading ? (

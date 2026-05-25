@@ -40,6 +40,8 @@
     "allTypes": "All Types",
     "allShifts": "All Shifts",
     "exportPdf": "Export to PDF",
+    "downloadPdf": "Download PDF",
+    "print": "Print",
     "allBrands": "All Brands",
     "allCleaningStatuses": "Cleaning: All",
     "allVehicleTypes": "Type: All",

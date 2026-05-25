@@ -642,7 +642,13 @@ export class RentalService {
           },
           customer: true,
           checkoutEmployee: true,
-          returnEmployee: true
+          returnEmployee: true,
+          inspections: {
+            include: {
+              employee: true
+            }
+          },
+          transactions: true
         }
       });
     });
@@ -663,7 +669,13 @@ export class RentalService {
           },
           customer: true,
           checkoutEmployee: true,
-          returnEmployee: true
+          returnEmployee: true,
+          inspections: {
+            include: {
+              employee: true
+            }
+          },
+          transactions: true
         }
       });
       return finalRental;

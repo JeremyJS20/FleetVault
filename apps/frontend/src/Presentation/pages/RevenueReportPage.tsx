@@ -1,15 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DollarSign, TrendingUp, Landmark, Printer } from 'lucide-react';
+import { DollarSign, TrendingUp, Landmark, Printer, FileDown } from 'lucide-react';
 import { formatCurrency } from '@rent-car/common';
 import { useRevenueReport } from '../../Infrastructure/hooks/useReports.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
 import { Button } from '../components/ui/Button.js';
+import { apiClient } from '../../Infrastructure/api-client.js';
 
 export const RevenueReportPage: React.FC = () => {
   const { t } = useTranslation();
   const { data: revenueData = [], isLoading } = useRevenueReport();
+  const [downloading, setDownloading] = useState(false);
 
   // Color palette for the categories
   const colors = ['#00B4D8', '#0E8E9A', '#4EA8DE', '#72EFDD', '#560BAD', '#F72585'];
@@ -31,21 +33,48 @@ export const RevenueReportPage: React.FC = () => {
     return acc + monthlySum;
   }, 0);
 
+  const handleDownloadPdf = async () => {
+    setDownloading(true);
+    try {
+      const res = await apiClient('/api/reports/revenue?format=pdf');
+      const pdfUrl = res.data?.pdfUrl;
+      if (pdfUrl) {
+        window.open(`/api/uploads/proxy?url=${encodeURIComponent(pdfUrl)}`, '_blank');
+      }
+    } catch (err) {
+      console.error('Failed to download PDF', err);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 w-full animate-fade-in">
       <PageHeader
         title={t('revenuePage.title')}
         description={t('revenuePage.subtitle')}
       >
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => window.print()}
-          className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs print-keep"
-        >
-          <Printer size={13} />
-          <span>{t('common.exportPdf')}</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleDownloadPdf}
+            disabled={downloading}
+            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs print-keep"
+          >
+            <FileDown size={13} />
+            <span>{downloading ? t('common.loading') : t('common.downloadPdf')}</span>
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs print-keep"
+          >
+            <Printer size={13} />
+            <span>{t('common.print')}</span>
+          </Button>
+        </div>
       </PageHeader>
 
       {isLoading ? (

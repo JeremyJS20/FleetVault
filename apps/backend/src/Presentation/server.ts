@@ -71,20 +71,20 @@ const server = app.listen(port, () => {
   console.log(`[Backend] Running on http://localhost:${port}`);
 
   // Start GPS Simulation
-  gpsSimulator.start();
+  // gpsSimulator.start();
 
   // Cancel PENDING rentals that are >2 hours late and charge a 1-day penalty fee
-  cron.schedule('*/5 * * * *', async () => {
-    console.log('[CRON] Running late pending rentals check...');
-    try {
-      const cancelled = await rentalService.cancelLatePendingRentals();
-      if (cancelled.length > 0) {
-        console.log(`[CRON] Auto-cancelled ${cancelled.length} late pending rentals.`);
-      }
-    } catch (err) {
-      console.error('[CRON] Error checking late pending rentals:', err);
-    }
-  });
+  // cron.schedule('*/5 * * * *', async () => {
+  //   console.log('[CRON] Running late pending rentals check...');
+  //   try {
+  //     const cancelled = await rentalService.cancelLatePendingRentals();
+  //     if (cancelled.length > 0) {
+  //       console.log(`[CRON] Auto-cancelled ${cancelled.length} late pending rentals.`);
+  //     }
+  //   } catch (err) {
+  //     console.error('[CRON] Error checking late pending rentals:', err);
+  //   }
+  // });
 });
 
 process.on('SIGTERM', () => {

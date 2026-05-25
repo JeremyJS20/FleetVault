@@ -9,6 +9,7 @@ import { DataTable } from '../components/ui/DataTable.js';
 import { Input } from '../components/ui/Input.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
+import { getAccessToken } from '../../Infrastructure/api-client.js';
 
 export const RentalQueryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -60,52 +61,25 @@ export const RentalQueryPage: React.FC = () => {
     return true;
   });
 
-  // Client-side download mock for contract PDF
-  const handleDownloadContract = (rental: any) => {
-    if (rental.contractPdfUrl) {
-      window.open(rental.contractPdfUrl, '_blank');
-      return;
+  const handleDownloadContract = async (rental: any) => {
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`/api/rentals/${rental.id}/contract`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Failed to download contract');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Contract_${rental.id.slice(0, 8)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download contract PDF:', err);
     }
-    const docContent = `
-=========================================
-          FLEETVAULT RENTAL CONTRACT
-=========================================
-Contract ID: ${rental.id}
-Customer Name: ${rental.customer?.name}
-National ID: ${rental.customer?.nationalId || 'N/A'}
-License: ${rental.driverLicenseNumber || rental.customer?.licenseNumber}
------------------------------------------
-VEHICLE DETAILS
-Vehicle: ${rental.vehicle?.brand?.name} ${rental.vehicle?.model?.name}
-Plate Number: ${rental.vehicle?.plateNumber}
-Chassis Number: ${rental.vehicle?.chassisNumber}
-Odometer Checkout: ${rental.checkoutOdometer} km
-Odometer Return: ${rental.returnOdometer || 'Active'} km
-Checkout Fuel Level: ${rental.checkoutFuelLevel}
------------------------------------------
-RENTAL RATES & FEES
-Daily Rate: ${formatCurrency(rental.pricePerDay)}
-Rental Dates: ${new Date(rental.rentalDate).toLocaleDateString()} to ${new Date(rental.scheduledReturnDate).toLocaleDateString()}
-Payment Method: ${rental.stripePaymentIntentId ? 'Credit Card (Stripe)' : rental.purchaseOrderNumber ? 'Corporate Account' : 'Cash'}
-PO Number: ${rental.purchaseOrderNumber || 'N/A'}
------------------------------------------
-Final Estimated Total: ${formatCurrency(rental.totalCost || 0)}
-Status: ${rental.status}
-
-Authorized Signature: Verified electronically
-Thank you for renting with FleetVault!
-=========================================
-    `;
-
-    const blob = new Blob([docContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Contract_${rental.id.slice(0, 8)}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
   const columns: ColumnDef<any>[] = [

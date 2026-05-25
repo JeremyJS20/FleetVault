@@ -2,8 +2,10 @@ import { Router } from 'express';
 import { prisma } from '../../Infrastructure/db.js';
 import { authMiddleware, AuthenticatedRequest } from '../../Application/middleware/auth.middleware.js';
 import { requireRole } from '../../Application/middleware/require-role.middleware.js';
+import { PdfService } from '../../Application/services/pdf.service.js';
 
 const router = Router();
+const pdfService = new PdfService();
 
 // GET /api/reports/utilization - Utilization Report Data
 router.get('/utilization', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), async (req, res, next) => {
@@ -38,6 +40,11 @@ router.get('/utilization', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR'
         month: d.toLocaleString('en', { month: 'short' }),
         rate: rate,
       });
+    }
+
+    if (req.query.format === 'pdf') {
+      const pdfUrl = await pdfService.generateUtilizationReportPdf(data);
+      return res.status(200).json({ success: true, data: { pdfUrl } });
     }
 
     res.status(200).json({ success: true, data });
@@ -79,6 +86,12 @@ router.get('/revenue', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), 
       }
 
       data.push(entry);
+    }
+
+    if (req.query.format === 'pdf') {
+      const categoryNames = categories.map(c => c.name);
+      const pdfUrl = await pdfService.generateRevenueReportPdf(data, categoryNames);
+      return res.status(200).json({ success: true, data: { pdfUrl } });
     }
 
     res.status(200).json({ success: true, data });
@@ -123,6 +136,11 @@ router.get('/commissions', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR'
         commissionAmount: parseFloat(commissionAmount.toFixed(2)),
         payoutStatus: 'UNPAID', // default to UNPAID since settlement is simulated locally in frontend
       });
+    }
+
+    if (req.query.format === 'pdf') {
+      const pdfUrl = await pdfService.generateCommissionsReportPdf(data);
+      return res.status(200).json({ success: true, data: { pdfUrl } });
     }
 
     res.status(200).json({ success: true, data });
