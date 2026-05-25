@@ -15,6 +15,9 @@ import inspectionRouter from './inspection.routes.js';
 import rentalRouter from './rental.routes.js';
 import feeConfigRouter from './fee-config.routes.js';
 import dashboardRouter from './dashboard.routes.js';
+import reportRouter from './report.routes.js';
+import gpsRouter from './gps.routes.js';
+import queryRouter from './query.routes.js';
 
 const router = Router();
 
@@ -31,8 +34,11 @@ router.use('/uploads', uploadRouter);
 router.use('/catalog', catalogRouter);
 router.use('/reservations', reservationRouter);
 router.use('/inspections', inspectionRouter);
+router.use('/rentals', queryRouter);
 router.use('/rentals', rentalRouter);
 router.use('/fee-config', feeConfigRouter);
 router.use('/dashboard', dashboardRouter);
+router.use('/reports', reportRouter);
+router.use('/gps', gpsRouter);
 
 export default router;

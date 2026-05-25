@@ -15,7 +15,14 @@
     "feeConfig": "Tarifas y Depósitos",
     "inspections": "Auditoría de Inspecciones",
     "managementPortal": "Portal de Gestión",
-    "customerHub": "Centro del Cliente"
+    "customerHub": "Centro del Cliente",
+    "advancedSearch": "Búsqueda Avanzada",
+    "gpsMap": "Mapa GPS en Vivo",
+    "geofenceConfig": "Config de Geocercas",
+    "reports": "Informes y Análisis",
+    "utilizationReport": "Utilización",
+    "revenueReport": "Ingresos",
+    "commissionsReport": "Comisiones"
   },
   "common": {
     "actions": "Acciones",
@@ -547,5 +554,59 @@
     "creditLimitExceededWarning": "ADVERTENCIA: El costo estimado ({{cost}}) excede el límite de crédito disponible restante.",
     "purchaseOrderRequired": "El número de Orden de Compra es obligatorio",
     "creditLimitExceeded": "Límite de crédito corporativo excedido"
+  },
+  "queryPage": {
+    "title": "Búsqueda Avanzada de Alquileres",
+    "subtitle": "Busque y filtre alquileres, verifique contratos y descargue documentos.",
+    "searchPlaceholder": "Buscar por cliente, placa, empleado...",
+    "statusFilter": "Filtrar por Estado",
+    "dateFrom": "Fecha Desde",
+    "dateTo": "Fecha Hasta",
+    "all": "Todos",
+    "contract": "Contrato",
+    "downloadPdf": "Descargar PDF"
+  },
+  "gpsPage": {
+    "title": "Rastreador GPS en Vivo",
+    "subtitle": "Monitoree las coordenadas geográficas de la flota en tiempo real.",
+    "lastUpdated": "Última actualización: {{time}}",
+    "activeVehicles": "Vehículos Activos",
+    "selectVehicle": "Seleccionar Vehículo",
+    "noVehicles": "No hay vehículos activos en tránsito",
+    "speed": "Velocidad:",
+    "heading": "Rumbo:"
+  },
+  "geofencePage": {
+    "title": "Configuraciones de Geocercas",
+    "subtitle": "Defina límites de polígonos geográficos para alertas de vehículos.",
+    "name": "Nombre de Geocerca",
+    "alertEmail": "Correo de Alerta",
+    "saveGeofence": "Guardar Geocerca",
+    "savedSuccess": "Geocerca guardada exitosamente",
+    "vertices": "Vértices del Polígono:"
+  },
+  "utilizationPage": {
+    "title": "Análisis de Utilización",
+    "subtitle": "Analice la frecuencia de alquiler y los porcentajes de despliegue de vehículos activos.",
+    "rateLabel": "Tasa de Utilización (%)",
+    "periodLabel": "Mes"
+  },
+  "revenuePage": {
+    "title": "Rendimiento de Ingresos",
+    "subtitle": "Realice un seguimiento de los desgloses de ingresos por categorías de vehículos.",
+    "revenueLabel": "Ingresos (RD$)"
+  },
+  "commissionsPage": {
+    "title": "Libro de Comisiones",
+    "subtitle": "Revise los porcentajes de comisión, conteo de ventas y matrices de pago de empleados.",
+    "payoutMatrix": "Matriz de Pagos",
+    "agent": "Agente",
+    "salesCount": "Ventas",
+    "commissionAmount": "Monto de Comisión",
+    "payoutStatus": "Estado de Pago",
+    "unpaid": "No Pagado",
+    "paid": "Pagado",
+    "markPaid": "Marcar Como Pagado",
+    "payoutSuccess": "Comisión marcada como pagada"
   }
 }

@@ -1,8 +1,10 @@
 import { prisma } from '../../Infrastructure/db.js';
 import { NotFoundError, ValidationError, ConflictError } from '../../Domain/errors/index.js';
 import { StripeService } from './stripe.service.js';
+import { PdfService } from './pdf.service.js';
 
 const stripeService = new StripeService();
+const pdfService = new PdfService();
 
 const FUEL_VALUES: Record<string, number> = {
   'EMPTY': 0,
@@ -493,7 +495,17 @@ export class RentalService {
   }) {
     const rental = await prisma.rental.findUnique({
       where: { id: rentalId },
-      include: { vehicle: true, customer: true }
+      include: {
+        vehicle: {
+          include: {
+            brand: true,
+            model: true,
+            vehicleType: true
+          }
+        },
+        customer: true,
+        checkoutEmployee: true
+      }
     });
 
     if (!rental) throw new NotFoundError('Rental contract not found');
@@ -556,7 +568,7 @@ export class RentalService {
     }
 
     // 3. Update database record in a transaction
-    return await prisma.$transaction(async (tx) => {
+    const completedRental = await prisma.$transaction(async (tx) => {
       let ledgerType = 'CHARGE';
       let ledgerComments = `Final check-in charge of RD$${calcs.totalFinalCost} (Rent: RD$${calcs.baseCost}, Late Fee: RD$${calcs.lateFee}, Fuel Fee: RD$${calcs.fuelFee}, Damage Fee: RD$${calcs.totalDamageFee})`;
       
@@ -603,6 +615,9 @@ export class RentalService {
         }
       });
 
+      const commissionPct = rental.checkoutEmployee?.commissionPercentage || 0;
+      const commAmount = parseFloat((calcs.totalFinalCost * (commissionPct / 100)).toFixed(2));
+
       // Update Rental status to COMPLETED
       return await tx.rental.update({
         where: { id: rentalId },
@@ -614,14 +629,48 @@ export class RentalService {
           returnSignatureUrl: input.returnSignatureUrl,
           returnEmployeeId: input.returnEmployeeId,
           totalCost: calcs.totalFinalCost,
+          commissionAmount: commAmount,
           comments: input.comments || `Returned successfully. Penalties applied: RD$${calcs.totalFinalCost - calcs.baseCost}`
         },
         include: {
-          vehicle: true,
-          customer: true
+          vehicle: {
+            include: {
+              brand: true,
+              model: true,
+              vehicleType: true
+            }
+          },
+          customer: true,
+          checkoutEmployee: true,
+          returnEmployee: true
         }
       });
     });
+
+    // Generate contract PDF and upload to Vercel Blob
+    try {
+      const pdfUrl = await pdfService.generateContractPdf(completedRental);
+      const finalRental = await prisma.rental.update({
+        where: { id: rentalId },
+        data: { contractPdfUrl: pdfUrl },
+        include: {
+          vehicle: {
+            include: {
+              brand: true,
+              model: true,
+              vehicleType: true
+            }
+          },
+          customer: true,
+          checkoutEmployee: true,
+          returnEmployee: true
+        }
+      });
+      return finalRental;
+    } catch (pdfErr) {
+      console.error('[processReturn] Failed to generate or upload contract PDF:', pdfErr);
+      return completedRental;
+    }
   }
 
   async listRentals(filters: { status?: string; customerId?: string; checkoutEmployeeId?: string; page?: number; limit?: number }) {
@@ -715,5 +764,71 @@ export class RentalService {
 
     if (!item) throw new NotFoundError('Rental record not found');
     return item;
+  }
+
+  async cancelLatePendingRentals() {
+    const now = new Date();
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+
+    const lateRentals = await prisma.rental.findMany({
+      where: {
+        status: 'PENDING',
+        rentalDate: {
+          lt: twoHoursAgo
+        }
+      },
+      include: {
+        customer: true
+      }
+    });
+
+    if (lateRentals.length === 0) return [];
+
+    const cancelledRentals = [];
+
+    for (const rental of lateRentals) {
+      try {
+        const result = await prisma.$transaction(async (tx) => {
+          const isCorporate = rental.customer.type === 'CORPORATE';
+          const penalty = rental.pricePerDay;
+
+          if (rental.stripePaymentIntentId && !isCorporate) {
+            try {
+              await stripeService.capturePayment(rental.stripePaymentIntentId, penalty);
+            } catch (stripeErr) {
+              console.error(`[CRON] Stripe capture failed for late rental ${rental.id}:`, stripeErr);
+            }
+          }
+
+          await tx.transactionLedger.create({
+            data: {
+              rentalId: rental.id,
+              amount: penalty,
+              type: isCorporate ? 'PO_INVOICE' : 'CHARGE',
+              stripePaymentIntentId: isCorporate ? null : rental.stripePaymentIntentId,
+              purchaseOrderNumber: isCorporate ? rental.purchaseOrderNumber : null,
+              comments: isCorporate
+                ? `No-show cancellation invoice (over 2h late) under PO ${rental.purchaseOrderNumber}: 1 day penalty of RD$${penalty}`
+                : `No-show cancellation charge (over 2h late): 1 day penalty of RD$${penalty}`
+            }
+          });
+
+          return await tx.rental.update({
+            where: { id: rental.id },
+            data: {
+              status: 'CANCELLED',
+              totalCost: penalty,
+              comments: `System cancelled: No-show for scheduled pickup. Charged 1-day penalty RD$${penalty}`
+            }
+          });
+        });
+        cancelledRentals.push(result);
+        console.log(`[CRON] Late pending rental ${rental.id} cancelled successfully.`);
+      } catch (err) {
+        console.error(`[CRON] Failed to cancel late pending rental ${rental.id}:`, err);
+      }
+    }
+
+    return cancelledRentals;
   }
 }

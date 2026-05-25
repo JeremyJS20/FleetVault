@@ -16,6 +16,9 @@ import { prisma } from '../Infrastructure/db.js';
 import { HealthStatusSchema } from '@rent-car/common';
 import apiRouter from './routes/index.js';
 import { errorHandler } from '../Application/middleware/error-handler.middleware.js';
+import { GpsSimulatorService } from '../Application/services/gps-simulator.service.js';
+import { RentalService } from '../Application/services/rental.service.js';
+import cron from 'node-cron';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -61,11 +64,31 @@ app.use('/api', apiRouter);
 // Global Error Handler
 app.use(errorHandler);
 
+const gpsSimulator = new GpsSimulatorService();
+const rentalService = new RentalService();
+
 const server = app.listen(port, () => {
   console.log(`[Backend] Running on http://localhost:${port}`);
+
+  // Start GPS Simulation
+  gpsSimulator.start();
+
+  // Cancel PENDING rentals that are >2 hours late and charge a 1-day penalty fee
+  cron.schedule('*/5 * * * *', async () => {
+    console.log('[CRON] Running late pending rentals check...');
+    try {
+      const cancelled = await rentalService.cancelLatePendingRentals();
+      if (cancelled.length > 0) {
+        console.log(`[CRON] Auto-cancelled ${cancelled.length} late pending rentals.`);
+      }
+    } catch (err) {
+      console.error('[CRON] Error checking late pending rentals:', err);
+    }
+  });
 });
 
 process.on('SIGTERM', () => {
+  gpsSimulator.stop();
   server.close(() => {
     prisma.$disconnect();
     process.exit(0);

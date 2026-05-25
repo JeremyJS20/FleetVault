@@ -15,7 +15,14 @@
     "feeConfig": "Fees & Deposits",
     "inspections": "Inspections Audit",
     "managementPortal": "Management Portal",
-    "customerHub": "Customer Hub"
+    "customerHub": "Customer Hub",
+    "advancedSearch": "Advanced Search",
+    "gpsMap": "GPS Live Map",
+    "geofenceConfig": "Geofence Config",
+    "reports": "Reports & Analytics",
+    "utilizationReport": "Utilization",
+    "revenueReport": "Revenue",
+    "commissionsReport": "Commissions"
   },
   "common": {
     "actions": "Actions",
@@ -649,5 +656,59 @@
     "creditLimitExceededWarning": "WARNING: Estimated cost ({{cost}}) exceeds the available remaining credit limit.",
     "purchaseOrderRequired": "Purchase Order number is required",
     "creditLimitExceeded": "Corporate credit limit exceeded"
+  },
+  "queryPage": {
+    "title": "Advanced Rental Queries",
+    "subtitle": "Search and filter rentals, verify contracts, and download documents.",
+    "searchPlaceholder": "Search by customer, plate, employee...",
+    "statusFilter": "Status Filter",
+    "dateFrom": "From Date",
+    "dateTo": "To Date",
+    "all": "All",
+    "contract": "Contract",
+    "downloadPdf": "Download PDF"
+  },
+  "gpsPage": {
+    "title": "Live GPS Tracker",
+    "subtitle": "Monitor vehicle fleet real-time geographical coordinates.",
+    "lastUpdated": "Last updated at: {{time}}",
+    "activeVehicles": "Active Vehicles",
+    "selectVehicle": "Select Vehicle",
+    "noVehicles": "No active vehicles in transit",
+    "speed": "Speed:",
+    "heading": "Heading:"
+  },
+  "geofencePage": {
+    "title": "Geofence Configurations",
+    "subtitle": "Define geographical polygon boundaries for vehicle alerts.",
+    "name": "Geofence Name",
+    "alertEmail": "Alert Email",
+    "saveGeofence": "Save Geofence",
+    "savedSuccess": "Geofence saved successfully",
+    "vertices": "Polygon Vertices:"
+  },
+  "utilizationPage": {
+    "title": "Utilization Analytics",
+    "subtitle": "Analyze rental frequency and active vehicle deployment percentages.",
+    "rateLabel": "Utilization Rate (%)",
+    "periodLabel": "Month"
+  },
+  "revenuePage": {
+    "title": "Revenue Performance",
+    "subtitle": "Track rental revenue stream breakdowns across vehicle categories.",
+    "revenueLabel": "Revenue (RD$)"
+  },
+  "commissionsPage": {
+    "title": "Commissions Ledger",
+    "subtitle": "Review employee commission percentages, sales counts, and payout matrices.",
+    "payoutMatrix": "Payout Matrix",
+    "agent": "Agent",
+    "salesCount": "Sales Count",
+    "commissionAmount": "Commission Amount",
+    "payoutStatus": "Payout Status",
+    "unpaid": "Unpaid",
+    "paid": "Paid",
+    "markPaid": "Mark Paid",
+    "payoutSuccess": "Commission marked as paid"
   }
 }

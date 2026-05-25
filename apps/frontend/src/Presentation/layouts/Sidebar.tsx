@@ -18,7 +18,12 @@ import {
   Percent,
   Languages,
   ClipboardCheck,
-  DollarSign
+  DollarSign,
+  Map,
+  Globe,
+  BarChart3,
+  TrendingUp,
+  Coins
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -75,6 +80,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
         { to: '/admin/seasonal-rates', labelKey: 'nav.seasonalRates', icon: Percent },
         { to: '/admin/fee-config', labelKey: 'nav.feeConfig', icon: DollarSign },
         { to: '/admin/settings', labelKey: 'common.actions', icon: Settings },
+      ]
+    },
+    {
+      titleKey: 'nav.reports',
+      links: [
+        { to: '/admin/query', labelKey: 'nav.advancedSearch', icon: Search },
+        { to: '/admin/gps/map', labelKey: 'nav.gpsMap', icon: Map },
+        { to: '/admin/gps/geofences', labelKey: 'nav.geofenceConfig', icon: Globe },
+        { to: '/admin/reports/utilization', labelKey: 'nav.utilizationReport', icon: BarChart3 },
+        { to: '/admin/reports/revenue', labelKey: 'nav.revenueReport', icon: TrendingUp },
+        { to: '/admin/reports/commissions', labelKey: 'nav.commissionsReport', icon: Coins }
       ]
     }
   ];

@@ -29,6 +29,13 @@ import { MyRentalsPage } from './pages/MyRentalsPage.js';
 import { ReservationsPage } from './pages/ReservationsPage.js';
 import { InspectionsPage } from './pages/InspectionsPage.js';
 import { MagicLoginPage } from './pages/MagicLoginPage.js';
+import { RentalQueryPage } from './pages/RentalQueryPage.js';
+import { GpsMapPage } from './pages/GpsMapPage.js';
+import { GeofenceConfigPage } from './pages/GeofenceConfigPage.js';
+import { VehicleTrailPage } from './pages/VehicleTrailPage.js';
+import { UtilizationReportPage } from './pages/UtilizationReportPage.js';
+import { RevenueReportPage } from './pages/RevenueReportPage.js';
+import { CommissionsReportPage } from './pages/CommissionsReportPage.js';
 
 import { NetworkStatusProvider } from '../Infrastructure/network-status.js';
 
@@ -74,6 +81,13 @@ export const App: React.FC = () => {
                 <Route path="/admin/inspections" element={<InspectionsPage />} />
                 <Route path="/admin/fee-config" element={<FeeConfigPage />} />
                 <Route path="/admin/settings" element={<StubPage title="System Settings" />} />
+                <Route path="/admin/query" element={<RentalQueryPage />} />
+                <Route path="/admin/gps/map" element={<GpsMapPage />} />
+                <Route path="/admin/gps/geofences" element={<GeofenceConfigPage />} />
+                <Route path="/admin/gps/trail/:vehicleId" element={<VehicleTrailPage />} />
+                <Route path="/admin/reports/utilization" element={<UtilizationReportPage />} />
+                <Route path="/admin/reports/revenue" element={<RevenueReportPage />} />
+                <Route path="/admin/reports/commissions" element={<CommissionsReportPage />} />
               </Route>
 
               {/* Customer Hub */}
