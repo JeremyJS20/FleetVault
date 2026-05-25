@@ -119,7 +119,21 @@ export const useFeeConfigs = () => {
 
 export const useUpdateFeeConfig = createMutationHook<any, any>('PUT', (id) => `/api/fee-config/${id}`, ['fee-config']);
 
-// 10. Payment Method Hooks
+// 10. Rental Policy Hooks
+export const usePolicies = () => {
+  return useQuery({
+    queryKey: ['policies'],
+    queryFn: async () => {
+      const res = await apiClient('/api/policies/admin');
+      return res.data as any[];
+    },
+  });
+};
+
+export const useUpdatePolicy = createMutationHook<any, any>('PUT', (id) => `/api/policies/${id}`, ['policies']);
+export const useCreatePolicy = createMutationHook<any, any>('POST', () => '/api/policies', ['policies']);
+
+// 11. Payment Method Hooks
 export const useMyPaymentMethods = () => {
   return useQuery({
     queryKey: ['my-payment-methods'],

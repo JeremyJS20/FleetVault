@@ -23,6 +23,7 @@
     "utilizationReport": "Utilización",
     "revenueReport": "Ingresos",
     "commissionsReport": "Comisiones",
+    "rentalPolicies": "Políticas de Alquiler",
     "tracking": "Seguimiento y GPS"
   },
   "common": {
@@ -255,6 +256,25 @@
     "goldTier": "Estado de Miembro Nivel Oro",
     "silverTier": "Miembro Nivel Plata",
     "averageRental": "Alquiler promedio: {{amount}}"
+  },
+  "rentalPolicy": {
+    "title": "Políticas de Alquiler",
+    "subtitle": "Gestión de términos de alquiler, detalles de cobertura y políticas de la empresa que se muestran en los contratos.",
+    "key": "Clave",
+    "titleLabel": "Título",
+    "content": "Contenido",
+    "contentLabel": "Contenido de la Política",
+    "active": "Activo",
+    "editTitle": "Editar: {{title}}",
+    "create": "Crear Política",
+    "createTitle": "Crear Nueva Política",
+    "createdSuccess": "Política creada exitosamente",
+    "updatedSuccess": "Política actualizada exitosamente",
+    "updateFailed": "Error al actualizar la política",
+    "publicTitle": "Políticas de Alquiler",
+    "publicSubtitle": "Revise nuestros términos de alquiler, detalles de cobertura y políticas de la empresa.",
+    "termsTitle": "Términos y Condiciones",
+    "termsContent": "1. El cliente reconoce haber recibido el vehículo en buen estado según lo descrito en la inspección de salida.\n\n2. El cliente se compromete a devolver el vehículo en o antes de la fecha de devolución programada. Las devoluciones tardías incurrirán en penalidades según las políticas de FleetVault.\n\n3. El cliente es responsable por cualquier daño, pérdida o robo del vehículo durante el período de alquiler, incluyendo neumáticos, rines y accesorios.\n\n4. Se aplicarán recargos por diferencia de combustible si el vehículo se devuelve con menos combustible que en la salida, cobrados a la tarifa de mercado más una tarifa de servicio.\n\n5. Todas las penalidades, recargos y tarifas se detallan en la sección de Cargos anterior.\n\n6. El cliente autoriza a FleetVault a procesar cargos por cualquier monto pendiente, incluyendo daños identificados después de la devolución.\n\n7. Todos los alquileres están sujetos a las Políticas de Alquiler descritas en este contrato.\n\n8. Este contrato se rige por las leyes de la República Dominicana. Cualquier disputa derivada de este contrato será sometida a los tribunales de Santo Domingo, renunciando a cualquier otra jurisdicción que pudiera corresponder."
   },
   "stripe": {
     "securePayment": "Detalles de Pago Seguro",

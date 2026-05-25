@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { put, get } from '@vercel/blob';
+import { prisma } from '../../Infrastructure/db.js';
 
 export class PdfService {
   private async fetchImageBuffer(url: string | null | undefined): Promise<Buffer | null> {
@@ -38,6 +39,11 @@ export class PdfService {
     const sigBuf = await this.fetchImageBuffer(rental.signatureUrl);
     const returnSigBuf = await this.fetchImageBuffer(rental.returnSignatureUrl);
     const licensePhotoBuf = await this.fetchImageBuffer(rental.driverLicensePhotoUrl);
+
+    const policies = await prisma.rentalPolicy.findMany({
+      where: { isActive: true },
+      orderBy: { key: 'asc' }
+    }).catch(() => []);
 
     return new Promise((resolve, reject) => {
       try {
@@ -258,18 +264,40 @@ export class PdfService {
           doc.moveDown();
         }
 
-        // ── SECTION: TERMS ──
+        // ── SECTION: RENTAL POLICIES ──
         if (doc.y > maxY - 80) doc.addPage();
-        doc.fontSize(13).text('8. TERMS & CONDITIONS', { underline: true });
+        doc.fontSize(13).text('8. RENTAL POLICIES', { underline: true });
         doc.moveDown(0.4);
+
+        if (policies.length > 0) {
+          for (const policy of policies) {
+            if (doc.y > maxY - 50) doc.addPage();
+            doc.fontSize(10).text(policy.title, { underline: true });
+            doc.moveDown(0.2);
+            doc.fontSize(8).text(policy.content, { align: 'justify' });
+            doc.moveDown(0.6);
+          }
+        } else {
+          doc.fontSize(8).text(
+            'No se han configurado políticas de alquiler. Consulte los términos y condiciones para conocer las reglas aplicables.',
+            { align: 'justify' }
+          );
+        }
+        doc.moveDown();
+
+        // ── SECTION: TERMS & CONDITIONS ──
+        if (doc.y > maxY - 80) doc.addPage();
+        doc.fontSize(13).text('9. TERMS & CONDITIONS', { underline: true });
+        doc.moveDown(0.4);
+
         doc.fontSize(8).text(
-          '1. The customer acknowledges receiving the vehicle in good condition as described in the checkout inspection.\n\n' +
-          '2. The customer agrees to return the vehicle on or before the scheduled return date. Late returns will incur penalties as per FleetVault policies.\n\n' +
-          '3. The customer is responsible for any damage, loss, or theft of the vehicle during the rental period, including tires, rims, and accessories.\n\n' +
-          '4. Fuel difference surcharges apply if the vehicle is returned with less fuel than at checkout, charged at market rate plus service fee.\n\n' +
-          '5. All penalties, surcharges, and fees are itemized in the Charges section above.\n\n' +
-          '6. The customer authorizes FleetVault to process charges for any outstanding amounts, including damage fees identified post-return.\n\n' +
-          '7. This contract is governed by the laws of the Dominican Republic.',
+          '1. El cliente reconoce haber recibido el vehículo en buen estado según lo descrito en la inspección de salida.\n\n' +
+          '2. El cliente se compromete a devolver el vehículo en o antes de la fecha de devolución programada. Las devoluciones tardías incurrirán en penalidades según las políticas de FleetVault.\n\n' +
+          '3. El cliente es responsable por cualquier daño, pérdida o robo del vehículo durante el período de alquiler, incluyendo neumáticos, rines y accesorios.\n\n' +
+          '4. Se aplicarán recargos por diferencia de combustible si el vehículo se devuelve con menos combustible que en la salida, cobrados a la tarifa de mercado más una tarifa de servicio.\n\n' +
+          '5. Todas las penalidades, recargos y tarifas se detallan en la sección de Cargos anterior.\n\n' +
+          '6. El cliente autoriza a FleetVault a procesar cargos por cualquier monto pendiente, incluyendo daños identificados después de la devolución.\n\n' +
+          '7. Este contrato se rige por las leyes de la República Dominicana.',
           { align: 'justify' }
         );
         doc.moveDown();

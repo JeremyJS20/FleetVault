@@ -113,6 +113,18 @@ export const PublicLayout: React.FC = () => {
               <Compass size={14} />
               <span>{t('nav.vehicles')}</span>
             </NavLink>
+            <NavLink
+              to="/policies"
+              className={({ isActive }) =>
+                `flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all ${
+                  isActive
+                    ? 'text-accent-primary bg-accent-primary/5'
+                    : 'text-fg-secondary hover:text-fg-main'
+                }`
+              }
+            >
+              <span>{t('nav.rentalPolicies')}</span>
+            </NavLink>
           </nav>
 
           {/* Utilities & CTA */}

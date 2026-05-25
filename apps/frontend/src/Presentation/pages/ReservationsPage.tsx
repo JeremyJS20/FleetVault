@@ -269,17 +269,7 @@ export const ReservationsPage: React.FC = () => {
   // Fee configs
   const { data: feeConfigs } = useFeeConfigs();
 
-  // Fetch rentals for selected customer if corporate (to calculate credit line)
-  const { data: customerRentalsData } = useRentalsList({
-    customerId: isWalkinCorporate ? walkinCustomer : undefined,
-    limit: 100,
-  });
-
-  const customerRentals = customerRentalsData?.items || [];
-  const walkinOutstandingBalance = customerRentals
-    .filter((r: any) => r.status === 'ACTIVE' || r.status === 'PENDING' || r.status === 'COMPLETED')
-    .reduce((sum: number, r: any) => sum + (r.totalCost || 0), 0);
-
+  const walkinOutstandingBalance = Number(selectedWalkinCustomer?.outstandingBalance || 0);
   const walkinRemainingCredit = (selectedWalkinCustomer?.creditLimit || 0) - walkinOutstandingBalance;
 
   const getWalkinDays = () => {

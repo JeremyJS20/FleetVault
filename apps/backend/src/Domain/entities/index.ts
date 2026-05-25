@@ -75,6 +75,15 @@ export interface FeeConfig {
   updatedAt: Date;
 }
 
+export interface RentalPolicy {
+  id: string;
+  key: string;
+  title: string;
+  content: string;
+  isActive: boolean;
+  updatedAt: Date;
+}
+
 export interface Brand {
   id: string;
   name: string;

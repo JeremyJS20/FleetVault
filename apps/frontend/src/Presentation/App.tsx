@@ -23,6 +23,8 @@ import { CustomersPage } from './pages/CustomersPage.js';
 import { EmployeesPage } from './pages/EmployeesPage.js';
 import { SeasonalRatesPage } from './pages/SeasonalRatesPage.js';
 import { FeeConfigPage } from './pages/FeeConfigPage.js';
+import { RentalPolicyPage } from './pages/RentalPolicyPage.js';
+import { PolicyListPage } from './pages/PolicyListPage.js';
 import { CatalogPage } from './pages/CatalogPage.js';
 import { MyProfilePage } from './pages/MyProfilePage.js';
 import { MyRentalsPage } from './pages/MyRentalsPage.js';
@@ -59,6 +61,7 @@ export const App: React.FC = () => {
               {/* Public Catalog Landing Page */}
               <Route element={<PublicLayout />}>
                 <Route path="/" element={<CatalogPage />} />
+                <Route path="/policies" element={<PolicyListPage />} />
               </Route>
 
               {/* Public/Auth Routes */}
@@ -85,6 +88,7 @@ export const App: React.FC = () => {
                 <Route path="/admin/gps/map" element={<GpsMapPage />} />
                 <Route path="/admin/gps/geofences" element={<GeofenceConfigPage />} />
                 <Route path="/admin/gps/trail/:vehicleId" element={<VehicleTrailPage />} />
+                <Route path="/admin/policies" element={<RentalPolicyPage />} />
                 <Route path="/admin/reports/utilization" element={<UtilizationReportPage />} />
                 <Route path="/admin/reports/revenue" element={<RevenueReportPage />} />
                 <Route path="/admin/reports/commissions" element={<CommissionsReportPage />} />
@@ -96,6 +100,7 @@ export const App: React.FC = () => {
                 <Route path="/customer/browse" element={<CatalogPage />} />
                 <Route path="/customer/reservations" element={<MyRentalsPage />} />
                 <Route path="/customer/profile" element={<MyProfilePage />} />
+                <Route path="/customer/policies" element={<PolicyListPage />} />
                 <Route path="/customer/settings" element={<StubPage title="Account Settings" />} />
               </Route>
 

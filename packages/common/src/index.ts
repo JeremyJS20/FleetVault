@@ -16,5 +16,6 @@ export * from './schemas/seasonal-rate.js';
 export * from './schemas/gps.js';
 export * from './schemas/health.js';
 export * from './schemas/fee-config.js';
+export * from './schemas/rental-policy.js';
 export { formatCurrency } from './formatCurrency.js';
 

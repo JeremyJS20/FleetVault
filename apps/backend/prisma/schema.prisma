@@ -250,3 +250,12 @@ model FeeConfig {
   description String?
   updatedAt   DateTime @updatedAt
 }
+
+model RentalPolicy {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  title     String
+  content   String
+  isActive  Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}

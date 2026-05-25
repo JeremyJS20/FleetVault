@@ -23,7 +23,8 @@ import {
   Globe,
   BarChart3,
   TrendingUp,
-  Coins
+  Coins,
+  FileText
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -46,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
     { to: '/customer/browse', labelKey: 'nav.vehicles', icon: Search },
     { to: '/customer/reservations', labelKey: 'nav.fleet', icon: Calendar },
     { to: '/customer/profile', labelKey: 'nav.people', icon: UserIcon },
+    { to: '/customer/policies', labelKey: 'nav.rentalPolicies', icon: FileText },
   ];
 
   const adminGroups = [
@@ -95,7 +97,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
         { to: '/admin/query', labelKey: 'nav.advancedSearch', icon: Search },
         { to: '/admin/reports/utilization', labelKey: 'nav.utilizationReport', icon: BarChart3 },
         { to: '/admin/reports/revenue', labelKey: 'nav.revenueReport', icon: TrendingUp },
-        { to: '/admin/reports/commissions', labelKey: 'nav.commissionsReport', icon: Coins }
+        { to: '/admin/reports/commissions', labelKey: 'nav.commissionsReport', icon: Coins },
+        { to: '/admin/policies', labelKey: 'nav.rentalPolicies', icon: FileText }
       ]
     }
   ];
@@ -106,7 +109,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
         return ['/admin/dashboard', '/admin/reservations', '/admin/inspections', '/admin/vehicles'].includes(link.to);
       }
       if (user?.role === 'AGENT') {
-        return !['/admin/employees', '/admin/seasonal-rates', '/admin/fee-config', '/admin/settings'].includes(link.to);
+        return !['/admin/employees', '/admin/seasonal-rates', '/admin/fee-config', '/admin/policies', '/admin/settings'].includes(link.to);
       }
       return true;
     });

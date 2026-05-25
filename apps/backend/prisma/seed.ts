@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { seedPolicies } from './seed-policies.js';
 
 const prisma = new PrismaClient();
 
@@ -20,6 +21,7 @@ async function main() {
   await prisma.fuelType.deleteMany({});
   await prisma.geofence.deleteMany({});
   await prisma.feeConfig.deleteMany({});
+  await prisma.rentalPolicy.deleteMany({});
   await prisma.seasonalRate.deleteMany({});
 
   console.log('Seeding reference tables...');
@@ -214,6 +216,9 @@ async function main() {
       { key: 'SECURITY_DEPOSIT', label: 'Security Deposit', amount: 15000, description: 'Pre-auth hold deposit amount per rental' },
     ],
   });
+
+  console.log('Seeding Rental Policies...');
+  await seedPolicies();
 
   console.log('Seeding Seasonal Rates...');
   await prisma.seasonalRate.create({

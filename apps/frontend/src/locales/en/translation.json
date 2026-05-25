@@ -23,6 +23,7 @@
     "utilizationReport": "Utilization",
     "revenueReport": "Revenue",
     "commissionsReport": "Commissions",
+    "rentalPolicies": "Rental Policies",
     "tracking": "Tracking & GPS"
   },
   "common": {
@@ -265,6 +266,25 @@
     "amountLabel": "Amount (RD$)",
     "updatedSuccess": "Fee updated successfully",
     "updateFailed": "Failed to update fee"
+  },
+  "rentalPolicy": {
+    "title": "Rental Policies",
+    "subtitle": "Manage rental terms, coverage details, and company policies shown in contracts.",
+    "key": "Key",
+    "titleLabel": "Title",
+    "content": "Content",
+    "contentLabel": "Policy Content",
+    "active": "Active",
+    "editTitle": "Edit: {{title}}",
+    "create": "Create Policy",
+    "createTitle": "Create New Policy",
+    "createdSuccess": "Policy created successfully",
+    "updatedSuccess": "Policy updated successfully",
+    "updateFailed": "Failed to update policy",
+    "publicTitle": "Rental Policies",
+    "publicSubtitle": "Review our rental terms, coverage details, and company policies.",
+    "termsTitle": "Terms & Conditions",
+    "termsContent": "1. The customer acknowledges receiving the vehicle in good condition as described in the checkout inspection.\n\n2. The customer agrees to return the vehicle on or before the scheduled return date. Late returns will incur penalties as per FleetVault policies.\n\n3. The customer is responsible for any damage, loss, or theft of the vehicle during the rental period, including tires, rims, and accessories.\n\n4. Fuel difference surcharges apply if the vehicle is returned with less fuel than at checkout, charged at market rate plus service fee.\n\n5. All penalties, surcharges, and fees are itemized in the Charges section above.\n\n6. The customer authorizes FleetVault to process charges for any outstanding amounts, including damage fees identified post-return.\n\n7. All rentals are subject to the Rental Policies described in this contract.\n\n8. This contract is governed by the laws of the Dominican Republic. Any dispute arising from this contract shall be submitted to the courts of Santo Domingo, waiving any other jurisdiction that may correspond."
   },
   "seasonalRates": {
     "title": "Seasonal Rates",
