@@ -22,7 +22,8 @@
     "reports": "Reports & Analytics",
     "utilizationReport": "Utilization",
     "revenueReport": "Revenue",
-    "commissionsReport": "Commissions"
+    "commissionsReport": "Commissions",
+    "tracking": "Tracking & GPS"
   },
   "common": {
     "actions": "Actions",

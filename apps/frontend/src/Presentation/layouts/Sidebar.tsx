@@ -83,11 +83,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
       ]
     },
     {
+      titleKey: 'nav.tracking',
+      links: [
+        { to: '/admin/gps/map', labelKey: 'nav.gpsMap', icon: Map },
+        { to: '/admin/gps/geofences', labelKey: 'nav.geofenceConfig', icon: Globe },
+      ]
+    },
+    {
       titleKey: 'nav.reports',
       links: [
         { to: '/admin/query', labelKey: 'nav.advancedSearch', icon: Search },
-        { to: '/admin/gps/map', labelKey: 'nav.gpsMap', icon: Map },
-        { to: '/admin/gps/geofences', labelKey: 'nav.geofenceConfig', icon: Globe },
         { to: '/admin/reports/utilization', labelKey: 'nav.utilizationReport', icon: BarChart3 },
         { to: '/admin/reports/revenue', labelKey: 'nav.revenueReport', icon: TrendingUp },
         { to: '/admin/reports/commissions', labelKey: 'nav.commissionsReport', icon: Coins }
