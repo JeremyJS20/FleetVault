@@ -35,132 +35,189 @@ export class PdfService {
     }
   }
 
-  private drawHeaderBlock(doc: any, title: string, subtitle: string) {
+  private drawInvoiceHeader(doc: any, title: string, subtitle: string) {
     doc.save();
-    // 1. Draw header background (#F0F4F8)
-    doc.rect(0, 0, doc.page.width, 160).fill('#F0F4F8');
+    // 1. Draw right header background (#0D6B7A)
+    doc.rect(200, 0, doc.page.width - 200, 110).fill('#0D6B7A');
 
-    // 2. Draw top decorative lines
-    doc.rect(50, 20, 250, 4).fill('#0E8E9A');
-    doc.rect(300, 20, doc.page.width - 350, 4).fill('#E2E8F0');
+    // 2. Draw slanted dark navy polygon on left (#1B2A4A)
+    doc.moveTo(0, 0)
+       .lineTo(240, 0)
+       .lineTo(200, 110)
+       .lineTo(0, 110)
+       .closePath()
+       .fill('#1B2A4A');
 
-    // 3. Draw bottom decorative lines
-    doc.rect(50, 140, 250, 4).fill('#0E8E9A');
-    doc.rect(300, 140, doc.page.width - 350, 4).fill('#E2E8F0');
+    // 3. Logo circle badge
+    doc.circle(70, 55, 20).fill('#FFFFFF');
+    doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(13).text('FV', 50, 48.5, { width: 40, align: 'center' });
 
-    // 4. Logo widget
-    doc.roundedRect(doc.page.width - 110, 45, 60, 40, 6).fill('#1B2A4A');
-    doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(14).text('FV', doc.page.width - 110, 52, { width: 60, align: 'center' });
-    doc.fillColor('#1B2A4A').fontSize(7.5).text('FleetVault', doc.page.width - 110, 88, { width: 60, align: 'center' });
+    // 4. Company Name
+    doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(14).text('FleetVault', 105, 42);
+    doc.font('Helvetica').fontSize(8.5).fillColor('#CBD5E1').text('Rental Services', 105, 60);
 
-    // 5. Title
-    doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(20).text(title, 50, 45);
-
-    // 6. Subtitle
-    doc.fillColor('#4B5563').font('Helvetica').fontSize(9).text(subtitle, 50, 75);
-
-    // 7. Contact Info
-    doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(8.5).text('✉  support@fleetvault.com', 50, 112);
-    doc.text('📍  123 Main Street, Blue City CA 55555', 220, 112);
+    // 5. Contact Details (on right)
+    doc.fillColor('#FFFFFF').font('Helvetica').fontSize(8.5);
+    doc.text('✉  support@fleetvault.com', 380, 36, { align: 'right', width: doc.page.width - 425 });
+    doc.text('📍  123 Main Street, Blue City CA', 380, 52, { align: 'right', width: doc.page.width - 425 });
+    doc.text('🌐  www.fleetvault.com', 380, 68, { align: 'right', width: doc.page.width - 425 });
 
     doc.restore();
   }
 
-  private drawCardContainer(doc: any, x: number, y: number, w: number, h: number, title: string) {
+  private drawLabelValueGrid(doc: any, x: number, y: number, items: { label: string; value: string }[]) {
     doc.save();
-    // Rounded white card
-    doc.roundedRect(x, y, w, h, 12).fill('#FFFFFF');
-    // Header title
-    doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(12).text(title, x + 20, y + 18);
-    // Decorative window dots
-    const dotY = y + 22;
-    const rightDotX = x + w - 30;
-    doc.circle(rightDotX - 24, dotY, 3.5).fill('#0D6B7A');
-    doc.circle(rightDotX - 12, dotY, 3.5).fill('#0D6B7A');
-    doc.circle(rightDotX, dotY, 3.5).fill('#0D6B7A');
-    doc.restore();
-  }
-
-  private drawTable(doc: any, x: number, y: number, width: number, rows: { label: string; value: string }[]): number {
-    const rowHeight = 15;
-    const colWidth = 110;
-    const valueWidth = width - colWidth;
+    const lineSpacing = 13;
+    const labelWidth = 90;
     
-    doc.save();
-    rows.forEach((row, i) => {
-      const rowY = y + i * rowHeight;
-      
-      // Alternating background
-      const bgFill = i % 2 === 1 ? '#F6F8FA' : '#FFFFFF';
-      doc.rect(x, rowY, width, rowHeight).fill(bgFill);
-      
-      // Borders
-      doc.lineWidth(0.5).strokeColor('#E2E8F0');
-      doc.rect(x, rowY, width, rowHeight).stroke();
-      doc.moveTo(x + colWidth, rowY).lineTo(x + colWidth, rowY + rowHeight).stroke();
+    items.forEach((item, i) => {
+      const itemY = y + i * lineSpacing;
       
       // Label text
       doc.font('Helvetica-Bold').fontSize(8).fillColor('#1B2A4A');
-      doc.text(row.label, x + 8, rowY + 3.5, { width: colWidth - 16, lineBreak: false });
+      doc.text(item.label, x, itemY, { width: labelWidth });
       
-      // Value text
+      // Aligned value with colon
       doc.font('Helvetica').fontSize(8).fillColor('#4B5563');
-      doc.text(String(row.value || 'N/A'), x + colWidth + 8, rowY + 3.5, { width: valueWidth - 16, lineBreak: false });
+      doc.text(`:   ${item.value || 'N/A'}`, x + labelWidth, itemY, { width: 180 });
     });
+    
     doc.restore();
-    return y + rows.length * rowHeight;
   }
 
-  private drawSignatureBlock(doc: any, x: number, y: number, w: number, customerSigBuf: Buffer | null, representativeName: string) {
+  private drawInvoiceTable(doc: any, x: number, y: number, width: number, rows: { desc: string; rate: string; qty: string; subtotal: string }[], subtotalCost: number, taxAmount: number, totalCost: number): number {
     doc.save();
-    // Divider line
+    
+    const colWidths = {
+      desc: width - 260,
+      rate: 90,
+      qty: 70,
+      subtotal: 100
+    };
+    
+    const colX = {
+      desc: x,
+      rate: x + colWidths.desc,
+      qty: x + colWidths.desc + colWidths.rate,
+      subtotal: x + colWidths.desc + colWidths.rate + colWidths.qty
+    };
+    
+    const rowHeight = 16;
+    
+    // 1. Draw Table Header Row (#0D6B7A)
+    doc.rect(x, y, width, rowHeight).fill('#0D6B7A');
+    doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(8.5);
+    doc.text('Description', colX.desc + 8, y + 4, { width: colWidths.desc - 16 });
+    doc.text('Rate', colX.rate, y + 4, { width: colWidths.rate - 8, align: 'right' });
+    doc.text('Quantity', colX.qty, y + 4, { width: colWidths.qty, align: 'center' });
+    doc.text('Subtotal', colX.subtotal, y + 4, { width: colWidths.subtotal - 8, align: 'right' });
+    
+    let currentY = y + rowHeight;
+    
+    // 2. Draw Rows
+    rows.forEach((row, i) => {
+      const bg = i % 2 === 1 ? '#F6F8FA' : '#FFFFFF';
+      doc.rect(x, currentY, width, rowHeight).fill(bg);
+      
+      doc.lineWidth(0.5).strokeColor('#E2E8F0');
+      doc.rect(x, currentY, width, rowHeight).stroke();
+      
+      doc.moveTo(colX.rate, currentY).lineTo(colX.rate, currentY + rowHeight).stroke();
+      doc.moveTo(colX.qty, currentY).lineTo(colX.qty, currentY + rowHeight).stroke();
+      doc.moveTo(colX.subtotal, currentY).lineTo(colX.subtotal, currentY + rowHeight).stroke();
+      
+      doc.font('Helvetica').fontSize(8).fillColor('#4B5563');
+      doc.text(row.desc, colX.desc + 8, currentY + 4, { width: colWidths.desc - 16, lineBreak: false });
+      doc.text(row.rate, colX.rate, currentY + 4, { width: colWidths.rate - 8, align: 'right', lineBreak: false });
+      doc.text(row.qty, colX.qty, currentY + 4, { width: colWidths.qty, align: 'center', lineBreak: false });
+      doc.text(row.subtotal, colX.subtotal, currentY + 4, { width: colWidths.subtotal - 8, align: 'right', lineBreak: false });
+      
+      currentY += rowHeight;
+    });
+    
+    // 3. Draw Totals block
+    const totalsWidth = colWidths.qty + colWidths.subtotal;
+    const totalsX = colX.qty;
+    
+    // Taxes (0%)
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1B2A4A');
+    doc.text('Taxes (0%):', totalsX - 80, currentY + 4, { width: 140, align: 'right' });
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#4B5563');
+    doc.text(`RD$ ${taxAmount.toFixed(2)}`, colX.subtotal, currentY + 4, { width: colWidths.subtotal - 8, align: 'right' });
+    currentY += rowHeight;
+    
+    // Total Charges Row (shaded box)
+    doc.rect(totalsX - 80, currentY, totalsWidth + 80, rowHeight).fill('#FAF2E8');
     doc.lineWidth(0.5).strokeColor('#E2E8F0');
-    doc.moveTo(x + 20, y).lineTo(x + w - 20, y).stroke();
+    doc.rect(totalsX - 80, currentY, totalsWidth + 80, rowHeight).stroke();
     
-    const sigAreaY = y + 10;
-    const halfW = w / 2;
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1B2A4A');
+    doc.text('Total Charges:', totalsX - 80, currentY + 4, { width: 140, align: 'right' });
+    doc.text(`RD$ ${totalCost.toFixed(2)}`, colX.subtotal, currentY + 4, { width: colWidths.subtotal - 8, align: 'right' });
     
-    // Left: Customer
-    doc.font('Helvetica-Bold').fontSize(8).fillColor('#1B2A4A');
-    doc.text('Customer Signature', x + 40, sigAreaY);
-    doc.moveTo(x + 40, sigAreaY + 60).lineTo(x + halfW - 20, sigAreaY + 60).stroke();
+    currentY += rowHeight;
     
+    doc.restore();
+    return currentY;
+  }
+
+  private drawContinuationHeader(doc: any, title: string) {
+    doc.save();
+    // Right accent block
+    doc.rect(200, 0, doc.page.width - 200, 40).fill('#0D6B7A');
+    // Left slanted block
+    doc.moveTo(0, 0)
+       .lineTo(240, 0)
+       .lineTo(220, 40)
+       .lineTo(0, 40)
+       .closePath()
+       .fill('#1B2A4A');
+    // Title inside Left block
+    doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(10).text(title, 45, 15);
+    doc.restore();
+  }
+
+  private drawFooterPageNumber(doc: any, pageNum: string | number) {
+    doc.save();
+    const oldBottom = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+    doc.fillColor('#9CA3AF').font('Helvetica').fontSize(8.5);
+    doc.text(String(pageNum), doc.page.width - 60, doc.page.height - 30, { align: 'right' });
+    doc.page.margins.bottom = oldBottom;
+    doc.restore();
+  }
+
+  private startContinuationPage(doc: any, title: string, pageNum: number) {
+    doc.addPage();
+    this.drawContinuationHeader(doc, title);
+    this.drawFooterPageNumber(doc, pageNum);
+    doc.y = 60;
+  }
+
+  private drawSignatureSection(doc: any, x: number, y: number, width: number, customerSigBuf: Buffer | null, representativeName: string) {
+    doc.save();
+    const lineW = 180;
+    
+    // Draw signature line
+    doc.lineWidth(0.5).strokeColor('#4B5563');
+    doc.moveTo(x + width - lineW, y + 45).lineTo(x + width, y + 45).stroke();
+    
+    // Draw image signature if captured
     if (customerSigBuf) {
       try {
-        doc.image(customerSigBuf, x + 40, sigAreaY + 12, { fit: [halfW - 80, 45] });
+        doc.image(customerSigBuf, x + width - lineW + 20, y - 5, { fit: [lineW - 40, 45] });
       } catch {
-        doc.font('Helvetica-Oblique').fontSize(7.5).fillColor('#9CA3AF').text('(Signature rendering error)', x + 40, sigAreaY + 25);
+        doc.font('Helvetica-Oblique').fontSize(7.5).fillColor('#9CA3AF').text('(Signature error)', x + width - lineW + 20, y + 10);
       }
     } else {
-      doc.font('Helvetica-Oblique').fontSize(7.5).fillColor('#9CA3AF').text('(No signature captured)', x + 40, sigAreaY + 25);
+      doc.font('Helvetica-Oblique').fontSize(7.5).fillColor('#9CA3AF').text('(No signature)', x + width - lineW + 20, y + 10);
     }
     
-    // Right: Agent
     doc.font('Helvetica-Bold').fontSize(8).fillColor('#1B2A4A');
-    doc.text('Authorized Representative', x + halfW + 20, sigAreaY);
-    doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#4B5563');
-    doc.text(representativeName, x + halfW + 20, sigAreaY + 25, { width: halfW - 40 });
-    doc.moveTo(x + halfW + 20, sigAreaY + 60).lineTo(x + w - 40, sigAreaY + 60).stroke();
+    doc.text(representativeName, x + width - lineW, y + 50, { width: lineW, align: 'center' });
+    doc.font('Helvetica').fontSize(8).fillColor('#4B5563');
+    doc.text('Authorized Sign', x + width - lineW, y + 60, { width: lineW, align: 'center' });
     doc.restore();
-  }
-
-  private startPolicyPage(doc: any, title: string, pageNum: number) {
-    doc.addPage();
-    doc.save();
-    // Dark teal background
-    doc.rect(0, 0, doc.page.width, doc.page.height).fill('#0D6B7A');
-    // White container
-    doc.roundedRect(50, 40, 495.28, 720, 12).fill('#FFFFFF');
-    // Title
-    doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(12).text(title, 70, 60);
-    // Three dots
-    doc.circle(470, 64, 3.5).fill('#0D6B7A');
-    doc.circle(482, 64, 3.5).fill('#0D6B7A');
-    doc.circle(494, 64, 3.5).fill('#0D6B7A');
-    // Page number in white text on teal
-    doc.fillColor('#FFFFFF').font('Helvetica').fontSize(9).text(String(pageNum), 530, 805);
-    doc.restore();
-    doc.y = 90;
   }
 
   async generateContractPdf(rental: any): Promise<string> {
@@ -171,9 +228,15 @@ export class PdfService {
       orderBy: { key: 'asc' }
     }).catch(() => []);
 
+    const fees = await prisma.feeConfig.findMany().catch(() => []);
+    const feeMap: Record<string, number> = {};
+    for (const fee of fees) {
+      feeMap[fee.key] = fee.amount;
+    }
+
     return new Promise((resolve, reject) => {
       try {
-        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        const doc = new PDFDocument({ margin: 45, size: 'A4' });
         const chunks: Buffer[] = [];
 
         doc.on('data', (chunk: any) => chunks.push(chunk));
@@ -192,104 +255,145 @@ export class PdfService {
           }
         });
 
-        // 1. Draw top header block
+        // 1. Draw invoice header
         const formattedDate = new Date().toLocaleDateString();
-        this.drawHeaderBlock(doc, 'FLEETVAULT RENTAL CONTRACT', `Contract Reference: ${rental.id} | Date: ${formattedDate}`);
+        this.drawInvoiceHeader(doc, 'FLEETVAULT RENTAL CONTRACT', `Contract Reference: ${rental.id} | Date: ${formattedDate}`);
 
-        // 2. Draw main teal background
-        doc.save();
-        doc.rect(0, 160, doc.page.width, doc.page.height - 160).fill('#0D6B7A');
-        doc.restore();
+        // 2. Title & Reference
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(14).text('RENTAL CONTRACT', 45, 130);
+        doc.fillColor('#4B5563').font('Helvetica').fontSize(8.5).text(`Reference: ${rental.id}`, 45, 150);
 
-        // 3. Draw white information card (Width: 495.28, Height: 465)
-        this.drawCardContainer(doc, 50, 180, 495.28, 465, 'Information');
-
-        // Draw Table 1 (Lessor info) at Y = 220
-        this.drawTable(doc, 70, 220, 455.28, [
-          { label: 'Owner / Lessor', value: 'FleetVault Car Rentals' },
-          { label: 'Address', value: '123 Main Street, Blue City CA 55555' },
-          { label: 'Phone Number', value: '(555) 278-4476' },
-          { label: 'Email', value: 'support@fleetvault.com' }
-        ]);
-
-        // Draw Table 2 (Renter info) at Y = 295
-        this.drawTable(doc, 70, 295, 455.28, [
-          { label: 'Renter Name', value: rental.customer?.name || 'N/A' },
+        // 3. Columns: Renter Info (Column 1) vs Contract Info (Column 2)
+        // Column 1 (X=45)
+        this.drawLabelValueGrid(doc, 45, 175, [
+          { label: 'BILL TO Name', value: rental.customer?.name || 'N/A' },
           { label: 'Address', value: rental.customer?.address || 'N/A' },
-          { label: 'Phone Number', value: rental.customer?.phone || 'N/A' },
-          { label: 'Email', value: rental.customer?.email || 'N/A' }
+          { label: 'National ID / RNC', value: rental.customer?.nationalId || 'N/A' },
+          { label: 'E-mail', value: rental.customer?.email || 'N/A' },
+          { label: 'Phone', value: rental.customer?.phone || 'N/A' }
         ]);
 
-        // Draw Table 3 (Vehicle details) at Y = 370
+        // Column 2 (X=350)
+        this.drawLabelValueGrid(doc, 350, 175, [
+          { label: 'Contract Number', value: rental.id.substring(0, 15) + '...' },
+          { label: 'Contract Date', value: formattedDate },
+          { label: 'Checkout Agent', value: rental.checkoutEmployee?.name || 'N/A' }
+        ]);
+
+        // 4. Vehicle Information (Y=255)
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(10).text('VEHICLE INFORMATION', 45, 255);
         const vehicleInfo = `${rental.vehicle?.brand?.name || ''} ${rental.vehicle?.model?.name || 'N/A'}`;
-        this.drawTable(doc, 70, 370, 455.28, [
-          { label: 'Car / Model', value: vehicleInfo },
-          { label: 'Plate Number', value: rental.vehicle?.plateNumber || 'N/A' },
-          { label: 'Price (Daily)', value: `RD$ ${rental.pricePerDay.toFixed(2)}` },
-          { label: 'Identification (VIN)', value: rental.vehicle?.chassisNumber || 'N/A' }
-        ]);
-
-        // Draw Table 4 (Checkout details) at Y = 445
-        this.drawTable(doc, 70, 445, 455.28, [
-          { label: 'Odometer (Out)', value: `${rental.checkoutOdometer} km` },
-          { label: 'Fuel Level (Out)', value: rental.checkoutFuelLevel || 'N/A' },
-          { label: 'Checked Out By', value: rental.checkoutEmployee?.name || 'N/A' }
-        ]);
-
-        // 4. Draw Signature Block at Y = 520
-        this.drawSignatureBlock(doc, 50, 520, 495.28, sigBuf, rental.checkoutEmployee?.name || 'N/A');
-
-        // 5. Draw Rental Term white text below the card (Y starts at 665)
-        doc.save();
-        doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(11).text('Rental Term', 70, 665);
-        
         const rentalDateStr = new Date(rental.rentalDate).toLocaleDateString();
         const returnDateStr = new Date(rental.scheduledReturnDate).toLocaleDateString();
+        const rentalPeriod = `${rentalDateStr} - ${returnDateStr}`;
+
+        this.drawLabelValueGrid(doc, 45, 270, [
+          { label: 'Car Model', value: vehicleInfo },
+          { label: 'Plate Number', value: rental.vehicle?.plateNumber || 'N/A' },
+          { label: 'Rental Period', value: rentalPeriod }
+        ]);
+
+        // 5. Checkout Conditions (Column 2: X=350, Y=255)
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(10).text('CHECKOUT CONDITION', 350, 255);
+        this.drawLabelValueGrid(doc, 350, 270, [
+          { label: 'Odometer (Out)', value: `${rental.checkoutOdometer} km` },
+          { label: 'Fuel Level (Out)', value: rental.checkoutFuelLevel || 'N/A' }
+        ]);
+
+        // 6. Charges Table (Y=330)
+        const rentalDays = Math.ceil(
+          (new Date(rental.scheduledReturnDate).getTime() - new Date(rental.rentalDate).getTime()) / (1000 * 60 * 60 * 24)
+        ) || 1;
+        const baseCost = rentalDays * rental.pricePerDay;
+
+        const tableRows = [
+          {
+            desc: 'Car Rental Charges',
+            rate: `$ ${rental.pricePerDay.toFixed(2)}`,
+            qty: `${rentalDays} days`,
+            subtotal: `$ ${baseCost.toFixed(2)}`
+          }
+        ];
+
+        const isCorporate = rental.customer?.type === 'CORPORATE';
+        const depositAmount = feeMap['SECURITY_DEPOSIT'] ?? 15000;
+
+        if (!isCorporate) {
+          tableRows.push({
+            desc: 'Security Deposit Hold',
+            rate: `$ ${depositAmount.toFixed(2)}`,
+            qty: '1 hold',
+            subtotal: `$ ${depositAmount.toFixed(2)}`
+          });
+        }
+
+        const totalCost = baseCost + (isCorporate ? 0 : depositAmount);
         
-        doc.font('Helvetica').fontSize(8).fillColor('#FFFFFF');
-        doc.text(`•  The term of this Car Rental Agreement runs from ${rentalDateStr} to ${returnDateStr}, upon completion of all terms of this agreement by both Parties.`, 70, 685, { width: 455.28 });
-        doc.text(`•  The Parties may shorten or extend the estimated term of rental by mutual consent.`, 70, 715, { width: 455.28 });
+        const endTableY = this.drawInvoiceTable(doc, 45, 330, 505.28, tableRows, baseCost, 0, totalCost);
+
+        // 7. Payment Information (Y = endTableY + 15)
+        const paymentY = endTableY + 15;
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(10).text('PAYMENT INFORMATION', 45, paymentY);
         
-        // Page number 1
-        doc.text('1', 530, 805);
-        doc.restore();
+        const paymentMethodVal = rental.purchaseOrderNumber ? 'Purchase Order' : (rental.stripePaymentIntentId ? 'Credit Card (Stripe)' : 'Cash');
+        const paymentRefVal = rental.purchaseOrderNumber || (rental.stripePaymentIntentId ? rental.stripePaymentIntentId.substring(0, 18) + '...' : 'Cash Payment');
+        
+        this.drawLabelValueGrid(doc, 45, paymentY + 15, [
+          { label: 'Payment Method', value: paymentMethodVal },
+          { label: 'Reference Code', value: paymentRefVal }
+        ]);
+
+        // 8. Notes & Signature
+        const notesY = paymentY + 55;
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(10).text('NOTES', 45, notesY);
+        doc.font('Helvetica').fontSize(7.5).fillColor('#4B5563');
+        doc.text(
+          'Thank you for choosing FleetVault Rental for your car rental needs. If you have any questions regarding this contract or need further assistance, please contact support.',
+          45, notesY + 15, { width: 260, align: 'justify' }
+        );
+
+        // Signature on the right
+        this.drawSignatureSection(doc, 45, paymentY + 15, 505.28, sigBuf, rental.customer?.name || 'Authorized Sign');
+
+        // Footer page number 1
+        this.drawFooterPageNumber(doc, 1);
 
         // PAGES 2+: POLICIES & TERMS
         let currentPage = 1;
         
         // Start Policies Page
         currentPage++;
-        this.startPolicyPage(doc, '7. RENTAL POLICIES', currentPage);
+        this.startContinuationPage(doc, '7. RENTAL POLICIES', currentPage);
 
         doc.save();
-        doc.fillColor('#2D3748'); // Dark charcoal text inside card
+        doc.fillColor('#2D3748');
 
         if (policies.length > 0) {
           for (const policy of policies) {
-            if (doc.y > 680) {
+            if (doc.y > doc.page.height - 70) {
               currentPage++;
-              this.startPolicyPage(doc, '7. RENTAL POLICIES (Continued)', currentPage);
+              this.startContinuationPage(doc, '7. RENTAL POLICIES (Continued)', currentPage);
               doc.fillColor('#2D3748');
             }
-            doc.font('Helvetica-Bold').fontSize(9).text(policy.title, 70, doc.y + 10);
-            doc.font('Helvetica').fontSize(7.5).text(policy.content, 70, doc.y + 3, { align: 'justify', width: 455.28 });
+            doc.font('Helvetica-Bold').fontSize(9).text(policy.title, 45, doc.y + 10);
+            doc.font('Helvetica').fontSize(7.5).text(policy.content, 45, doc.y + 3, { align: 'justify', width: 505.28 });
             doc.y += 10;
           }
         } else {
           doc.font('Helvetica').fontSize(8).text(
             'No se han configurado políticas de alquiler. Consulte los términos y condiciones para conocer las reglas aplicables.',
-            70, 95, { align: 'justify', width: 455.28 }
+            45, 80, { align: 'justify', width: 505.28 }
           );
         }
 
         // Terms and conditions
-        if (doc.y > 650) {
+        if (doc.y > doc.page.height - 120) {
           currentPage++;
-          this.startPolicyPage(doc, '8. TERMS & CONDITIONS', currentPage);
+          this.startContinuationPage(doc, '8. TERMS & CONDITIONS', currentPage);
           doc.fillColor('#2D3748');
         } else {
           doc.y += 20;
-          doc.font('Helvetica-Bold').fontSize(11).text('8. TERMS & CONDITIONS', 70, doc.y);
+          doc.font('Helvetica-Bold').fontSize(11).text('8. TERMS & CONDITIONS', 45, doc.y);
           doc.y += 5;
         }
 
@@ -305,17 +409,17 @@ export class PdfService {
 
         doc.font('Helvetica').fontSize(7.5);
         for (const term of terms) {
-          if (doc.y > 700) {
+          if (doc.y > doc.page.height - 50) {
             currentPage++;
-            this.startPolicyPage(doc, '8. TERMS & CONDITIONS (Continued)', currentPage);
+            this.startContinuationPage(doc, '8. TERMS & CONDITIONS (Continued)', currentPage);
             doc.fillColor('#2D3748');
             doc.font('Helvetica').fontSize(7.5);
           }
-          doc.text(term, 70, doc.y + 6, { align: 'justify', width: 455.28 });
+          doc.text(term, 45, doc.y + 6, { align: 'justify', width: 505.28 });
         }
 
         doc.y += 15;
-        doc.font('Helvetica-Oblique').fontSize(9.5).fillColor('#0D6B7A').text('Thank you for choosing FleetVault!', 70, doc.y, { align: 'center', width: 455.28 });
+        doc.font('Helvetica-Oblique').fontSize(9).fillColor('#0D6B7A').text('Thank you for choosing FleetVault!', 45, doc.y, { align: 'center', width: 505.28 });
 
         doc.restore();
         doc.end();
@@ -528,9 +632,16 @@ export class PdfService {
   async generateReturnReceiptPdf(rental: any): Promise<string> {
     const returnSigBuf = await this.fetchImageBuffer(rental.returnSignatureUrl);
 
+    // Load fee config outside the promise to prevent await inside the executor
+    const fees = await prisma.feeConfig.findMany().catch(() => []);
+    const feeMap: Record<string, number> = {};
+    for (const fee of fees) {
+      feeMap[fee.key] = fee.amount;
+    }
+
     return new Promise((resolve, reject) => {
       try {
-        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        const doc = new PDFDocument({ margin: 45, size: 'A4' });
         const chunks: Buffer[] = [];
 
         doc.on('data', (chunk: any) => chunks.push(chunk));
@@ -549,92 +660,192 @@ export class PdfService {
           }
         });
 
-        // 1. Draw top header block
+        // 1. Draw invoice header
         const formattedDate = new Date().toLocaleDateString();
-        this.drawHeaderBlock(doc, 'FLEETVAULT RETURN RECEIPT', `Contract Reference: ${rental.id} | Return Date: ${formattedDate}`);
+        this.drawInvoiceHeader(doc, 'FLEETVAULT RETURN RECEIPT', `Contract Reference: ${rental.id} | Date: ${formattedDate}`);
 
-        // 2. Draw main teal background
-        doc.save();
-        doc.rect(0, 160, doc.page.width, doc.page.height - 160).fill('#0D6B7A');
-        doc.restore();
+        // 2. Title & Reference
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(14).text('RETURN RECEIPT', 45, 130);
+        doc.fillColor('#4B5563').font('Helvetica').fontSize(8.5).text(`Reference: ${rental.id}`, 45, 150);
 
-        // 3. Draw white information card
-        this.drawCardContainer(doc, 50, 180, 495.28, 465, 'Information');
-
-        // Draw Table 1 (Lessor info) at Y = 220
-        this.drawTable(doc, 70, 220, 455.28, [
-          { label: 'Owner / Lessor', value: 'FleetVault Car Rentals' },
-          { label: 'Address', value: '123 Main Street, Blue City CA 55555' },
-          { label: 'Phone Number', value: '(555) 278-4476' },
-          { label: 'Email', value: 'support@fleetvault.com' }
-        ]);
-
-        // Draw Table 2 (Renter info) at Y = 295
-        this.drawTable(doc, 70, 295, 455.28, [
-          { label: 'Renter Name', value: rental.customer?.name || 'N/A' },
+        // 3. Columns: Renter Info (Column 1) vs Receipt Info (Column 2)
+        // Column 1 (X=45)
+        this.drawLabelValueGrid(doc, 45, 175, [
+          { label: 'BILL TO Name', value: rental.customer?.name || 'N/A' },
+          { label: 'Address', value: rental.customer?.address || 'N/A' },
           { label: 'National ID / RNC', value: rental.customer?.nationalId || 'N/A' },
-          { label: 'Phone Number', value: rental.customer?.phone || 'N/A' },
-          { label: 'Email', value: rental.customer?.email || 'N/A' }
+          { label: 'E-mail', value: rental.customer?.email || 'N/A' },
+          { label: 'Phone', value: rental.customer?.phone || 'N/A' }
         ]);
 
-        // Draw Table 3 (Vehicle details) at Y = 370
+        // Column 2 (X=350)
+        this.drawLabelValueGrid(doc, 350, 175, [
+          { label: 'Invoice Number', value: rental.id.substring(0, 15) + '...' },
+          { label: 'Return Date', value: rental.actualReturnDate ? new Date(rental.actualReturnDate).toLocaleDateString() : formattedDate },
+          { label: 'Return Agent', value: rental.returnEmployee?.name || 'N/A' }
+        ]);
+
+        // 4. Vehicle Information (Y=255)
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(10).text('VEHICLE INFORMATION', 45, 255);
         const vehicleInfo = `${rental.vehicle?.brand?.name || ''} ${rental.vehicle?.model?.name || 'N/A'}`;
-        this.drawTable(doc, 70, 370, 455.28, [
-          { label: 'Car / Model', value: vehicleInfo },
+        const rentalDateStr = new Date(rental.rentalDate).toLocaleDateString();
+        const returnDateStr = rental.actualReturnDate ? new Date(rental.actualReturnDate).toLocaleDateString() : formattedDate;
+        const rentalPeriod = `${rentalDateStr} - ${returnDateStr}`;
+
+        this.drawLabelValueGrid(doc, 45, 270, [
+          { label: 'Car Model', value: vehicleInfo },
           { label: 'Plate Number', value: rental.vehicle?.plateNumber || 'N/A' },
-          { label: 'Return Odometer', value: `${rental.returnOdometer || rental.checkoutOdometer} km` },
-          { label: 'Return Fuel Level', value: rental.returnFuelLevel || 'N/A' }
+          { label: 'Rental Period', value: rentalPeriod }
         ]);
 
-        // Draw Table 4 (Financial Settlement) at Y = 445
+        // 5. Checkout Conditions (Column 2: X=350, Y=255)
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(10).text('RETURN CONDITION', 350, 255);
+        this.drawLabelValueGrid(doc, 350, 270, [
+          { label: 'Odometer (In)', value: `${rental.returnOdometer || rental.checkoutOdometer} km` },
+          { label: 'Fuel Level (In)', value: rental.returnFuelLevel || 'N/A' }
+        ]);
+
+        // 6. Charges Table (Y=330)
         const rentalDays = Math.ceil(
-          (new Date(rental.actualReturnDate || rental.scheduledReturnDate).getTime() -
-            new Date(rental.rentalDate).getTime()) / (1000 * 60 * 60 * 24)
+          (new Date(rental.actualReturnDate || rental.scheduledReturnDate).getTime() - new Date(rental.rentalDate).getTime()) / (1000 * 60 * 60 * 24)
         ) || 1;
         const baseCost = rentalDays * rental.pricePerDay;
-        const penaltyTotal = (rental.totalCost || 0) - baseCost;
 
-        this.drawTable(doc, 70, 445, 455.28, [
-          { label: 'Base Cost', value: `RD$ ${baseCost.toFixed(2)} (${rentalDays} days)` },
-          { label: 'Penalties & Fees', value: `RD$ ${penaltyTotal.toFixed(2)}` },
-          { label: 'Total Paid', value: `RD$ ${(rental.totalCost || 0).toFixed(2)}` }
-        ]);
+        const tableRows = [
+          {
+            desc: 'Car Rental Charges',
+            rate: `$ ${rental.pricePerDay.toFixed(2)}`,
+            qty: `${rentalDays} days`,
+            subtotal: `$ ${baseCost.toFixed(2)}`
+          }
+        ];
 
-        // 4. Draw Signature Block at Y = 520
-        this.drawSignatureBlock(doc, 50, 520, 495.28, returnSigBuf, rental.returnEmployee?.name || 'N/A');
-
-        // 5. Draw Settlement text below the card (Y starts at 665)
-        doc.save();
-        doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(11).text('Settlement Notes', 70, 665);
+        // Recalculate Penalties to populate table items:
+        const pickupInsp = rental.inspections?.find((i: any) => i.type === 'PICKUP');
+        const returnInsp = rental.inspections?.find((i: any) => i.type === 'RETURN');
         
-        doc.font('Helvetica').fontSize(8).fillColor('#FFFFFF');
+        let lateFee = 0;
+        let fuelFee = 0;
+        let damageFee = 0;
         
-        const totalCharged = rental.totalCost || 0;
+        // Late Fee calculation
+        if (rental.actualReturnDate && rental.actualReturnDate > rental.scheduledReturnDate) {
+          const lateFeePerHour = feeMap['LATE_FEE_PER_HOUR'] ?? 1500;
+          const diffMs = new Date(rental.actualReturnDate).getTime() - new Date(rental.scheduledReturnDate).getTime();
+          const lateHours = diffMs / (1000 * 60 * 60);
+          if (lateHours > 1.0) {
+            lateFee = parseFloat((lateHours * lateFeePerHour).toFixed(2));
+          }
+        }
+        
+        // Fuel Fee calculation
+        if (returnInsp && pickupInsp) {
+          const FUEL_VALUES: Record<string, number> = { 'EMPTY': 0, 'QUARTER': 1, 'HALF': 2, 'THREE_QUARTERS': 3, 'FULL': 4 };
+          const checkoutVal = FUEL_VALUES[rental.checkoutFuelLevel] ?? 4;
+          const returnVal = FUEL_VALUES[returnInsp.fuelGaugeLevel] ?? 4;
+          const fuelDifference = Math.max(0, checkoutVal - returnVal);
+          if (fuelDifference > 0) {
+            const fuelFlatFee = feeMap['FUEL_FLAT_FEE'] ?? 2000;
+            const fuelPerStep = feeMap['FUEL_PER_STEP'] ?? 1000;
+            fuelFee = fuelFlatFee + (fuelDifference * fuelPerStep);
+          }
+        }
+        
+        // Damage Fee calculation
+        if (returnInsp && pickupInsp) {
+          const glassFeeAmount = feeMap['GLASS_DAMAGE'] ?? 12000;
+          const scratchesFeeAmount = feeMap['SCRATCHES'] ?? 8000;
+          const tireFeeAmount = feeMap['TIRE_DAMAGE'] ?? 5000;
+          
+          const glassFee = returnInsp.hasBrokenGlass && !pickupInsp.hasBrokenGlass ? glassFeeAmount : 0;
+          const scratchesFee = returnInsp.hasScratches && !pickupInsp.hasScratches ? scratchesFeeAmount : 0;
+          
+          const tirePositions = ['tireConditionFrontLeft', 'tireConditionFrontRight', 'tireConditionRearLeft', 'tireConditionRearRight'] as const;
+          const isDamaged = (cond: string) => cond === 'DAMAGED' || cond === 'MISSING';
+          const newTiresCount = tirePositions.filter(p =>
+            isDamaged(returnInsp[p]) && !isDamaged(pickupInsp[p] ?? 'GOOD')
+          ).length;
+          const tiresFee = newTiresCount * tireFeeAmount;
+          damageFee = glassFee + scratchesFee + tiresFee;
+        }
+
+        if (lateFee > 0) {
+          tableRows.push({
+            desc: 'Late Return Penalty',
+            rate: `$ ${(feeMap['LATE_FEE_PER_HOUR'] ?? 1500).toFixed(2)}/hr`,
+            qty: 'Late Hours',
+            subtotal: `$ ${lateFee.toFixed(2)}`
+          });
+        }
+        
+        if (fuelFee > 0) {
+          tableRows.push({
+            desc: 'Refueling Service Charge',
+            rate: 'Flat + Step Rate',
+            qty: 'Fuel Missing',
+            subtotal: `$ ${fuelFee.toFixed(2)}`
+          });
+        }
+        
+        if (damageFee > 0) {
+          tableRows.push({
+            desc: 'Vehicle Damage Fees',
+            rate: 'Inspected damage',
+            qty: 'New Damage',
+            subtotal: `$ ${damageFee.toFixed(2)}`
+          });
+        }
+
+        const totalCost = rental.totalCost || (baseCost + lateFee + fuelFee + damageFee);
+        
+        const endTableY = this.drawInvoiceTable(doc, 45, 330, 505.28, tableRows, baseCost, 0, totalCost);
+
+        // 7. Payment Information (Y = endTableY + 15)
+        const paymentY = endTableY + 15;
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(10).text('PAYMENT & ADJUSTMENTS', 45, paymentY);
+        
         const isCorporate = !!rental.purchaseOrderNumber;
         const hasCashTx = rental.transactions?.some((t: any) => t.type === 'CASH');
+        const paymentMethodVal = isCorporate ? 'Purchase Order' : (hasCashTx ? 'Cash Payment' : 'Credit Card (Stripe)');
         
+        const paymentItems = [
+          { label: 'Payment Method', value: paymentMethodVal }
+        ];
+
         if (isCorporate) {
-          doc.text(`•  Corporate Billing: Bill PO ${rental.purchaseOrderNumber || 'N/A'} for the amount of RD$ ${totalCharged.toFixed(2)}.`, 70, 685, { width: 455.28 });
+          paymentItems.push({ label: 'PO Billing', value: `Bill PO ${rental.purchaseOrderNumber || 'N/A'}` });
         } else if (hasCashTx) {
           const checkoutTx = rental.transactions?.find((t: any) => t.type === 'CASH' && t.comments?.includes('collected'));
           const initialPaid = checkoutTx ? checkoutTx.amount : 0;
-          const diff = initialPaid - totalCharged;
+          const diff = initialPaid - totalCost;
+          paymentItems.push({ label: 'Cash Paid (Out)', value: `RD$ ${initialPaid.toFixed(2)}` });
           if (diff > 0) {
-            doc.text(`•  Cash Adjustment: Refund RD$ ${diff.toFixed(2)} in cash to the customer (Deposit Refund).`, 70, 685, { width: 455.28 });
+            paymentItems.push({ label: 'Refund Due (In)', value: `RD$ ${diff.toFixed(2)} (Deposit)` });
           } else if (diff < 0) {
-            doc.text(`•  Cash Adjustment: Collect additional RD$ ${Math.abs(diff).toFixed(2)} in cash from the customer.`, 70, 685, { width: 455.28 });
+            paymentItems.push({ label: 'Collect Cash (In)', value: `RD$ ${Math.abs(diff).toFixed(2)}` });
           } else {
-            doc.text(`•  Cash Settlement: Fully settled with no outstanding balance or refunds.`, 70, 685, { width: 455.28 });
+            paymentItems.push({ label: 'Status', value: 'Cash Settled' });
           }
         } else {
-          doc.text(`•  Electronic Transaction: Charged RD$ ${totalCharged.toFixed(2)} via registered Payment Card.`, 70, 685, { width: 455.28 });
+          paymentItems.push({ label: 'Card Charged', value: `RD$ ${totalCost.toFixed(2)}` });
         }
         
-        doc.text(`•  All vehicle conditions verified against pickup checklist.`, 70, 715, { width: 455.28 });
-        
-        // Page number 1
-        doc.text('1', 530, 805);
-        doc.restore();
+        this.drawLabelValueGrid(doc, 45, paymentY + 15, paymentItems);
+
+        // 8. Notes & Signature
+        const notesY = paymentY + 65;
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(10).text('NOTES', 45, notesY);
+        doc.font('Helvetica').fontSize(7.5).fillColor('#4B5563');
+        doc.text(
+          'This receipt serves as proof of return check-in and transaction reconciliation. All final charges have been processed according to vehicle inspection state.',
+          45, notesY + 15, { width: 260, align: 'justify' }
+        );
+
+        // Signature on the right
+        this.drawSignatureSection(doc, 45, paymentY + 15, 505.28, returnSigBuf, rental.customer?.name || 'Customer Signature');
+
+        // Footer page number 1
+        this.drawFooterPageNumber(doc, 1);
 
         doc.end();
       } catch (err) {
