@@ -613,7 +613,7 @@ export class CatalogService {
       }
     }
 
-    const [items, total] = await Promise.all([
+    const [items, total, outstandingAgg] = await Promise.all([
       prisma.customer.findMany({
         where,
         skip,
@@ -621,12 +621,23 @@ export class CatalogService {
         include: { user: true },
         orderBy: { name: 'asc' }
       }),
-      prisma.customer.count({ where })
+      prisma.customer.count({ where }),
+      prisma.rental.groupBy({
+        by: ['customerId'],
+        where: { status: { in: ['PENDING', 'ACTIVE', 'COMPLETED'] } },
+        _sum: { totalCost: true }
+      })
     ]);
+
+    const outstandingByCustomer: Record<string, number> = {};
+    for (const row of outstandingAgg) {
+      outstandingByCustomer[row.customerId] = row._sum.totalCost || 0;
+    }
 
     const itemsWithEmail = items.map(item => ({
       ...item,
       email: item.user?.email || null,
+      outstandingBalance: outstandingByCustomer[item.id] || 0,
       user: undefined
     }));
 

@@ -47,6 +47,11 @@ export const useCreateRental = () => {
       stripePaymentMethodId?: string | null;
       paymentMethod?: 'STRIPE' | 'CASH' | null;
       purchaseOrderNumber?: string | null;
+      driverName?: string;
+      driverLicenseNumber?: string;
+      driverLicenseCountry?: string;
+      driverLicenseExpDate?: string;
+      driverLicensePhotoUrl?: string;
       hasScratches?: boolean;
       hasBrokenGlass?: boolean;
       missingSpareTire?: boolean;

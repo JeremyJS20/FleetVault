@@ -59,11 +59,16 @@ router.post(
       const { rentalId } = req.body;
       if (rentalId) {
         // Activate reservation checkout
-        const { signatureUrl } = req.body;
+        const { signatureUrl, driverName, driverLicenseNumber, driverLicenseCountry, driverLicenseExpDate, driverLicensePhotoUrl } = req.body;
         const resolvedEmployeeId = await resolveEmployeeId(req.user!.userId);
         const result = await service.activateReservation(rentalId, {
           signatureUrl,
-          checkoutEmployeeId: resolvedEmployeeId
+          checkoutEmployeeId: resolvedEmployeeId,
+          driverName,
+          driverLicenseNumber,
+          driverLicenseCountry,
+          driverLicenseExpDate,
+          driverLicensePhotoUrl,
         });
         res.status(200).json({ success: true, data: result });
       } else {
@@ -76,6 +81,11 @@ router.post(
           rentalDate: req.body.rentalDate,
           scheduledReturnDate: req.body.scheduledReturnDate,
           pricePerDay: Number(req.body.pricePerDay),
+          driverName: req.body.driverName,
+          driverLicenseNumber: req.body.driverLicenseNumber,
+          driverLicenseCountry: req.body.driverLicenseCountry,
+          driverLicenseExpDate: req.body.driverLicenseExpDate,
+          driverLicensePhotoUrl: req.body.driverLicensePhotoUrl,
           checkoutOdometer: req.body.checkoutOdometer ? Number(req.body.checkoutOdometer) : undefined,
           checkoutFuelLevel: req.body.checkoutFuelLevel,
           signatureUrl: req.body.signatureUrl,
@@ -139,6 +149,7 @@ router.put('/:id', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), asyn
   try {
     const result = await service.updateRental(req.params.id, {
       signatureUrl: req.body.signatureUrl,
+      driverLicensePhotoUrl: req.body.driverLicensePhotoUrl,
     });
     res.status(200).json({ success: true, data: result });
   } catch (error) {

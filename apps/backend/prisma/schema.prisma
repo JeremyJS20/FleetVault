@@ -175,6 +175,11 @@ model Rental {
   purchaseOrderNumber   String?
   stripePaymentIntentId String?
   contractPdfUrl        String?
+  driverName            String?
+  driverLicenseNumber   String?
+  driverLicenseCountry  String?
+  driverLicenseExpDate  DateTime?
+  driverLicensePhotoUrl String?
   totalCost             Float?
   commissionAmount      Float?
   createdAt             DateTime            @default(now())

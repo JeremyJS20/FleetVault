@@ -140,7 +140,7 @@ export class ReservationService {
       const outstandingSum = await prisma.rental.aggregate({
         where: {
           customerId: customer.id,
-          status: { in: ['PENDING', 'ACTIVE'] }
+          status: { in: ['PENDING', 'ACTIVE', 'COMPLETED'] }
         },
         _sum: {
           totalCost: true

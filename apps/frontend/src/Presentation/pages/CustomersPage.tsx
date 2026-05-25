@@ -257,10 +257,31 @@ export const CustomersPage: React.FC = () => {
       header: t('customers.creditLimit'),
       cell: (info) => {
         const item = info.row.original;
-        if (item.type === 'INDIVIDUAL') {
-          return <span className="text-fg-tertiary font-bold">—</span>;
-        }
+        if (item.type === 'INDIVIDUAL') return <span className="text-fg-tertiary font-bold">—</span>;
         return <span className="font-mono text-xs">{formatCurrency(info.getValue() as number || 0)}</span>;
+      },
+    },
+    {
+      id: 'outstandingBalance',
+      header: t('customers.outstandingBalance', 'Outstanding'),
+      cell: (info) => {
+        const item = info.row.original;
+        if (item.type === 'INDIVIDUAL') return <span className="text-fg-tertiary font-bold">—</span>;
+        return <span className="font-mono text-xs text-fg-secondary">{formatCurrency(item.outstandingBalance || 0)}</span>;
+      },
+    },
+    {
+      id: 'availableCredit',
+      header: t('customers.availableCredit', 'Available'),
+      cell: (info) => {
+        const item = info.row.original;
+        if (item.type === 'INDIVIDUAL') return <span className="text-fg-tertiary font-bold">—</span>;
+        const available = (item.creditLimit || 0) - (item.outstandingBalance || 0);
+        return (
+          <span className={`font-mono text-xs font-extrabold ${available < 0 ? 'text-accent-error' : 'text-emerald-500'}`}>
+            {formatCurrency(available)}
+          </span>
+        );
       },
     },
     {

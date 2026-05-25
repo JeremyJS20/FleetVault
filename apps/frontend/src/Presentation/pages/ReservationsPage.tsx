@@ -32,7 +32,7 @@ export const ReservationsPage: React.FC = () => {
   const [page, setPage] = useState(1);
 
   // Queries
-  const { data: rentalsData, isLoading: isRentalsLoading, refetch } = useRentalsList({ status, page, limit: 8 });
+  const { data: rentalsData, isLoading: isRentalsLoading, refetch } = useRentalsList({ status, page, limit: 20 });
   const rentals = rentalsData?.items || [];
 
   // Stepper Wizards State
@@ -40,6 +40,14 @@ export const ReservationsPage: React.FC = () => {
   const [checkoutStep, setCheckoutStep] = useState(1);
   const [checkoutSignature, setCheckoutSignature] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  // Checkout driver fields (corporate employee)
+  const [checkoutDriverName, setCheckoutDriverName] = useState('');
+  const [checkoutDriverLicense, setCheckoutDriverLicense] = useState('');
+  const [checkoutDriverLicenseCountry, setCheckoutDriverLicenseCountry] = useState('');
+  const [checkoutDriverLicenseExpDate, setCheckoutDriverLicenseExpDate] = useState('');
+  const [checkoutDriverLicensePhotoUrl, setCheckoutDriverLicensePhotoUrl] = useState('');
+  const [pendingCheckoutDriverLicenseFile, setPendingCheckoutDriverLicenseFile] = useState<File | null>(null);
 
   // Counter edits for incomplete customer profiles
   const [counterNationalId, setCounterNationalId] = useState('');
@@ -72,6 +80,14 @@ export const ReservationsPage: React.FC = () => {
   const [walkinStep, setWalkinStep] = useState(1);
   const [walkinPaymentMethod, setWalkinPaymentMethod] = useState<'STRIPE' | 'CASH'>('STRIPE');
   const [walkinPurchaseOrderNumber, setWalkinPurchaseOrderNumber] = useState('');
+
+  // Walk-in driver fields (corporate employee)
+  const [walkinDriverName, setWalkinDriverName] = useState('');
+  const [walkinDriverLicense, setWalkinDriverLicense] = useState('');
+  const [walkinDriverLicenseCountry, setWalkinDriverLicenseCountry] = useState('');
+  const [walkinDriverLicenseExpDate, setWalkinDriverLicenseExpDate] = useState('');
+  const [walkinDriverLicensePhotoUrl, setWalkinDriverLicensePhotoUrl] = useState('');
+  const [pendingWalkinDriverLicenseFile, setPendingWalkinDriverLicenseFile] = useState<File | null>(null);
 
   // Walk-in inspection state
   const [walkinOdometer, setWalkinOdometer] = useState(0);
@@ -177,6 +193,12 @@ export const ReservationsPage: React.FC = () => {
     setCheckoutSignature(null);
     setPendingCheckoutSignatureFile(null);
     setCheckoutError(null);
+    setCheckoutDriverName('');
+    setCheckoutDriverLicense('');
+    setCheckoutDriverLicenseCountry('');
+    setCheckoutDriverLicenseExpDate('');
+    setCheckoutDriverLicensePhotoUrl('');
+    setPendingCheckoutDriverLicenseFile(null);
     createRentalMutation.reset();
   };
 
@@ -207,6 +229,12 @@ export const ReservationsPage: React.FC = () => {
     setWalkinStep(1);
     setWalkinPaymentMethod('STRIPE');
     setWalkinPurchaseOrderNumber('');
+    setWalkinDriverName('');
+    setWalkinDriverLicense('');
+    setWalkinDriverLicenseCountry('');
+    setWalkinDriverLicenseExpDate('');
+    setWalkinDriverLicensePhotoUrl('');
+    setPendingWalkinDriverLicenseFile(null);
     setWalkinLicNationalId('');
     setWalkinLicNumber('');
     setWalkinLicCountry('');
@@ -249,7 +277,7 @@ export const ReservationsPage: React.FC = () => {
 
   const customerRentals = customerRentalsData?.items || [];
   const walkinOutstandingBalance = customerRentals
-    .filter((r: any) => r.status === 'ACTIVE' || r.status === 'PENDING')
+    .filter((r: any) => r.status === 'ACTIVE' || r.status === 'PENDING' || r.status === 'COMPLETED')
     .reduce((sum: number, r: any) => sum + (r.totalCost || 0), 0);
 
   const walkinRemainingCredit = (selectedWalkinCustomer?.creditLimit || 0) - walkinOutstandingBalance;
@@ -288,6 +316,31 @@ export const ReservationsPage: React.FC = () => {
   const handleNextCheckoutStep = async () => {
     setCheckoutError(null);
     if (checkoutStep === 2) {
+      if (checkoutRental?.customer.type === 'CORPORATE') {
+        if (!checkoutDriverName.trim() || !checkoutDriverLicense.trim() || !checkoutDriverLicenseCountry.trim() || !checkoutDriverLicenseExpDate || !checkoutDriverLicensePhotoUrl) {
+          setCheckoutError(t('customers.licensePhotoRequired', 'All driver fields and photo are required'));
+          return;
+        }
+        if (pendingCheckoutDriverLicenseFile) {
+          const uploadResult = await uploadPhotoMutation.mutateAsync({
+            file: pendingCheckoutDriverLicenseFile,
+            folder: 'licenses',
+            entityType: 'rental',
+            entityId: checkoutRental.id,
+          });
+          setCheckoutDriverLicensePhotoUrl(uploadResult.url);
+          setPendingCheckoutDriverLicenseFile(null);
+        }
+        const expDate = new Date(checkoutDriverLicenseExpDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (expDate < today) {
+          setCheckoutError(t('common.operationFailed'));
+          return;
+        }
+        setCheckoutStep(checkoutStep + 1);
+        return;
+      }
       if (isCheckoutCustomerProfileIncomplete) {
         if (!counterNationalId || !counterLicenseNumber || !counterLicenseCountry || !counterLicenseExpDate || !counterLicensePhotoUrl) {
           setCheckoutError(t('customers.licensePhotoRequired', 'Driver\'s license photo is required'));
@@ -375,6 +428,11 @@ export const ReservationsPage: React.FC = () => {
       await createRentalMutation.mutateAsync({
         rentalId: checkoutRental.id,
         signatureUrl: finalSignatureUrl,
+        driverName: checkoutDriverName || undefined,
+        driverLicenseNumber: checkoutDriverLicense || undefined,
+        driverLicenseCountry: checkoutDriverLicenseCountry || undefined,
+        driverLicenseExpDate: checkoutDriverLicenseExpDate || undefined,
+        driverLicensePhotoUrl: checkoutDriverLicensePhotoUrl || undefined,
       });
       setCheckoutStep(4); // success
       refetch();
@@ -458,41 +516,58 @@ export const ReservationsPage: React.FC = () => {
         return;
       }
     }
-    if (walkinStep === 2 && isWalkinProfileIncomplete) {
-      if (!walkinLicNationalId || !walkinLicNumber || !walkinLicCountry || !walkinLicExpDate || !walkinLicPhotoUrl) {
-        setWalkinError(t('customers.licensePhotoRequired', 'All license fields and photo are required'));
-        return;
-      }
-      setWalkinIsSavingProfile(true);
-      try {
-        let finalPhotoUrl = walkinLicPhotoUrl;
-        if (walkinPendingLicenseFile) {
-          const uploadResult = await uploadPhotoMutation.mutateAsync({
-            file: walkinPendingLicenseFile,
-            folder: 'licenses',
-            entityType: 'customer',
-            entityId: walkinCustomer,
-          });
-          finalPhotoUrl = uploadResult.url;
-          setWalkinPendingLicenseFile(null);
+    if (walkinStep === 2) {
+      if (isWalkinCorporate) {
+        if (!walkinDriverName.trim() || !walkinDriverLicense.trim() || !walkinDriverLicenseCountry.trim() || !walkinDriverLicenseExpDate || !walkinDriverLicensePhotoUrl) {
+          setWalkinError(t('customers.licensePhotoRequired', 'All driver fields and photo are required'));
+          return;
         }
-        await updateCustomerMutation.mutateAsync({
-          id: walkinCustomer,
-          data: {
-            nationalId: walkinLicNationalId,
-            licenseNumber: walkinLicNumber,
-            licenseCountry: walkinLicCountry,
-            licenseExpDate: new Date(walkinLicExpDate).toISOString(),
-            licensePhotoUrl: finalPhotoUrl.startsWith('blob:') ? undefined : finalPhotoUrl,
-          },
-        });
-        refetchCustomers();
-      } catch (err: any) {
-        setWalkinError(err.message || t('common.operationFailed'));
-        setWalkinIsSavingProfile(false);
+        const expDate = new Date(walkinDriverLicenseExpDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (expDate < today) {
+          setWalkinError(t('common.operationFailed'));
+          return;
+        }
+        setWalkinStep(walkinStep + 1);
         return;
       }
-      setWalkinIsSavingProfile(false);
+      if (isWalkinProfileIncomplete) {
+        if (!walkinLicNationalId || !walkinLicNumber || !walkinLicCountry || !walkinLicExpDate || !walkinLicPhotoUrl) {
+          setWalkinError(t('customers.licensePhotoRequired', 'All license fields and photo are required'));
+          return;
+        }
+        setWalkinIsSavingProfile(true);
+        try {
+          let finalPhotoUrl = walkinLicPhotoUrl;
+          if (walkinPendingLicenseFile) {
+            const uploadResult = await uploadPhotoMutation.mutateAsync({
+              file: walkinPendingLicenseFile,
+              folder: 'licenses',
+              entityType: 'customer',
+              entityId: walkinCustomer,
+            });
+            finalPhotoUrl = uploadResult.url;
+            setWalkinPendingLicenseFile(null);
+          }
+          await updateCustomerMutation.mutateAsync({
+            id: walkinCustomer,
+            data: {
+              nationalId: walkinLicNationalId,
+              licenseNumber: walkinLicNumber,
+              licenseCountry: walkinLicCountry,
+              licenseExpDate: new Date(walkinLicExpDate).toISOString(),
+              licensePhotoUrl: finalPhotoUrl.startsWith('blob:') ? undefined : finalPhotoUrl,
+            },
+          });
+          refetchCustomers();
+        } catch (err: any) {
+          setWalkinError(err.message || t('common.operationFailed'));
+          setWalkinIsSavingProfile(false);
+          return;
+        }
+        setWalkinIsSavingProfile(false);
+      }
     }
     if (walkinStep === 4) {
       if (isWalkinCorporate) {
@@ -537,6 +612,11 @@ export const ReservationsPage: React.FC = () => {
         stripePaymentMethodId: (isWalkinCorporate || walkinPaymentMethod === 'CASH') ? null : walkinCardToken,
         paymentMethod: isWalkinCorporate ? null : walkinPaymentMethod,
         purchaseOrderNumber: isWalkinCorporate ? walkinPurchaseOrderNumber : null,
+        driverName: walkinDriverName || undefined,
+        driverLicenseNumber: walkinDriverLicense || undefined,
+        driverLicenseCountry: walkinDriverLicenseCountry || undefined,
+        driverLicenseExpDate: walkinDriverLicenseExpDate || undefined,
+        driverLicensePhotoUrl: isWalkinCorporate ? undefined : (walkinDriverLicensePhotoUrl || undefined),
         hasScratches: walkinHasScratches,
         hasBrokenGlass: walkinHasBrokenGlass,
         missingSpareTire: walkinMissingSpareTire,
@@ -567,7 +647,23 @@ export const ReservationsPage: React.FC = () => {
         });
       }
 
-      // 3. Upload inspection photos with real rental ID
+      // 3. Upload driver license photo for corporate walk-in with real rental ID
+      if (pendingWalkinDriverLicenseFile) {
+        const uploadResult = await uploadPhotoMutation.mutateAsync({
+          file: pendingWalkinDriverLicenseFile,
+          folder: 'licenses',
+          entityType: 'rental',
+          entityId: rentalId,
+        });
+        setPendingWalkinDriverLicenseFile(null);
+        setWalkinDriverLicensePhotoUrl(uploadResult.url);
+        await updateRentalMutation.mutateAsync({
+          id: rentalId,
+          data: { driverLicensePhotoUrl: uploadResult.url },
+        });
+      }
+
+      // 4. Upload inspection photos with real rental ID
       const uploadedPhotoUrls: string[] = [];
       for (const slot of walkinPhotoSlots) {
         if (slot.file) {
@@ -723,6 +819,15 @@ export const ReservationsPage: React.FC = () => {
                     <Calendar className="w-3.5 h-3.5 text-accent-primary" />
                     {new Date(r.rentalDate).toLocaleDateString()} — {new Date(r.scheduledReturnDate).toLocaleDateString()}
                   </p>
+                  {r.customer?.type === 'CORPORATE' && r.customer.outstandingBalance !== undefined && (
+                    <p className="text-[10px] text-accent-primary mt-1.5 flex items-center gap-1 font-bold">
+                      <span className="uppercase tracking-wider">{t('reservations.outstandingBalance', 'Outstanding')}:</span>
+                      <span className="font-mono">{formatCurrency(r.customer.outstandingBalance)}</span>
+                      <span className="text-fg-tertiary mx-0.5">/</span>
+                      <span className="uppercase tracking-wider text-fg-tertiary">{t('customers.creditLimit', 'Limit')}:</span>
+                      <span className="font-mono text-fg-tertiary">{formatCurrency(r.customer.creditLimit || 0)}</span>
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -755,6 +860,29 @@ export const ReservationsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Pagination */}
+      {rentalsData && rentalsData.pages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-bg-inset border border-border-surface/30 text-fg-secondary hover:text-fg-main transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+          >
+            ← {t('common.previous', 'Prev')}
+          </button>
+          <span className="text-xs text-fg-tertiary font-semibold px-3">
+            {page} / {rentalsData.pages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(rentalsData.pages, p + 1))}
+            disabled={page >= rentalsData.pages}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-bg-inset border border-border-surface/30 text-fg-secondary hover:text-fg-main transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {t('common.next')} →
+          </button>
+        </div>
+      )}
+
       {/* 5-STEP RENTAL CHECKOUT STEPPER DIALOG */}
       {checkoutRental && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" onClick={closeCheckout}>
@@ -771,7 +899,9 @@ export const ReservationsPage: React.FC = () => {
               <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('reservations.checkoutContract')}</span>
               <h2 className="text-lg font-extrabold text-fg-main mt-1 uppercase">
                 {checkoutStep === 1 && t('reservations.stepVerify')}
-                {checkoutStep === 2 && t('reservations.stepLicense')}
+                {checkoutStep === 2 && (checkoutRental?.customer.type === 'CORPORATE'
+                  ? t('reservations.stepAuthorizedDriver', 'Authorized Driver')
+                  : t('reservations.stepLicense'))}
                 {checkoutStep === 3 && t('reservations.stepSignature')}
                 {checkoutStep === 4 && t('reservations.stepActivated')}
               </h2>
@@ -780,16 +910,9 @@ export const ReservationsPage: React.FC = () => {
             {/* Stepper Dots */}
             {checkoutStep !== 4 && (
               <div className="flex gap-1.5">
-                {checkoutRental?.customer.type === 'CORPORATE' ? (
-                  <>
-                    <div className={`h-1.5 flex-1 rounded-full ${checkoutStep >= 1 ? 'bg-accent-primary' : 'bg-white/10'}`} />
-                    <div className={`h-1.5 flex-1 rounded-full ${checkoutStep >= 3 ? 'bg-accent-primary' : 'bg-white/10'}`} />
-                  </>
-                ) : (
-                  [1, 2, 3].map(idx => (
-                    <div key={idx} className={`h-1.5 flex-1 rounded-full ${checkoutStep >= idx ? 'bg-accent-primary' : 'bg-white/10'}`} />
-                  ))
-                )}
+                {[1, 2, 3].map(idx => (
+                  <div key={idx} className={`h-1.5 flex-1 rounded-full ${checkoutStep >= idx ? 'bg-accent-primary' : 'bg-white/10'}`} />
+                ))}
               </div>
             )}
 
@@ -814,22 +937,81 @@ export const ReservationsPage: React.FC = () => {
 
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="secondary" onClick={closeCheckout}>{t('reservations.cancel')}</Button>
-                  <Button onClick={() => setCheckoutStep(checkoutRental?.customer.type === 'CORPORATE' ? 3 : 2)}>
-                    {checkoutRental?.customer.type === 'CORPORATE' ? t('reservations.nextSignature') : t('reservations.nextVerify')}
+                  <Button onClick={() => setCheckoutStep(2)}>
+                    {t('reservations.nextVerify')}
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* Step 2: License check */}
+            {/* Step 2: License check / Authorized Driver */}
             {checkoutStep === 2 && (
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-3">
                   <span className="text-xs text-fg-tertiary font-bold block uppercase leading-none">
-                    {isCheckoutCustomerProfileIncomplete ? t('reservations.completeProfile') : t('reservations.registeredCreds')}
+                    {checkoutRental?.customer.type === 'CORPORATE'
+                      ? t('reservations.stepAuthorizedDriver', 'Authorized Driver')
+                      : (isCheckoutCustomerProfileIncomplete ? t('reservations.completeProfile') : t('reservations.registeredCreds'))}
                   </span>
-                  
-                  {isCheckoutCustomerProfileIncomplete ? (
+
+                  {checkoutRental?.customer.type === 'CORPORATE' ? (
+                    <div className="space-y-3">
+                      <div className="p-3 rounded-lg border border-accent-primary/20 bg-accent-primary/5 text-xs text-fg-secondary">
+                        {t('reservations.driverInfoPrompt', 'Verify the employee\'s authorization letter and enter their details below.')}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <FormField label={t('reservations.driverName', "Driver's Full Name")} required>
+                          <Input
+                            type="text"
+                            placeholder={t('reservations.driverNamePlaceholder', 'e.g. Juan Pérez')}
+                            value={checkoutDriverName}
+                            onChange={(e) => setCheckoutDriverName(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+
+                        <FormField label={t('reservations.driverLicenseNumber', "Driver's License Number")} required>
+                          <Input
+                            type="text"
+                            placeholder={t('reservations.driverLicensePlaceholder', 'e.g. DL-12345')}
+                            value={checkoutDriverLicense}
+                            onChange={(e) => setCheckoutDriverLicense(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+
+                        <FormField label={t('reservations.driverLicenseCountry', "License Country")} required>
+                          <Input
+                            type="text"
+                            placeholder={t('customers.placeholderCountry')}
+                            value={checkoutDriverLicenseCountry}
+                            onChange={(e) => setCheckoutDriverLicenseCountry(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+
+                        <FormField label={t('reservations.driverLicenseExpiry', "License Expiry")} required>
+                          <Input
+                            type="date"
+                            value={checkoutDriverLicenseExpDate}
+                            onChange={(e) => setCheckoutDriverLicenseExpDate(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+                      </div>
+
+                      <div className="pt-3 border-t border-border-surface/15">
+                        <LicensePhotoCapture
+                          value={checkoutDriverLicensePhotoUrl}
+                          onChange={setCheckoutDriverLicensePhotoUrl}
+                          onFileSelect={setPendingCheckoutDriverLicenseFile}
+                          required
+                          label={t('customers.licensePhoto', "Driver's License Photo")}
+                        />
+                      </div>
+                    </div>
+                  ) : isCheckoutCustomerProfileIncomplete ? (
                     <div className="space-y-3">
                       <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 text-xs text-amber-200">
                         {t('reservations.profileMissing')}
@@ -945,7 +1127,7 @@ export const ReservationsPage: React.FC = () => {
                 <SignaturePad onChange={setCheckoutSignature} onFileSelect={setPendingCheckoutSignatureFile} />
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => setCheckoutStep(checkoutRental?.customer.type === 'CORPORATE' ? 1 : 2)}>{t('reservations.back')}</Button>
+                  <Button variant="secondary" onClick={() => setCheckoutStep(2)}>{t('reservations.back')}</Button>
                   <Button
                     onClick={handleConfirmCheckout}
                     isLoading={uploadPhotoMutation.isPending || createRentalMutation.isPending}
@@ -1264,7 +1446,9 @@ export const ReservationsPage: React.FC = () => {
               <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('reservations.counterDesk')}</span>
               <h2 className="text-lg font-extrabold text-fg-main mt-0.5 uppercase">
                 {walkinStep === 1 && t('reservations.stepWalkinParams')}
-                {walkinStep === 2 && t('reservations.stepWalkinLicense')}
+                {walkinStep === 2 && (isWalkinCorporate
+                  ? t('reservations.stepAuthorizedDriver', 'Authorized Driver')
+                  : t('reservations.stepWalkinLicense'))}
                 {walkinStep === 3 && t('reservations.stepWalkinInspection')}
                 {walkinStep === 4 && t('reservations.stepWalkinCard')}
                 {walkinStep === 5 && t('reservations.stepWalkinSignature')}
@@ -1275,18 +1459,9 @@ export const ReservationsPage: React.FC = () => {
             {/* Stepper Dots */}
             {walkinStep !== 6 && (
               <div className="flex gap-1.5">
-                {isWalkinCorporate ? (
-                  <>
-                    <div className={`h-1.5 flex-1 rounded-full ${walkinStep >= 1 ? 'bg-accent-primary' : 'bg-white/10'}`} />
-                    <div className={`h-1.5 flex-1 rounded-full ${walkinStep >= 3 ? 'bg-accent-primary' : 'bg-white/10'}`} />
-                    <div className={`h-1.5 flex-1 rounded-full ${walkinStep >= 4 ? 'bg-accent-primary' : 'bg-white/10'}`} />
-                    <div className={`h-1.5 flex-1 rounded-full ${walkinStep >= 5 ? 'bg-accent-primary' : 'bg-white/10'}`} />
-                  </>
-                ) : (
-                  [1, 2, 3, 4, 5].map(idx => (
-                    <div key={idx} className={`h-1.5 flex-1 rounded-full ${walkinStep >= idx ? 'bg-accent-primary' : 'bg-white/10'}`} />
-                  ))
-                )}
+                {[1, 2, 3, 4, 5].map(idx => (
+                  <div key={idx} className={`h-1.5 flex-1 rounded-full ${walkinStep >= idx ? 'bg-accent-primary' : 'bg-white/10'}`} />
+                ))}
               </div>
             )}
 
@@ -1381,22 +1556,104 @@ export const ReservationsPage: React.FC = () => {
                   </FormField>
                 </div>
 
+                {isWalkinCorporate && selectedWalkinCustomer && (
+                  <div className="p-3 rounded-xl border border-accent-primary/20 bg-accent-primary/5 text-fg-secondary text-xs space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-fg-primary">{t('reservations.corporateBilling', 'Corporate Billing')}</span>
+                    </div>
+                    <p className="text-fg-secondary leading-normal">
+                      {t('catalog.corporateDesc', 'Credit limit: {{creditLimit}}.', { creditLimit: formatCurrency(selectedWalkinCustomer?.creditLimit ?? 0) })}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-accent-primary/10 font-semibold">
+                      <div>
+                        <span className="text-fg-tertiary block text-[10px] uppercase">{t('reservations.outstandingBalance', 'Outstanding')}</span>
+                        <span className="text-fg-main text-xs">{formatCurrency(walkinOutstandingBalance)}</span>
+                      </div>
+                      <div>
+                        <span className="text-fg-tertiary block text-[10px] uppercase">{t('reservations.remainingCredit', 'Available')}</span>
+                        <span className={`text-xs ${walkinRemainingCredit <= 0 ? 'text-accent-error font-extrabold' : 'text-emerald-500 font-extrabold'}`}>
+                          {formatCurrency(walkinRemainingCredit)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
                   <Button type="button" variant="secondary" onClick={closeWalkin}>{t('reservations.cancel')}</Button>
-                  <Button type="button" onClick={() => setWalkinStep(isWalkinCorporate ? 3 : 2)}>{t('common.next')}</Button>
+                  <Button type="button" onClick={() => setWalkinStep(2)}>{t('common.next')}</Button>
                 </div>
               </div>
             )}
 
-            {/* Step 2: License */}
+            {/* Step 2: License / Authorized Driver */}
             {walkinStep === 2 && (
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-3">
                   <span className="text-xs text-fg-tertiary font-bold block uppercase leading-none">
-                    {isWalkinProfileIncomplete ? t('reservations.completeProfile') : t('reservations.registeredCreds')}
+                    {isWalkinCorporate
+                      ? t('reservations.stepAuthorizedDriver', 'Authorized Driver')
+                      : (isWalkinProfileIncomplete ? t('reservations.completeProfile') : t('reservations.registeredCreds'))}
                   </span>
 
-                  {isWalkinProfileIncomplete ? (
+                  {isWalkinCorporate ? (
+                    <div className="space-y-3">
+                      <div className="p-3 rounded-lg border border-accent-primary/20 bg-accent-primary/5 text-xs text-fg-secondary">
+                        {t('reservations.driverInfoPrompt', 'Verify the employee\'s authorization letter and enter their details below.')}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <FormField label={t('reservations.driverName', "Driver's Full Name")} required>
+                          <Input
+                            type="text"
+                            placeholder={t('reservations.driverNamePlaceholder', 'e.g. Juan Pérez')}
+                            value={walkinDriverName}
+                            onChange={(e: any) => setWalkinDriverName(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+
+                        <FormField label={t('reservations.driverLicenseNumber', "Driver's License Number")} required>
+                          <Input
+                            type="text"
+                            placeholder={t('reservations.driverLicensePlaceholder', 'e.g. DL-12345')}
+                            value={walkinDriverLicense}
+                            onChange={(e: any) => setWalkinDriverLicense(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+
+                        <FormField label={t('reservations.driverLicenseCountry', "License Country")} required>
+                          <Input
+                            type="text"
+                            placeholder={t('customers.placeholderCountry')}
+                            value={walkinDriverLicenseCountry}
+                            onChange={(e: any) => setWalkinDriverLicenseCountry(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+
+                        <FormField label={t('reservations.driverLicenseExpiry', "License Expiry")} required>
+                          <Input
+                            type="date"
+                            value={walkinDriverLicenseExpDate}
+                            onChange={(e: any) => setWalkinDriverLicenseExpDate(e.target.value)}
+                            className="!h-9 rounded-lg"
+                          />
+                        </FormField>
+                      </div>
+
+                      <div className="pt-3 border-t border-border-surface/15">
+                        <LicensePhotoCapture
+                          value={walkinDriverLicensePhotoUrl}
+                          onChange={setWalkinDriverLicensePhotoUrl}
+                          onFileSelect={setPendingWalkinDriverLicenseFile}
+                          required
+                          label={t('customers.licensePhoto', "Driver's License Photo")}
+                        />
+                      </div>
+                    </div>
+                  ) : isWalkinProfileIncomplete ? (
                     <div className="space-y-3">
                       <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 text-xs text-amber-200">
                         {t('reservations.profileMissing')}
@@ -1496,7 +1753,7 @@ export const ReservationsPage: React.FC = () => {
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="secondary" onClick={() => setWalkinStep(1)}>{t('reservations.back')}</Button>
                   <Button onClick={handleNextWalkinStep} isLoading={walkinIsSavingProfile}>
-                    {isWalkinProfileIncomplete ? t('reservations.saveContinue') : t('common.next')}
+                    {isWalkinCorporate ? t('common.next') : (isWalkinProfileIncomplete ? t('reservations.saveContinue') : t('common.next'))}
                   </Button>
                 </div>
               </div>
@@ -1642,7 +1899,7 @@ export const ReservationsPage: React.FC = () => {
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
-                  <Button type="button" variant="secondary" onClick={() => setWalkinStep(isWalkinCorporate ? 1 : 2)}>{t('common.back')}</Button>
+                  <Button type="button" variant="secondary" onClick={() => setWalkinStep(2)}>{t('common.back')}</Button>
                   <Button type="button" onClick={handleNextWalkinStep}>{t('common.next')}</Button>
                 </div>
               </div>

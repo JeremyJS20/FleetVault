@@ -58,6 +58,11 @@ export class RentalService {
   async activateReservation(rentalId: string, input: {
     signatureUrl: string;
     checkoutEmployeeId: string;
+    driverName?: string | null;
+    driverLicenseNumber?: string | null;
+    driverLicenseCountry?: string | null;
+    driverLicenseExpDate?: string | null;
+    driverLicensePhotoUrl?: string | null;
   }) {
     const rental = await prisma.rental.findUnique({
       where: { id: rentalId },
@@ -99,6 +104,30 @@ export class RentalService {
       throw new ConflictError('Customer already has an active rental');
     }
 
+    // Corporate credit limit verification
+    if (rental.customer.type === 'CORPORATE') {
+      if (!rental.purchaseOrderNumber) {
+        throw new ValidationError('Purchase Order number is required for corporate accounts');
+      }
+
+      const outstandingSum = await prisma.rental.aggregate({
+        where: {
+          customerId: rental.customerId,
+          id: { not: rentalId },
+          status: { in: ['PENDING', 'ACTIVE', 'COMPLETED'] }
+        },
+        _sum: {
+          totalCost: true
+        }
+      });
+      const outstandingCost = outstandingSum._sum.totalCost || 0;
+      const currentCost = rental.totalCost || 0;
+
+      if (currentCost + outstandingCost > rental.customer.creditLimit) {
+        throw new ValidationError(`Corporate credit limit exceeded. Remaining limit: RD$${rental.customer.creditLimit - outstandingCost}, requested: RD$${currentCost}`);
+      }
+    }
+
     return await prisma.$transaction(async (tx) => {
       // 1. Update Rental to ACTIVE
       const updatedRental = await tx.rental.update({
@@ -108,7 +137,14 @@ export class RentalService {
           checkoutOdometer: pickupInspection.odometer,
           checkoutFuelLevel: pickupInspection.fuelGaugeLevel,
           signatureUrl: input.signatureUrl,
-          checkoutEmployeeId: input.checkoutEmployeeId
+          checkoutEmployeeId: input.checkoutEmployeeId,
+          driverName: input.driverName ?? rental.customer.name,
+          driverLicenseNumber: input.driverLicenseNumber ?? rental.customer.licenseNumber,
+          driverLicenseCountry: input.driverLicenseCountry ?? rental.customer.licenseCountry,
+          driverLicenseExpDate: input.driverLicenseExpDate
+            ? new Date(input.driverLicenseExpDate)
+            : rental.customer.licenseExpDate,
+          driverLicensePhotoUrl: input.driverLicensePhotoUrl ?? rental.customer.licensePhotoUrl,
         }
       });
 
@@ -139,6 +175,11 @@ export class RentalService {
     stripePaymentMethodId?: string | null;
     paymentMethod?: 'STRIPE' | 'CASH' | null;
     purchaseOrderNumber?: string | null;
+    driverName?: string | null;
+    driverLicenseNumber?: string | null;
+    driverLicenseCountry?: string | null;
+    driverLicenseExpDate?: string | null;
+    driverLicensePhotoUrl?: string | null;
     hasScratches?: boolean;
     hasBrokenGlass?: boolean;
     missingSpareTire?: boolean;
@@ -211,7 +252,7 @@ export class RentalService {
         const outstandingSum = await tx.rental.aggregate({
           where: {
             customerId: customer.id,
-            status: { in: ['PENDING', 'ACTIVE'] }
+            status: { in: ['PENDING', 'ACTIVE', 'COMPLETED'] }
           },
           _sum: {
             totalCost: true
@@ -266,6 +307,13 @@ export class RentalService {
           signatureUrl: input.signatureUrl || null,
           stripePaymentIntentId: holdId,
           purchaseOrderNumber: isCorporate ? input.purchaseOrderNumber : null,
+          driverName: input.driverName ?? customer.name,
+          driverLicenseNumber: input.driverLicenseNumber ?? customer.licenseNumber,
+          driverLicenseCountry: input.driverLicenseCountry ?? customer.licenseCountry,
+          driverLicenseExpDate: input.driverLicenseExpDate
+            ? new Date(input.driverLicenseExpDate)
+            : customer.licenseExpDate,
+          driverLicensePhotoUrl: input.driverLicensePhotoUrl ?? customer.licensePhotoUrl,
           totalCost: result.totalCost,
           comments: input.comments
         }
@@ -344,11 +392,12 @@ export class RentalService {
     });
   }
 
-  async updateRental(id: string, input: { signatureUrl?: string }) {
+  async updateRental(id: string, input: { signatureUrl?: string; driverLicensePhotoUrl?: string }) {
     return prisma.rental.update({
       where: { id },
       data: {
         ...(input.signatureUrl !== undefined ? { signatureUrl: input.signatureUrl } : {}),
+        ...(input.driverLicensePhotoUrl !== undefined ? { driverLicensePhotoUrl: input.driverLicensePhotoUrl } : {}),
       },
     });
   }
@@ -585,7 +634,7 @@ export class RentalService {
     if (filters.customerId) where.customerId = filters.customerId;
     if (filters.checkoutEmployeeId) where.checkoutEmployeeId = filters.checkoutEmployeeId;
 
-    const [items, total] = await Promise.all([
+    const [items, total, outstandingAgg] = await Promise.all([
       prisma.rental.findMany({
         where,
         skip,
@@ -619,12 +668,30 @@ export class RentalService {
             }
           }
         },
-        orderBy: { rentalDate: 'desc' }
+        orderBy: { createdAt: 'desc' }
       }),
-      prisma.rental.count({ where })
+      prisma.rental.count({ where }),
+      prisma.rental.groupBy({
+        by: ['customerId'],
+        where: { status: { in: ['PENDING', 'ACTIVE', 'COMPLETED'] } },
+        _sum: { totalCost: true }
+      })
     ]);
 
-    return { items, total, page, limit, pages: Math.ceil(total / limit) };
+    const outstandingByCustomer: Record<string, number> = {};
+    for (const row of outstandingAgg) {
+      outstandingByCustomer[row.customerId] = row._sum.totalCost || 0;
+    }
+
+    const itemsWithOutstanding = items.map(r => ({
+      ...r,
+      customer: {
+        ...r.customer,
+        outstandingBalance: outstandingByCustomer[r.customerId] || 0
+      }
+    }));
+
+    return { items: itemsWithOutstanding, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
   async getRentalById(id: string) {

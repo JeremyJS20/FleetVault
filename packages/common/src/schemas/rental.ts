@@ -22,6 +22,11 @@ export const RentalSchema = z.object({
   purchaseOrderNumber: z.string().nullable(), // Corporate PO
   stripePaymentIntentId: z.string().nullable(), // Pre-auth or upfront capture
   contractPdfUrl: z.string().nullable(),
+  driverName: z.string().nullable(),
+  driverLicenseNumber: z.string().nullable(),
+  driverLicenseCountry: z.string().nullable(),
+  driverLicenseExpDate: z.string().nullable(),
+  driverLicensePhotoUrl: z.string().nullable(),
   totalCost: z.number().nonnegative().nullable(),
   commissionAmount: z.number().nonnegative().nullable(),
   createdAt: z.string(),
@@ -39,6 +44,11 @@ export const CreateRentalSchema = z.object({
   checkoutFuelLevel: z.enum(FuelLevel),
   purchaseOrderNumber: z.string().optional().nullable(),
   stripePaymentIntentId: z.string().optional().nullable(),
+  driverName: z.string().optional().nullable(),
+  driverLicenseNumber: z.string().optional().nullable(),
+  driverLicenseCountry: z.string().optional().nullable(),
+  driverLicenseExpDate: z.string().optional().nullable(),
+  driverLicensePhotoUrl: z.string().optional().nullable(),
   signatureUrl: z.string().min(1, 'Customer checkout signature is required'),
   comments: z.string().optional().nullable(),
 });
