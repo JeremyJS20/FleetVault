@@ -54,7 +54,7 @@ export const VehicleTrailPage: React.FC = () => {
     queryKey: ['vehicles-dropdown'],
     queryFn: async () => {
       const res = await apiClient('/api/vehicles');
-      return res.data || [];
+      return res.data?.items || [];
     }
   });
 
