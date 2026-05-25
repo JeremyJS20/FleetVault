@@ -130,7 +130,7 @@ export class RentalService {
       }
     }
 
-    return await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // 1. Update Rental to ACTIVE
       const updatedRental = await tx.rental.update({
         where: { id: rentalId },
@@ -160,6 +160,33 @@ export class RentalService {
       });
 
       return updatedRental;
+    });
+
+    // Generate Rental Agreement PDF
+    try {
+      const fullRental = await prisma.rental.findUnique({
+        where: { id: rentalId },
+        include: {
+          vehicle: { include: { brand: true, model: true, vehicleType: true } },
+          customer: true,
+          checkoutEmployee: true,
+          inspections: { include: { employee: true } },
+          transactions: true
+        }
+      });
+      if (fullRental) {
+        const pdfUrl = await pdfService.generateContractPdf(fullRental);
+        await prisma.rental.update({
+          where: { id: rentalId },
+          data: { contractPdfUrl: pdfUrl }
+        });
+      }
+    } catch (pdfErr) {
+      console.error('[activateReservation] Failed to generate contract PDF:', pdfErr);
+    }
+
+    return await prisma.rental.findUnique({
+      where: { id: rentalId }
     });
   }
 
@@ -294,7 +321,7 @@ export class RentalService {
       holdId = hold.id;
     }
 
-    return await prisma.$transaction(async (tx) => {
+    const { rental: newRental, inspection: newInspection } = await prisma.$transaction(async (tx) => {
       const rental = await tx.rental.create({
         data: {
           customerId: input.customerId,
@@ -364,7 +391,6 @@ export class RentalService {
         }
       });
 
-      // Transaction Ledger entry based on billing type
       let ledgerType = 'PRE_AUTH_HOLD';
       let ledgerAmount = result.holdAmount;
       let ledgerComments = `Counter pre-auth hold of RD$${result.holdAmount} (Rent: RD$${result.totalCost} + Deposit: RD$${result.depositAmount})`;
@@ -392,6 +418,31 @@ export class RentalService {
 
       return { rental, inspection };
     });
+
+    // Generate Rental Agreement PDF
+    try {
+      const fullRental = await prisma.rental.findUnique({
+        where: { id: newRental.id },
+        include: {
+          vehicle: { include: { brand: true, model: true, vehicleType: true } },
+          customer: true,
+          checkoutEmployee: true,
+          inspections: { include: { employee: true } },
+          transactions: true
+        }
+      });
+      if (fullRental) {
+        const pdfUrl = await pdfService.generateContractPdf(fullRental);
+        await prisma.rental.update({
+          where: { id: newRental.id },
+          data: { contractPdfUrl: pdfUrl }
+        });
+      }
+    } catch (pdfErr) {
+      console.error('[createWalkInRental] Failed to generate contract PDF:', pdfErr);
+    }
+
+    return { rental: newRental, inspection: newInspection };
   }
 
   async updateRental(id: string, input: { signatureUrl?: string; driverLicensePhotoUrl?: string }) {
@@ -653,12 +704,12 @@ export class RentalService {
       });
     });
 
-    // Generate contract PDF and upload to Vercel Blob
+    // Generate Return Receipt PDF
     try {
-      const pdfUrl = await pdfService.generateContractPdf(completedRental);
+      const pdfUrl = await pdfService.generateReturnReceiptPdf(completedRental);
       const finalRental = await prisma.rental.update({
         where: { id: rentalId },
-        data: { contractPdfUrl: pdfUrl },
+        data: { returnReceiptUrl: pdfUrl },
         include: {
           vehicle: {
             include: {
@@ -680,7 +731,7 @@ export class RentalService {
       });
       return finalRental;
     } catch (pdfErr) {
-      console.error('[processReturn] Failed to generate or upload contract PDF:', pdfErr);
+      console.error('[processReturn] Failed to generate return receipt PDF:', pdfErr);
       return completedRental;
     }
   }

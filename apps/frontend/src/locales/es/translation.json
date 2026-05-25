@@ -588,7 +588,8 @@
     "dateTo": "Fecha Hasta",
     "all": "Todos",
     "contract": "Contrato",
-    "downloadPdf": "Descargar PDF"
+    "downloadPdf": "Descargar PDF",
+    "downloadReceipt": "Descargar Recibo"
   },
   "gpsPage": {
     "title": "Rastreador GPS en Vivo",

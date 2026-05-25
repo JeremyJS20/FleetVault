@@ -37,8 +37,6 @@ export class PdfService {
 
   async generateContractPdf(rental: any): Promise<string> {
     const sigBuf = await this.fetchImageBuffer(rental.signatureUrl);
-    const returnSigBuf = await this.fetchImageBuffer(rental.returnSignatureUrl);
-    const licensePhotoBuf = await this.fetchImageBuffer(rental.driverLicensePhotoUrl);
 
     const policies = await prisma.rentalPolicy.findMany({
       where: { isActive: true },
@@ -100,19 +98,6 @@ export class PdfService {
         }
         doc.moveDown();
 
-        // Driver license photo inline
-        if (licensePhotoBuf) {
-          try {
-            doc.fontSize(9).text('Driver License Photo:', { underline: true });
-            doc.moveDown(0.2);
-            doc.image(licensePhotoBuf, { fit: [160, 110], align: 'left' });
-            doc.moveDown(1);
-          } catch {
-            doc.fontSize(8).fillColor('#999').text('(License photo could not be embedded)').fillColor('#000');
-            doc.moveDown();
-          }
-        }
-
         // ── SECTION: VEHICLE DETAILS ──
         doc.fontSize(13).text('2. VEHICLE DETAILS', { underline: true });
         doc.moveDown(0.4);
@@ -147,126 +132,41 @@ export class PdfService {
         doc.text(`Fuel Level: ${rental.checkoutFuelLevel || 'N/A'}`);
         doc.moveDown();
 
-        // Checkout inspection
-        const checkoutInspection = rental.inspections?.find((i: any) => i.type === 'CHECKOUT');
-        if (checkoutInspection) {
-          doc.fontSize(10).text('Checkout Inspection Report:', { underline: true });
-          doc.moveDown(0.2);
-          doc.fontSize(9).text(`Inspector: ${checkoutInspection.employee?.name || 'N/A'}`);
-          doc.text(`Tires (FL/FR/RL/RR): ${checkoutInspection.tireConditionFrontLeft || 'OK'} / ${checkoutInspection.tireConditionFrontRight || 'OK'} / ${checkoutInspection.tireConditionRearLeft || 'OK'} / ${checkoutInspection.tireConditionRearRight || 'OK'}`);
-          doc.text(`Broken Glass: ${checkoutInspection.hasBrokenGlass ? 'YES' : 'No'}`);
-          doc.text(`Scratches: ${checkoutInspection.hasScratches ? 'YES' : 'No'}`);
-          doc.text(`Missing Spare Tire: ${checkoutInspection.missingSpareTire ? 'YES' : 'No'}`);
-          doc.text(`Missing Jack: ${checkoutInspection.missingJack ? 'YES' : 'No'}`);
-          doc.text(`Odometer: ${checkoutInspection.odometer} km`);
-          if (checkoutInspection.comments) doc.text(`Comments: ${checkoutInspection.comments}`);
-        } else {
-          doc.fontSize(9).fillColor('#999').text('(No checkout inspection recorded)').fillColor('#000');
-        }
-        doc.moveDown();
-
-        // ── SECTION: RETURN CONDITION (if returned) ──
-        if (rental.status === 'COMPLETED' && rental.actualReturnDate) {
-          doc.fontSize(13).text('5. RETURN CONDITION', { underline: true });
-          doc.moveDown(0.4);
-          doc.fontSize(9).text(`Return Odometer: ${rental.returnOdometer || 'N/A'} km`);
-          doc.text(`Return Fuel Level: ${rental.returnFuelLevel || 'N/A'}`);
-          doc.moveDown();
-
-          const returnInspection = rental.inspections?.find((i: any) => i.type === 'RETURN');
-          if (returnInspection) {
-            doc.fontSize(10).text('Return Inspection Report:', { underline: true });
-            doc.moveDown(0.2);
-            doc.fontSize(9).text(`Inspector: ${returnInspection.employee?.name || 'N/A'}`);
-            doc.text(`Tires (FL/FR/RL/RR): ${returnInspection.tireConditionFrontLeft || 'OK'} / ${returnInspection.tireConditionFrontRight || 'OK'} / ${returnInspection.tireConditionRearLeft || 'OK'} / ${returnInspection.tireConditionRearRight || 'OK'}`);
-            doc.text(`Broken Glass: ${returnInspection.hasBrokenGlass ? 'YES' : 'No'}`);
-            doc.text(`Scratches: ${returnInspection.hasScratches ? 'YES' : 'No'}`);
-            doc.text(`Missing Spare Tire: ${returnInspection.missingSpareTire ? 'YES' : 'No'}`);
-            doc.text(`Missing Jack: ${returnInspection.missingJack ? 'YES' : 'No'}`);
-            doc.text(`Odometer: ${returnInspection.odometer} km`);
-            if (returnInspection.comments) doc.text(`Comments: ${returnInspection.comments}`);
-          } else {
-            doc.fontSize(9).fillColor('#999').text('(No return inspection recorded)').fillColor('#000');
-          }
-          doc.moveDown();
-        }
-
-        // ── SECTION: PRICING & TRANSACTIONS ──
-        const sectionLabel = rental.status === 'COMPLETED' ? '6. CHARGES & PAYMENTS' : '6. PRICING';
-        doc.fontSize(13).text(sectionLabel, { underline: true });
+        // ── SECTION: PRICING ──
+        doc.fontSize(13).text('5. PRICING', { underline: true });
         doc.moveDown(0.4);
         doc.fontSize(9).text(`Daily Rate: RD$${rental.pricePerDay.toFixed(2)}`);
         const rentalDays = Math.ceil((new Date(rental.actualReturnDate || rental.scheduledReturnDate).getTime() - new Date(rental.rentalDate).getTime()) / (1000 * 60 * 60 * 24)) || 1;
         doc.text(`Rental Days: ${rentalDays}`);
-        doc.text(`Base Cost (${rentalDays} × RD$${rental.pricePerDay.toFixed(2)}): RD$${(rentalDays * rental.pricePerDay).toFixed(2)}`);
-
-        if (rental.transactions?.length > 0) {
-          doc.moveDown(0.3);
-          doc.fontSize(10).text('Transaction History:', { underline: true });
-          doc.moveDown(0.2);
-          for (const tx of rental.transactions) {
-            doc.fontSize(9).text(`${tx.type} — RD$${tx.amount.toFixed(2)} ${tx.comments ? `— ${tx.comments}` : ''}`);
-          }
-        }
-
+        doc.text(`Total: RD$${(rentalDays * rental.pricePerDay).toFixed(2)}`);
         if (rental.totalCost) {
           doc.moveDown(0.3);
           doc.fontSize(11).text(`TOTAL AMOUNT: RD$${rental.totalCost.toFixed(2)}`);
         }
-        if (rental.commissionAmount) {
-          doc.text(`Agent Commission: RD$${rental.commissionAmount.toFixed(2)}`);
-        }
-        if (rental.purchaseOrderNumber) {
-          doc.text(`Purchase Order (PO): ${rental.purchaseOrderNumber}`);
-        }
-        if (rental.stripePaymentIntentId) {
-          doc.text(`Payment (Stripe): ${rental.stripePaymentIntentId}`);
-        }
-        if (rental.comments) {
-          doc.moveDown(0.3);
-          doc.text(`Comments: ${rental.comments}`);
-        }
         doc.moveDown();
 
         // ── SECTION: SIGNATURES ──
-        doc.fontSize(13).text('7. SIGNATURES', { underline: true });
+        doc.fontSize(13).text('6. CUSTOMER SIGNATURE', { underline: true });
         doc.moveDown(0.4);
 
-        // Checkout signature
         if (sigBuf) {
           try {
-            doc.fontSize(10).text('Customer Signature (Checkout):');
+            doc.fontSize(10).text('Signed at checkout:');
             doc.moveDown(0.2);
             doc.image(sigBuf, { fit: [150, 60], align: 'left' });
             doc.moveDown(1.5);
           } catch {
-            doc.fontSize(8).fillColor('#999').text('(Checkout signature could not be rendered)').fillColor('#000');
+            doc.fontSize(8).fillColor('#999').text('(Signature could not be rendered)').fillColor('#000');
             doc.moveDown();
           }
         } else {
-          doc.fontSize(9).fillColor('#999').text('(No checkout signature captured)').fillColor('#000');
-          doc.moveDown();
-        }
-
-        // Return signature
-        if (returnSigBuf) {
-          try {
-            doc.fontSize(10).text('Customer Signature (Return):');
-            doc.moveDown(0.2);
-            doc.image(returnSigBuf, { fit: [150, 60], align: 'left' });
-            doc.moveDown(1.5);
-          } catch {
-            doc.fontSize(8).fillColor('#999').text('(Return signature could not be rendered)').fillColor('#000');
-            doc.moveDown();
-          }
-        } else if (rental.status === 'COMPLETED') {
-          doc.fontSize(9).fillColor('#999').text('(No return signature captured)').fillColor('#000');
+          doc.fontSize(9).fillColor('#999').text('(No signature captured)').fillColor('#000');
           doc.moveDown();
         }
 
         // ── SECTION: RENTAL POLICIES ──
         if (doc.y > maxY - 80) doc.addPage();
-        doc.fontSize(13).text('8. RENTAL POLICIES', { underline: true });
+        doc.fontSize(13).text('7. RENTAL POLICIES', { underline: true });
         doc.moveDown(0.4);
 
         if (policies.length > 0) {
@@ -287,7 +187,7 @@ export class PdfService {
 
         // ── SECTION: TERMS & CONDITIONS ──
         if (doc.y > maxY - 80) doc.addPage();
-        doc.fontSize(13).text('9. TERMS & CONDITIONS', { underline: true });
+        doc.fontSize(13).text('8. TERMS & CONDITIONS', { underline: true });
         doc.moveDown(0.4);
 
         doc.fontSize(8).text(
@@ -503,6 +403,116 @@ export class PdfService {
 
         doc.moveDown(2);
         doc.fontSize(8).text('Thank you for choosing FleetVault!', { align: 'center', oblique: true });
+
+        doc.end();
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  async generateReturnReceiptPdf(rental: any): Promise<string> {
+    const returnSigBuf = await this.fetchImageBuffer(rental.returnSignatureUrl);
+
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        const chunks: Buffer[] = [];
+
+        doc.on('data', (chunk: any) => chunks.push(chunk));
+        doc.on('end', async () => {
+          try {
+            const buffer = Buffer.concat(chunks);
+            const filename = `rentcar/receipts/receipt-${rental.id}-${Date.now()}.pdf`;
+            const blob = await put(filename, buffer, {
+              access: 'private',
+              contentType: 'application/pdf',
+              token: process.env.BLOB_READ_WRITE_TOKEN,
+            });
+            resolve(blob.url);
+          } catch (error) {
+            reject(error);
+          }
+        });
+
+        // ── HEADER ──
+        doc.fontSize(20).text('FLEETVAULT — RETURN RECEIPT', { align: 'center', underline: true });
+        doc.moveDown(0.3);
+        doc.fontSize(9).fillColor('#555').text(`Contract Reference: ${rental.id}`, { align: 'center' });
+        doc.text(`Issued: ${new Date().toLocaleString()}`, { align: 'center' });
+        doc.fillColor('#000');
+        doc.moveDown(0.5);
+        doc.fontSize(10).fillColor('#22c55e').text('Status: COMPLETED', { align: 'center' });
+        doc.fillColor('#000');
+        doc.moveDown();
+
+        // ── SECTION 1: CUSTOMER & VEHICLE ──
+        doc.fontSize(13).text('1. CUSTOMER & VEHICLE', { underline: true });
+        doc.moveDown(0.4);
+        doc.fontSize(9).text(`Customer: ${rental.customer?.name || 'N/A'}`);
+        doc.text(`National ID / RNC: ${rental.customer?.nationalId || 'N/A'}`);
+        doc.moveDown(0.3);
+        doc.text(`Vehicle: ${rental.vehicle?.brand?.name || ''} ${rental.vehicle?.model?.name || 'N/A'}`);
+        doc.text(`Plate: ${rental.vehicle?.plateNumber || 'N/A'}`);
+        doc.moveDown();
+
+        // ── SECTION 2: RETURN DETAILS ──
+        doc.fontSize(13).text('2. RETURN DETAILS', { underline: true });
+        doc.moveDown(0.4);
+        doc.fontSize(9).text(`Actual Return: ${rental.actualReturnDate ? new Date(rental.actualReturnDate).toLocaleString() : 'N/A'}`);
+        doc.text(`Returned To: ${rental.returnEmployee?.name || 'N/A'}`);
+        doc.moveDown(0.3);
+        doc.text(`Return Odometer: ${rental.returnOdometer || 'N/A'} km`);
+        if (rental.returnOdometer) {
+          doc.text(`Kilometers Driven: ${Math.max(0, rental.returnOdometer - rental.checkoutOdometer)} km`);
+        }
+        doc.text(`Return Fuel: ${rental.returnFuelLevel || 'N/A'}`);
+        doc.moveDown();
+
+        // ── SECTION 3: FINANCIAL SETTLEMENT ──
+        doc.fontSize(13).text('3. FINANCIAL SETTLEMENT', { underline: true });
+        doc.moveDown(0.4);
+
+        const rentalDays = Math.ceil(
+          (new Date(rental.actualReturnDate || rental.scheduledReturnDate).getTime() -
+            new Date(rental.rentalDate).getTime()) / (1000 * 60 * 60 * 24)
+        ) || 1;
+        const baseCost = rentalDays * rental.pricePerDay;
+
+        doc.fontSize(9).text(`Daily Rate: RD$${rental.pricePerDay.toFixed(2)}`);
+        doc.text(`Base Rental Cost (${rentalDays} days): RD$${baseCost.toFixed(2)}`);
+        doc.moveDown(0.3);
+
+        const penaltyTotal = (rental.totalCost || 0) - baseCost;
+        if (penaltyTotal > 0) {
+          doc.fontSize(9).fillColor('#dc2626').text(`Additional Charges: RD$${penaltyTotal.toFixed(2)}`);
+          doc.fillColor('#000');
+          doc.moveDown(0.3);
+        }
+
+        doc.fontSize(11).text(`TOTAL CHARGED: RD$${(rental.totalCost || 0).toFixed(2)}`);
+        doc.moveDown();
+
+        // ── SECTION 4: SIGNATURE ──
+        doc.fontSize(13).text('4. RETURN SIGNATURE', { underline: true });
+        doc.moveDown(0.4);
+
+        if (returnSigBuf) {
+          try {
+            doc.fontSize(10).text('Customer Signature (Return):');
+            doc.moveDown(0.2);
+            doc.image(returnSigBuf, { fit: [150, 60], align: 'left' });
+            doc.moveDown(1.5);
+          } catch {
+            doc.fontSize(8).fillColor('#999').text('(Return signature could not be rendered)').fillColor('#000');
+            doc.moveDown();
+          }
+        } else {
+          doc.fontSize(9).fillColor('#999').text('(No return signature captured)').fillColor('#000');
+          doc.moveDown();
+        }
+
+        doc.fontSize(10).text('Thank you for choosing FleetVault!', { align: 'center', oblique: true });
 
         doc.end();
       } catch (err) {

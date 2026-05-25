@@ -226,4 +226,70 @@ router.get('/:id/contract', authMiddleware, async (req: AuthenticatedRequest, re
   }
 });
 
+// GET /api/rentals/:id/receipt — serve or generate return receipt PDF on demand
+router.get('/:id/receipt', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const rental = await prisma.rental.findUnique({
+      where: { id: req.params.id },
+      include: {
+        vehicle: {
+          include: {
+            brand: true,
+            model: true,
+            vehicleType: true
+          }
+        },
+        customer: true,
+        checkoutEmployee: true,
+        returnEmployee: true,
+        inspections: {
+          include: {
+            employee: true
+          }
+        },
+        transactions: true
+      }
+    });
+
+    if (!rental) {
+      return res.status(404).json({ success: false, error: 'Rental not found' });
+    }
+
+    let pdfUrl = rental.returnReceiptUrl;
+
+    if (!pdfUrl) {
+      pdfUrl = await pdfService.generateReturnReceiptPdf(rental);
+      await prisma.rental.update({
+        where: { id: rental.id },
+        data: { returnReceiptUrl: pdfUrl }
+      });
+    }
+
+    const result = await get(pdfUrl, {
+      access: 'private',
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+
+    if (!result || result.statusCode !== 200) {
+      return res.status(502).json({ success: false, error: 'Failed to fetch return receipt PDF' });
+    }
+
+    const reader = result.stream.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    const buffer = Buffer.concat(chunks);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Receipt_${rental.id.slice(0, 8)}.pdf"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

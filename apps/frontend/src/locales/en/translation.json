@@ -690,7 +690,8 @@
     "dateTo": "To Date",
     "all": "All",
     "contract": "Contract",
-    "downloadPdf": "Download PDF"
+    "downloadPdf": "Download PDF",
+    "downloadReceipt": "Download Receipt"
   },
   "gpsPage": {
     "title": "Live GPS Tracker",

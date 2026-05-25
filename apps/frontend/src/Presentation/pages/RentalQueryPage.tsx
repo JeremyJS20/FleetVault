@@ -82,6 +82,27 @@ export const RentalQueryPage: React.FC = () => {
     }
   };
 
+  const handleDownloadReceipt = async (rental: any) => {
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`/api/rentals/${rental.id}/receipt`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Failed to download receipt');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Receipt_${rental.id.slice(0, 8)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download receipt PDF:', err);
+    }
+  };
+
   const columns: ColumnDef<any>[] = [
     {
       accessorKey: 'id',
@@ -156,19 +177,38 @@ export const RentalQueryPage: React.FC = () => {
     },
     {
       id: 'actions',
-      header: t('queryPage.contract'),
+      header: t('common.actions'),
       cell: (info) => {
         const rental = info.row.original;
+        const isCompleted = rental.status === 'COMPLETED';
+        const isActive = rental.status === 'ACTIVE';
         return (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => handleDownloadContract(rental)}
-            className="flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-xs"
-          >
-            <Download size={13} />
-            <span>{t('queryPage.downloadPdf')}</span>
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {(isActive || isCompleted) && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleDownloadContract(rental)}
+                className="flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-xs"
+                title={t('queryPage.downloadPdf')}
+              >
+                <Download size={13} />
+                <span>{t('queryPage.contract')}</span>
+              </Button>
+            )}
+            {isCompleted && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleDownloadReceipt(rental)}
+                className="flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-xs"
+                title={t('queryPage.downloadReceipt')}
+              >
+                <Download size={13} />
+                <span>{t('queryPage.downloadReceipt')}</span>
+              </Button>
+            )}
+          </div>
         );
       },
     },

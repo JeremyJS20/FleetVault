@@ -80,6 +80,7 @@ export const ReservationsPage: React.FC = () => {
   const [walkinStep, setWalkinStep] = useState(1);
   const [walkinPaymentMethod, setWalkinPaymentMethod] = useState<'STRIPE' | 'CASH'>('STRIPE');
   const [walkinPurchaseOrderNumber, setWalkinPurchaseOrderNumber] = useState('');
+  const [walkinAcceptedTnc, setWalkinAcceptedTnc] = useState(false);
 
   // Walk-in driver fields (corporate employee)
   const [walkinDriverName, setWalkinDriverName] = useState('');
@@ -2103,18 +2104,35 @@ export const ReservationsPage: React.FC = () => {
                   </div>
                 )}
 
-                <div className="flex justify-end gap-2 pt-2 border-t border-border-surface/15">
-                  <Button type="button" variant="secondary" onClick={() => setWalkinStep(3)}>{t('common.back')}</Button>
-                  <Button
-                    type="button"
-                    onClick={handleNextWalkinStep}
-                    disabled={
-                      (isWalkinCorporate && !walkinPurchaseOrderNumber.trim()) ||
-                      (!isWalkinCorporate && walkinPaymentMethod === 'STRIPE' && !walkinCardToken)
-                    }
-                  >
-                    {t('common.next')}
-                  </Button>
+                <div className="flex flex-col gap-3 pt-3 border-t border-border-surface/15">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={walkinAcceptedTnc}
+                      onChange={(e) => setWalkinAcceptedTnc(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span className="text-[11px] text-fg-secondary leading-relaxed">
+                      {t('reservations.acceptTnc', 'He leído y acepto las')}{' '}
+                      <a href="/policies" target="_blank" rel="noopener noreferrer" className="text-accent-primary underline hover:text-accent-primary/80">
+                        {t('reservations.policiesAndTerms', 'Políticas de Alquiler y Términos y Condiciones')}
+                      </a>
+                    </span>
+                  </label>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="secondary" onClick={() => setWalkinStep(3)}>{t('common.back')}</Button>
+                    <Button
+                      type="button"
+                      onClick={handleNextWalkinStep}
+                      disabled={
+                        !walkinAcceptedTnc ||
+                        (isWalkinCorporate && !walkinPurchaseOrderNumber.trim()) ||
+                        (!isWalkinCorporate && walkinPaymentMethod === 'STRIPE' && !walkinCardToken)
+                      }
+                    >
+                      {t('common.next')}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}

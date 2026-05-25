@@ -154,6 +154,7 @@ export interface Rental {
   purchaseOrderNumber?: string | null;
   stripePaymentIntentId?: string | null;
   contractPdfUrl?: string | null;
+  returnReceiptUrl?: string | null;
   totalCost?: number | null;
   commissionAmount?: number | null;
   createdAt: Date;

@@ -175,6 +175,7 @@ model Rental {
   purchaseOrderNumber   String?
   stripePaymentIntentId String?
   contractPdfUrl        String?
+  returnReceiptUrl      String?
   driverName            String?
   driverLicenseNumber   String?
   driverLicenseCountry  String?
