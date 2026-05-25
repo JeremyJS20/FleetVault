@@ -29,14 +29,14 @@ router.get('/utilization', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR'
         }
       });
 
-      // Calculate a realistic utilization rate
+      // Calculate real utilization rate
       const rate = totalVehicles > 0 
         ? Math.min(100, Math.round((activeRentalsCount / totalVehicles) * 100))
-        : 65; // realistic fallback
+        : 0;
 
       data.push({
         month: d.toLocaleString('en', { month: 'short' }),
-        rate: rate || (60 + Math.floor(Math.random() * 25)), // ensure fallback is non-zero and dynamic
+        rate: rate,
       });
     }
 
@@ -75,8 +75,7 @@ router.get('/revenue', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), 
         });
 
         const amount = result._sum.amount || 0;
-        // fallback to some realistic seeded values if database is empty
-        entry[cat.name] = amount || (cat.name === 'Sedan' ? 45000 + i * 5000 : cat.name === 'SUV' ? 65000 + i * 8000 : 30000 + i * 3000);
+        entry[cat.name] = amount;
       }
 
       data.push(entry);
@@ -116,17 +115,13 @@ router.get('/commissions', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR'
         commissionAmount += (rentalCost * emp.commissionPercentage) / 100;
       }
 
-      // fallback mock data for viewable commission list if no completed rentals exist yet
-      const finalSalesCount = salesCount || Math.floor(Math.random() * 8) + 3;
-      const finalCommissionAmount = commissionAmount || Math.round(finalSalesCount * 25000 * emp.commissionPercentage / 100);
-
       data.push({
         employeeId: emp.id,
         name: emp.name,
         commissionPercentage: emp.commissionPercentage,
-        salesCount: finalSalesCount,
-        commissionAmount: parseFloat(finalCommissionAmount.toFixed(2)),
-        payoutStatus: Math.random() > 0.3 ? 'PAID' : 'UNPAID', // mock payout status
+        salesCount: salesCount,
+        commissionAmount: parseFloat(commissionAmount.toFixed(2)),
+        payoutStatus: 'UNPAID', // default to UNPAID since settlement is simulated locally in frontend
       });
     }
 
