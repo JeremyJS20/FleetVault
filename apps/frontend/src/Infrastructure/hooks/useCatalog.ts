@@ -133,7 +133,20 @@ export const usePolicies = () => {
 export const useUpdatePolicy = createMutationHook<any, any>('PUT', (id) => `/api/policies/${id}`, ['policies']);
 export const useCreatePolicy = createMutationHook<any, any>('POST', () => '/api/policies', ['policies']);
 
-// 11. Payment Method Hooks
+// 11. Company Info Hooks
+export const useCompanyInfo = () => {
+  return useQuery({
+    queryKey: ['company-info'],
+    queryFn: async () => {
+      const res = await apiClient('/api/company');
+      return res.data as any;
+    },
+  });
+};
+
+export const useUpdateCompanyInfo = createMutationHook<any, any>('PUT', () => '/api/company', ['company-info']);
+
+// 12. Payment Method Hooks
 export const useMyPaymentMethods = () => {
   return useQuery({
     queryKey: ['my-payment-methods'],

@@ -139,11 +139,93 @@ router.get('/commissions', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR'
     }
 
     if (req.query.format === 'pdf') {
+      if (data.length === 0) {
+        return res.status(400).json({ success: false, error: 'No commission data available for the selected period' });
+      }
       const pdfUrl = await pdfService.generateCommissionsReportPdf(data);
       return res.status(200).json({ success: true, data: { pdfUrl } });
     }
 
     res.status(200).json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/reports/rentals - Rental Report with filters
+router.get('/rentals', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), async (req, res, next) => {
+  try {
+    const { startDate, endDate, status, vehicleTypeId, search, page: pageStr, limit: limitStr } = req.query as Record<string, string | undefined>;
+
+    const page = Math.max(1, parseInt(pageStr || '1', 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(limitStr || '50', 10) || 50));
+
+    const where: any = {};
+
+    if (status) where.status = status;
+    if (vehicleTypeId) where.vehicle = { vehicleTypeId };
+
+    if (startDate || endDate) {
+      where.rentalDate = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        if (!isNaN(start.getTime())) where.rentalDate.gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        if (!isNaN(end.getTime())) where.rentalDate.lte = end;
+      }
+    }
+
+    if (search && search.trim() !== '') {
+      const q = search.trim();
+      where.OR = [
+        { driverName: { contains: q } },
+        { purchaseOrderNumber: { contains: q } },
+        { customer: { name: { contains: q } } },
+        { vehicle: { plateNumber: { contains: q } } },
+        { checkoutEmployee: { name: { contains: q } } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.rental.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          vehicle: { include: { brand: true, model: true, vehicleType: true } },
+          customer: true,
+          checkoutEmployee: true,
+        },
+        orderBy: { rentalDate: 'desc' },
+      }),
+      prisma.rental.count({ where }),
+    ]);
+
+    if (req.query.format === 'pdf') {
+      if (items.length === 0) {
+        return res.status(400).json({ success: false, error: 'No rentals match the applied filters' });
+      }
+      let vehicleTypeName: string | undefined;
+      if (vehicleTypeId) {
+        const vt = await prisma.vehicleType.findUnique({ where: { id: vehicleTypeId } });
+        vehicleTypeName = vt?.name;
+      }
+      const pdfUrl = await pdfService.generateRentalReportPdf(items, { startDate, endDate, status, vehicleTypeName, search });
+      return res.status(200).json({ success: true, data: { pdfUrl } });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        items,
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     next(error);
   }

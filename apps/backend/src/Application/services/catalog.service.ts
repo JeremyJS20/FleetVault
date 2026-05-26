@@ -710,6 +710,9 @@ export class CatalogService {
     const newCustomer = await prisma.customer.create({
       data: {
         name: input.name,
+        email: input.email || null,
+        phone: input.phone || null,
+        address: input.address || null,
         nationalId: input.nationalId,
         creditCardNumber: input.creditCardNumber || null,
         creditLimit: input.creditLimit,
@@ -743,6 +746,8 @@ export class CatalogService {
     return {
       ...newCustomer,
       email: newCustomer.user?.email || null,
+      phone: newCustomer.phone || null,
+      address: newCustomer.address || null,
       user: undefined
     };
   }
@@ -808,6 +813,9 @@ export class CatalogService {
       where: { id },
       data: {
         name: input.name,
+        email: input.email !== undefined ? input.email : undefined,
+        phone: input.phone !== undefined ? input.phone : undefined,
+        address: input.address !== undefined ? input.address : undefined,
         nationalId: input.nationalId,
         creditCardNumber: input.creditCardNumber !== undefined ? input.creditCardNumber : undefined,
         creditLimit: input.creditLimit,
@@ -825,6 +833,8 @@ export class CatalogService {
     return {
       ...updatedCustomer,
       email: updatedCustomer.user?.email || null,
+      phone: updatedCustomer.phone || null,
+      address: updatedCustomer.address || null,
       user: undefined
     };
   }
@@ -967,6 +977,8 @@ export class CatalogService {
         data: {
           name: input.name,
           nationalId: input.nationalId,
+          phone: input.phone || null,
+          signatureUrl: input.signatureUrl || null,
           commissionPercentage: input.commissionPercentage,
           hireDate: new Date(input.hireDate),
           shift: input.shift,
@@ -1014,6 +1026,8 @@ export class CatalogService {
       data: {
         name: input.name,
         nationalId: input.nationalId,
+        phone: input.phone !== undefined ? input.phone : undefined,
+        signatureUrl: input.signatureUrl !== undefined ? input.signatureUrl : undefined,
         commissionPercentage: input.commissionPercentage,
         hireDate: input.hireDate ? new Date(input.hireDate) : undefined,
         shift: input.shift,

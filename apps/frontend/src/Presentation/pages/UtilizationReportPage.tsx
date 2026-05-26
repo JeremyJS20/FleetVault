@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { BarChart3, TrendingUp, HelpCircle, Printer, FileDown } from 'lucide-react';
+import { BarChart3, TrendingUp, HelpCircle, FileDown } from 'lucide-react';
 import { useUtilizationReport } from '../../Infrastructure/hooks/useReports.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
 import { Button } from '../components/ui/Button.js';
@@ -38,27 +38,16 @@ export const UtilizationReportPage: React.FC = () => {
         title={t('utilizationPage.title')}
         description={t('utilizationPage.subtitle')}
       >
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleDownloadPdf}
-            disabled={downloading}
-            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs print-keep"
-          >
-            <FileDown size={13} />
-            <span>{downloading ? t('common.loading') : t('common.downloadPdf')}</span>
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs print-keep"
-          >
-            <Printer size={13} />
-            <span>{t('common.print')}</span>
-          </Button>
-        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={handleDownloadPdf}
+          disabled={downloading || isLoading}
+          className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs"
+        >
+          <FileDown size={13} />
+          <span>{downloading ? t('common.loading') : t('common.downloadPdf')}</span>
+        </Button>
       </PageHeader>
 
       {isLoading ? (

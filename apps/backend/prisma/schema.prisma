@@ -90,6 +90,9 @@ model Vehicle {
 model Customer {
   id               String       @id @default(uuid())
   name             String
+  email            String?
+  phone            String?
+  address          String?
   nationalId       String?      @unique
   creditCardNumber String?
   creditLimit      Float        @default(0)
@@ -112,6 +115,8 @@ model Employee {
   id                   String       @id @default(uuid())
   name                 String
   nationalId           String       @unique
+  phone                String?
+  signatureUrl         String?
   commissionPercentage Float        @default(0)
   hireDate             DateTime
   shift                String       @default("MORNING")
@@ -259,4 +264,17 @@ model RentalPolicy {
   content   String
   isActive  Boolean  @default(true)
   updatedAt DateTime @updatedAt
+}
+
+model CompanyInfo {
+  id           String   @id @default(uuid())
+  companyName  String
+  rnc          String
+  address      String
+  phone        String
+  email        String
+  website      String?
+  city         String
+  logoUrl      String?
+  updatedAt    DateTime @updatedAt
 }

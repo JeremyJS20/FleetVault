@@ -5,6 +5,8 @@ export const CustomerSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
   nationalId: z.string(),
   creditCardNumber: z.string().nullable(),
   creditLimit: z.number().nonnegative(),
@@ -23,6 +25,8 @@ export const CustomerSchema = z.object({
 export const CustomerInputSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email').optional().nullable(),
+  phone: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
   nationalId: z.string().min(1, 'National ID is required'),
   creditCardNumber: z.string().optional().nullable(),
   creditLimit: z.number().nonnegative('Credit limit must be at least 0'),

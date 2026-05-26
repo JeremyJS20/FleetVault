@@ -60,6 +60,8 @@ export const CustomersPage: React.FC = () => {
   // Form states
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [nationalId, setNationalId] = useState('');
   const [creditLimit, setCreditLimit] = useState(0);
   const [type, setType] = useState('INDIVIDUAL');
@@ -75,6 +77,8 @@ export const CustomersPage: React.FC = () => {
   const resetForm = () => {
     setName('');
     setEmail('');
+    setPhone('');
+    setAddress('');
     setNationalId('');
     setCreditLimit(0);
     setType('INDIVIDUAL');
@@ -97,6 +101,8 @@ export const CustomersPage: React.FC = () => {
   const handleOpenEdit = (item: any) => {
     setName(item.name);
     setEmail(item.email || '');
+    setPhone(item.phone || '');
+    setAddress(item.address || '');
     setNationalId(item.nationalId);
     setCreditLimit(item.creditLimit || 0);
     setType(item.type);
@@ -159,6 +165,8 @@ export const CustomersPage: React.FC = () => {
         const payload = {
           name,
           email: email.trim() || undefined,
+          phone: phone.trim() || undefined,
+          address: address.trim() || undefined,
           nationalId,
           creditLimit: type === 'CORPORATE' ? (Number(creditLimit) || 0) : 0,
           type,
@@ -178,6 +186,8 @@ export const CustomersPage: React.FC = () => {
         const payload = {
           name,
           email: email.trim() || undefined,
+          phone: phone.trim() || undefined,
+          address: address.trim() || undefined,
           nationalId,
           creditLimit: type === 'CORPORATE' ? (Number(creditLimit) || 0) : 0,
           type,
@@ -419,6 +429,25 @@ export const CustomersPage: React.FC = () => {
                   className="!h-9 rounded-lg"
                 />
               </FormField>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label={t('customers.phone', 'Phone')}>
+                  <Input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder={t('customers.placeholderPhone', '(809) 555-1234')}
+                    className="!h-9 rounded-lg"
+                  />
+                </FormField>
+                <FormField label={t('customers.address', 'Address')}>
+                  <Input
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder={t('customers.placeholderAddress', '123 Main St')}
+                    className="!h-9 rounded-lg"
+                  />
+                </FormField>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField label={t('customers.nationalId')} required>

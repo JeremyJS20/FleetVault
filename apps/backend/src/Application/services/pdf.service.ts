@@ -35,6 +35,23 @@ export class PdfService {
     }
   }
 
+  private async loadCompanyInfo() {
+    const info = await prisma.companyInfo.findFirst();
+    if (!info) {
+      return {
+        companyName: 'FleetVault',
+        rnc: 'N/A',
+        address: '123 Main Street, Blue City CA',
+        phone: '(809) 555-0000',
+        email: 'support@fleetvault.com',
+        website: 'www.fleetvault.com',
+        city: 'Santo Domingo',
+        logoUrl: null,
+      };
+    }
+    return info;
+  }
+
   private translateFuelLevel(level: string | null | undefined): string {
     if (!level) return 'N/A';
     const mappings: Record<string, string> = {
@@ -47,8 +64,9 @@ export class PdfService {
     return mappings[level.toUpperCase()] || level;
   }
 
-  private drawInvoiceHeader(doc: any, title: string, subtitle: string) {
+  private drawInvoiceHeader(doc: any, title: string, subtitle: string, company?: any) {
     doc.save();
+    const c = company || {};
     // 1. Draw right header background (#0D6B7A)
     doc.rect(200, 0, doc.page.width - 200, 110).fill('#0D6B7A');
 
@@ -60,19 +78,29 @@ export class PdfService {
        .closePath()
        .fill('#1B2A4A');
 
-    // 3. Logo circle badge
-    doc.circle(70, 55, 20).fill('#FFFFFF');
-    doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(13).text('FV', 50, 48.5, { width: 40, align: 'center' });
+    // 3. Logo (image or text badge)
+    if (c.logoUrl) {
+      try {
+        doc.image(c.logoUrl, 52, 37, { fit: [36, 36] });
+      } catch {
+        doc.circle(70, 55, 20).fill('#FFFFFF');
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(13).text('FV', 50, 48.5, { width: 40, align: 'center' });
+      }
+    } else {
+      doc.circle(70, 55, 20).fill('#FFFFFF');
+      doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(13).text('FV', 50, 48.5, { width: 40, align: 'center' });
+    }
 
     // 4. Company Name
-    doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(14).text('FleetVault', 105, 42);
-    doc.font('Helvetica').fontSize(8.5).fillColor('#CBD5E1').text('Servicios de Alquiler', 105, 60);
+    doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(14).text(c.companyName || 'FleetVault', 105, 42);
+    doc.font('Helvetica').fontSize(8.5).fillColor('#CBD5E1').text(`${c.city || 'Servicios de Alquiler'}`, 105, 60);
 
     // 5. Contact Details (on right)
     doc.fillColor('#FFFFFF').font('Helvetica').fontSize(8.5);
-    doc.text('✉  support@fleetvault.com', 380, 36, { align: 'right', width: doc.page.width - 425 });
-    doc.text('📍  123 Main Street, Blue City CA', 380, 52, { align: 'right', width: doc.page.width - 425 });
-    doc.text('🌐  www.fleetvault.com', 380, 68, { align: 'right', width: doc.page.width - 425 });
+    doc.text(`Email: ${c.email || 'support@fleetvault.com'}`, 380, 36, { align: 'right', width: doc.page.width - 425 });
+    doc.text(`${c.address || '123 Main Street, Blue City CA'}`, 380, 52, { align: 'right', width: doc.page.width - 425 });
+    const contactRight = [c.phone, c.website].filter(Boolean).join('  |  ');
+    doc.text(contactRight || `${c.phone || ''}  |  ${c.website || ''}`, 380, 68, { align: 'right', width: doc.page.width - 425 });
 
     doc.restore();
   }
@@ -233,6 +261,7 @@ export class PdfService {
   }
 
   async generateContractPdf(rental: any): Promise<string> {
+    const company = await this.loadCompanyInfo();
     const sigBuf = await this.fetchImageBuffer(rental.signatureUrl);
 
     const policies = await prisma.rentalPolicy.findMany({
@@ -269,7 +298,7 @@ export class PdfService {
 
         // 1. Draw invoice header
         const formattedDate = new Date().toLocaleDateString();
-        this.drawInvoiceHeader(doc, 'CONTRATO DE ALQUILER FLEETVAULT', `Referencia de Contrato: ${rental.id} | Fecha: ${formattedDate}`);
+        this.drawInvoiceHeader(doc, 'CONTRATO DE ALQUILER FLEETVAULT', `Referencia de Contrato: ${rental.id} | Fecha: ${formattedDate}`, company);
 
         // 2. Title & Reference
         doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(14).text('CONTRATO DE ALQUILER', 45, 130);
@@ -364,8 +393,8 @@ export class PdfService {
           45, notesY + 15, { width: 260, align: 'justify' }
         );
 
-        // Signature on the right
-        this.drawSignatureSection(doc, 45, paymentY + 15, 505.28, sigBuf, rental.customer?.name || 'Firma del Cliente');
+        // Customer Signature (right)
+        this.drawSignatureSection(doc, 280, paymentY + 10, 270, sigBuf, rental.customer?.name || 'Firma del Cliente');
 
         // Footer page number 1
         this.drawFooterPageNumber(doc, 1);
@@ -410,13 +439,15 @@ export class PdfService {
         }
 
         const terms = [
-          '1. El cliente reconoce haber recibido el vehículo en buen estado según lo descrito en la inspección de salida.',
-          '2. El cliente se compromete a devolver el vehículo en o antes de la fecha de devolución programada. Las devoluciones tardías incurrirán en penalidades según las políticas de FleetVault.',
-          '3. El cliente es responsable por cualquier daño, pérdida o robo del vehículo durante el período de alquiler, incluyendo neumáticos, rines y accesorios.',
-          '4. Se aplicarán recargos por diferencia de combustible si el vehículo se devuelve con menos combustible que en la salida, cobrados a la tarifa de mercado más una tarifa de servicio.',
-          '5. Todas las penalidades, recargos y tarifas se detallan en la sección de Cargos anterior.',
-          '6. El cliente autoriza a FleetVault a procesar cargos por cualquier monto pendiente, incluyendo daños identificados después de la devolución.',
-          '7. Este contrato se rige por las leyes de la República Dominicana.'
+          '1. El cliente declara haber recibido el vehículo en buen estado general según lo reflejado en la inspección de salida.',
+          '2. El vehículo debe ser devuelto en la fecha y hora acordadas. Las devoluciones tardías generarán un cargo de RD$1,500 por hora después de 1 hora de gracia.',
+          '3. El cliente es responsable por cualquier daño al vehículo durante el período de alquiler: vidrios rotos RD$12,000, rayones RD$8,000, y neumáticos dañados o perdidos RD$5,000 cada uno.',
+          '4. El combustible debe ser devuelto en el mismo nivel de salida (FULL). Caso contrario se cobrará RD$2,000 de servicio más RD$1,000 por cada nivel de combustible faltante.',
+          '5. Los clientes no corporativos están sujetos a una retención de depósito de seguridad de RD$15,000, la cual será liberada al devolver el vehículo sin novedades.',
+          '6. Las cuentas corporativas facturan mediante Orden de Compra y están sujetas a verificación de límite de crédito disponible.',
+          '7. El cliente autoriza a FleetVault a procesar cargos adicionales por daños identificados hasta 48 horas después de la devolución.',
+          '8. La cobertura CDW requiere que el conductor principal tenga una licencia de conducir válida y vigente. El incumplimiento anula toda cobertura.',
+          '9. Este contrato se rige por las leyes de la República Dominicana.'
         ];
 
         doc.font('Helvetica').fontSize(7.5);
@@ -442,9 +473,11 @@ export class PdfService {
   }
 
   async generateUtilizationReportPdf(data: { month: string; rate: number }[]): Promise<string> {
+    const company = await this.loadCompanyInfo();
+
     return new Promise((resolve, reject) => {
       try {
-        const doc = new PDFDocument({ margin: 50 });
+        const doc = new PDFDocument({ margin: 45, size: 'A4' });
         const chunks: Buffer[] = [];
 
         doc.on('data', (chunk: any) => chunks.push(chunk));
@@ -463,45 +496,84 @@ export class PdfService {
           }
         });
 
-        doc.fontSize(18).text('FLEETVAULT — UTILIZATION REPORT', { align: 'center', underline: true });
-        doc.moveDown(0.5);
-        doc.fontSize(10).text(`Generated On: ${new Date().toLocaleString()}`, { align: 'center' });
-        doc.moveDown();
+        const formattedDate = new Date().toLocaleDateString();
+        this.drawInvoiceHeader(doc, 'REPORTE DE UTILIZACIÓN', `Generado: ${formattedDate}`, company);
+
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(14).text('REPORTE DE UTILIZACIÓN', 45, 130);
+        doc.fillColor('#4B5563').font('Helvetica').fontSize(8.5).text(`Generado: ${formattedDate}`, 45, 150);
 
         const averageRate = data.length > 0
           ? Math.round(data.reduce((acc, curr) => acc + curr.rate, 0) / data.length)
           : 0;
-        doc.fontSize(11).text(`Average Utilization: ${averageRate}%`);
-        doc.moveDown();
 
-        const tableTop = doc.y;
-        const colX = [50, 250, 350];
-        const colWidths = [180, 100, 200];
+        this.drawLabelValueGrid(doc, 45, 175, [
+          { label: 'Utilización Promedio', value: `${averageRate}%` },
+          { label: 'Meses Analizados', value: String(data.length) },
+        ]);
 
-        doc.fontSize(10).font('Helvetica-Bold');
-        doc.text('Month', colX[0], tableTop);
-        doc.text('Rate (%)', colX[1], tableTop);
-        doc.text('Utilization', colX[2], tableTop);
-        doc.moveDown(0.5);
+        const tableTop = 235;
+        const colWidths = { month: 160, rate: 120, bar: 225 };
+        const colX = {
+          month: 45,
+          rate: 45 + colWidths.month,
+          bar: 45 + colWidths.month + colWidths.rate,
+        };
+        const fullWidth = colWidths.month + colWidths.rate + colWidths.bar;
+        const rowHeight = 22;
 
-        doc.fontSize(10).font('Helvetica');
-        let y = doc.y;
-        for (const row of data) {
-          doc.text(row.month, colX[0], y);
-          doc.text(`${row.rate}%`, colX[1], y);
+        let y = tableTop;
+        let currentPage = 1;
 
-          const barWidth = Math.min(row.rate * 1.8, 180);
-          doc.roundedRect(colX[2], y + 2, barWidth, 10, 3)
-            .fill(row.rate > 75 ? '#22c55e' : row.rate > 50 ? '#eab308' : '#ef4444')
-            .fill('#000');
+        const drawTableHeader = (yPos: number) => {
+          doc.rect(45, yPos, fullWidth, rowHeight).fill('#0D6B7A');
+          doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(8);
+          doc.text('Mes', colX.month + 8, yPos + 6, { width: colWidths.month - 16 });
+          doc.text('Tasa (%)', colX.rate + 8, yPos + 6, { width: colWidths.rate - 16 });
+          doc.text('Utilización', colX.bar + 8, yPos + 6, { width: colWidths.bar - 16 });
+          return yPos + rowHeight;
+        };
 
-          doc.text(`${row.rate}%`, colX[2] + 5, y + 1, { width: 40 });
-          doc.fill('#000');
-          y += 22;
+        const drawColLines = (yPos: number) => {
+          doc.lineWidth(0.5).strokeColor('#E2E8F0');
+          doc.moveTo(colX.rate, yPos).lineTo(colX.rate, yPos + rowHeight).stroke();
+          doc.moveTo(colX.bar, yPos).lineTo(colX.bar, yPos + rowHeight).stroke();
+        };
+
+        y = drawTableHeader(y);
+
+        for (let i = 0; i < data.length; i++) {
+          if (y > doc.page.height - 60) {
+            this.drawFooterPageNumber(doc, currentPage);
+            currentPage++;
+            this.startContinuationPage(doc, 'REPORTE DE UTILIZACIÓN (Continuación)', currentPage);
+            y = 65;
+            y = drawTableHeader(y);
+          }
+
+          const row = data[i];
+          const bg = i % 2 === 1 ? '#F6F8FA' : '#FFFFFF';
+          doc.rect(45, y, fullWidth, rowHeight).fill(bg);
+          doc.lineWidth(0.5).strokeColor('#E2E8F0');
+          doc.rect(45, y, fullWidth, rowHeight).stroke();
+          drawColLines(y);
+
+          doc.font('Helvetica-Bold').fontSize(8).fillColor('#1B2A4A');
+          doc.text(row.month, colX.month + 8, y + 6, { width: colWidths.month - 16 });
+
+          doc.font('Helvetica').fontSize(8).fillColor('#4B5563');
+          doc.text(`${row.rate}%`, colX.rate + 8, y + 6, { width: colWidths.rate - 16 });
+
+          const barWidth = Math.min(row.rate * 1.8, colWidths.bar - 30);
+          const barColor = row.rate > 75 ? '#22c55e' : row.rate > 50 ? '#eab308' : '#ef4444';
+          doc.roundedRect(colX.bar + 8, y + 5, barWidth, 12, 3).fill(barColor);
+          doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(7);
+          doc.text(`${row.rate}%`, colX.bar + 12, y + 6.5, { width: 40 });
+
+          doc.fillColor('#000');
+          y += rowHeight;
         }
 
-        doc.moveDown(2);
-        doc.fontSize(8).text('Thank you for choosing FleetVault!', { align: 'center', oblique: true });
+        this.drawFooterPageNumber(doc, currentPage);
 
         doc.end();
       } catch (err) {
@@ -511,9 +583,11 @@ export class PdfService {
   }
 
   async generateRevenueReportPdf(data: Record<string, any>[], categories: string[]): Promise<string> {
+    const company = await this.loadCompanyInfo();
+
     return new Promise((resolve, reject) => {
       try {
-        const doc = new PDFDocument({ margin: 50, layout: 'landscape' });
+        const doc = new PDFDocument({ margin: 45, layout: 'landscape', size: 'A4' });
         const chunks: Buffer[] = [];
 
         doc.on('data', (chunk: any) => chunks.push(chunk));
@@ -532,38 +606,118 @@ export class PdfService {
           }
         });
 
-        doc.fontSize(18).text('FLEETVAULT — REVENUE REPORT', { align: 'center', underline: true });
-        doc.moveDown(0.5);
-        doc.fontSize(10).text(`Generated On: ${new Date().toLocaleString()}`, { align: 'center' });
-        doc.moveDown();
+        const formattedDate = new Date().toLocaleDateString();
+        this.drawInvoiceHeader(doc, 'REPORTE DE INGRESOS', `Generado: ${formattedDate}`, company);
 
-        const colCount = categories.length + 2;
-        const pageWidth = doc.page.width - 100;
-        const colW = pageWidth / colCount;
-        const startX = 50;
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(14).text('REPORTE DE INGRESOS', 45, 130);
+        doc.fillColor('#4B5563').font('Helvetica').fontSize(8.5).text(`Generado: ${formattedDate}`, 45, 150);
 
-        doc.fontSize(8).font('Helvetica-Bold');
-        let y = doc.y;
-        doc.text('Month', startX, y);
-        categories.forEach((cat, i) => {
-          doc.text(cat, startX + colW * (i + 1), y, { width: colW - 2 });
-        });
-        doc.text('Total', startX + colW * (colCount - 1), y, { width: colW - 2, align: 'right' });
-        y += 16;
+        const totalRevenue = data.reduce((acc, row) => {
+          const monthlySum = categories.reduce((s, cat) => s + (row[cat] || 0), 0);
+          return acc + monthlySum;
+        }, 0);
 
-        doc.fontSize(7).font('Helvetica');
-        for (const row of data) {
-          const monthlySum = categories.reduce((sum, cat) => sum + (row[cat] || 0), 0);
-          doc.text(row.month, startX, y, { width: colW - 2 });
-          categories.forEach((cat, i) => {
-            doc.text((row[cat] || 0).toFixed(2), startX + colW * (i + 1), y, { width: colW - 2, align: 'right' });
+        this.drawLabelValueGrid(doc, 45, 175, [
+          { label: 'Ingreso Total', value: `RD$ ${totalRevenue.toFixed(2)}` },
+          { label: 'Categorías', value: `${categories.length} tipos de vehículo` },
+          { label: 'Período', value: `${data.length} meses` },
+        ]);
+
+        const tableTop = 250;
+        const firstColW = 80;
+        const catColW = Math.min(85, (doc.page.width - 45 - 45 - firstColW - 70) / categories.length);
+        const totalColW = 70;
+        const fullWidth = firstColW + catColW * categories.length + totalColW;
+        const startX = 45;
+        const rowHeight = 16;
+
+        let y = tableTop;
+        let currentPage = 1;
+
+        const drawTableHeader = (yPos: number) => {
+          doc.rect(startX, yPos, fullWidth, rowHeight).fill('#0D6B7A');
+          doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(7);
+          doc.text('Mes', startX + 6, yPos + 4.5, { width: firstColW - 12 });
+          let cx = startX + firstColW;
+          categories.forEach((cat) => {
+            doc.text(cat, cx + 4, yPos + 4.5, { width: catColW - 8, align: 'right' });
+            cx += catColW;
           });
-          doc.text(monthlySum.toFixed(2), startX + colW * (colCount - 1), y, { width: colW - 2, align: 'right' });
-          y += 14;
+          doc.text('Total', cx + 4, yPos + 4.5, { width: totalColW - 8, align: 'right' });
+          return yPos + rowHeight;
+        };
+
+        const drawColLines = (yPos: number) => {
+          doc.lineWidth(0.5).strokeColor('#E2E8F0');
+          let cx = startX + firstColW;
+          for (let i = 0; i <= categories.length; i++) {
+            doc.moveTo(cx, yPos).lineTo(cx, yPos + rowHeight).stroke();
+            cx += i < categories.length ? catColW : totalColW;
+          }
+        };
+
+        y = drawTableHeader(y);
+
+        for (let i = 0; i < data.length; i++) {
+          if (y > doc.page.height - 55) {
+            this.drawFooterPageNumber(doc, currentPage);
+            currentPage++;
+            this.startContinuationPage(doc, 'REPORTE DE INGRESOS (Continuación)', currentPage);
+            y = 65;
+            y = drawTableHeader(y);
+          }
+
+          const row = data[i];
+          const monthlySum = categories.reduce((sum, cat) => sum + (row[cat] || 0), 0);
+          const bg = i % 2 === 1 ? '#F6F8FA' : '#FFFFFF';
+          doc.rect(startX, y, fullWidth, rowHeight).fill(bg);
+          doc.lineWidth(0.5).strokeColor('#E2E8F0');
+          doc.rect(startX, y, fullWidth, rowHeight).stroke();
+          drawColLines(y);
+
+          doc.font('Helvetica-Bold').fontSize(7).fillColor('#1B2A4A');
+          doc.text(row.month, startX + 6, y + 4.5, { width: firstColW - 12 });
+
+          doc.font('Helvetica').fontSize(7).fillColor('#4B5563');
+          let cx = startX + firstColW;
+          categories.forEach((cat) => {
+            doc.text((row[cat] || 0).toFixed(2), cx + 4, y + 4.5, { width: catColW - 8, align: 'right' });
+            cx += catColW;
+          });
+
+          doc.font('Helvetica-Bold').fontSize(7).fillColor('#1B2A4A');
+          doc.text(monthlySum.toFixed(2), cx + 4, y + 4.5, { width: totalColW - 8, align: 'right' });
+
+          y += rowHeight;
         }
 
-        doc.moveDown(2);
-        doc.fontSize(8).text('Thank you for choosing FleetVault!', { align: 'center', oblique: true });
+        // Totals row
+        if (y > doc.page.height - 50) {
+          this.drawFooterPageNumber(doc, currentPage);
+          currentPage++;
+          this.startContinuationPage(doc, 'REPORTE DE INGRESOS (Continuación)', currentPage);
+          y = 65;
+        }
+
+        const totalsRowBg = '#FAF2E8';
+        doc.rect(startX, y, fullWidth, rowHeight).fill(totalsRowBg);
+        doc.lineWidth(0.5).strokeColor('#E2E8F0');
+        doc.rect(startX, y, fullWidth, rowHeight).stroke();
+        drawColLines(y);
+
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#1B2A4A');
+        doc.text('TOTAL', startX + 6, y + 4, { width: firstColW - 12 });
+
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#1B2A4A');
+        let cx = startX + firstColW;
+        categories.forEach((cat) => {
+          const catTotal = data.reduce((sum, r) => sum + (r[cat] || 0), 0);
+          doc.text(catTotal.toFixed(2), cx + 4, y + 4, { width: catColW - 8, align: 'right' });
+          cx += catColW;
+        });
+        doc.text(totalRevenue.toFixed(2), cx + 4, y + 4, { width: totalColW - 8, align: 'right' });
+
+        this.drawFooterPageNumber(doc, currentPage);
 
         doc.end();
       } catch (err) {
@@ -580,9 +734,11 @@ export class PdfService {
     commissionAmount: number;
     payoutStatus: string;
   }[]): Promise<string> {
+    const company = await this.loadCompanyInfo();
+
     return new Promise((resolve, reject) => {
       try {
-        const doc = new PDFDocument({ margin: 50 });
+        const doc = new PDFDocument({ margin: 45, size: 'A4' });
         const chunks: Buffer[] = [];
 
         doc.on('data', (chunk: any) => chunks.push(chunk));
@@ -601,38 +757,111 @@ export class PdfService {
           }
         });
 
-        doc.fontSize(18).text('FLEETVAULT — COMMISSIONS REPORT', { align: 'center', underline: true });
-        doc.moveDown(0.5);
-        doc.fontSize(10).text(`Generated On: ${new Date().toLocaleString()}`, { align: 'center' });
-        doc.moveDown();
+        const formattedDate = new Date().toLocaleDateString();
+        this.drawInvoiceHeader(doc, 'REPORTE DE COMISIONES', `Generado: ${formattedDate}`, company);
 
-        const colX = [50, 200, 310, 390, 470];
-        doc.fontSize(9).font('Helvetica-Bold');
-        let y = doc.y;
-        doc.text('Employee', colX[0], y);
-        doc.text('Sales', colX[1], y);
-        doc.text('Comm %', colX[2], y);
-        doc.text('Amount (RD$)', colX[3], y);
-        doc.text('Status', colX[4], y);
-        y += 16;
-
-        doc.fontSize(9).font('Helvetica');
-        for (const row of data) {
-          doc.text(row.name, colX[0], y, { width: 140 });
-          doc.text(String(row.salesCount), colX[1], y);
-          doc.text(`${row.commissionPercentage}%`, colX[2], y);
-          doc.text(row.commissionAmount.toFixed(2), colX[3], y);
-          doc.text(row.payoutStatus === 'PAID' ? 'PAID' : 'UNPAID', colX[4], y);
-          y += 16;
-        }
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(14).text('REPORTE DE COMISIONES', 45, 130);
+        doc.fillColor('#4B5563').font('Helvetica').fontSize(8.5).text(`Generado: ${formattedDate}`, 45, 150);
 
         const totalCommission = data.reduce((sum, r) => sum + r.commissionAmount, 0);
-        y += 8;
-        doc.fontSize(9).font('Helvetica-Bold');
-        doc.text(`Total Commissions: RD$${totalCommission.toFixed(2)}`, colX[0], y);
+        const paidCommissions = data.filter((r) => r.payoutStatus === 'PAID').reduce((sum, r) => sum + r.commissionAmount, 0);
+        const unpaidCommissions = data.filter((r) => r.payoutStatus === 'UNPAID').reduce((sum, r) => sum + r.commissionAmount, 0);
 
-        doc.moveDown(2);
-        doc.fontSize(8).text('Thank you for choosing FleetVault!', { align: 'center', oblique: true });
+        this.drawLabelValueGrid(doc, 45, 175, [
+          { label: 'Total Comisiones', value: `RD$ ${totalCommission.toFixed(2)}` },
+          { label: 'Pagado', value: `RD$ ${paidCommissions.toFixed(2)}` },
+          { label: 'Pendiente', value: `RD$ ${unpaidCommissions.toFixed(2)}` },
+          { label: 'Agentes Activos', value: String(data.length) },
+        ]);
+
+        const tableTop = 260;
+        const colWidths = { employee: 160, sales: 70, commPct: 75, amount: 110, status: 90 };
+        const colX = {
+          employee: 45,
+          sales: 45 + colWidths.employee,
+          commPct: 45 + colWidths.employee + colWidths.sales,
+          amount: 45 + colWidths.employee + colWidths.sales + colWidths.commPct,
+          status: 45 + colWidths.employee + colWidths.sales + colWidths.commPct + colWidths.amount,
+        };
+        const fullWidth = colWidths.employee + colWidths.sales + colWidths.commPct + colWidths.amount + colWidths.status;
+        const rowHeight = 18;
+
+        let y = tableTop;
+        let currentPage = 1;
+
+        const drawTableHeader = (yPos: number) => {
+          doc.rect(45, yPos, fullWidth, rowHeight).fill('#0D6B7A');
+          doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(7.5);
+          doc.text('Empleado', colX.employee + 6, yPos + 5, { width: colWidths.employee - 12 });
+          doc.text('Ventas', colX.sales + 6, yPos + 5, { width: colWidths.sales - 12, align: 'center' });
+          doc.text('Comisión %', colX.commPct + 6, yPos + 5, { width: colWidths.commPct - 12, align: 'center' });
+          doc.text('Monto (RD$)', colX.amount + 6, yPos + 5, { width: colWidths.amount - 12, align: 'right' });
+          doc.text('Estado', colX.status + 6, yPos + 5, { width: colWidths.status - 12, align: 'center' });
+          return yPos + rowHeight;
+        };
+
+        const drawColLines = (yPos: number) => {
+          doc.lineWidth(0.5).strokeColor('#E2E8F0');
+          doc.moveTo(colX.sales, yPos).lineTo(colX.sales, yPos + rowHeight).stroke();
+          doc.moveTo(colX.commPct, yPos).lineTo(colX.commPct, yPos + rowHeight).stroke();
+          doc.moveTo(colX.amount, yPos).lineTo(colX.amount, yPos + rowHeight).stroke();
+          doc.moveTo(colX.status, yPos).lineTo(colX.status, yPos + rowHeight).stroke();
+        };
+
+        y = drawTableHeader(y);
+
+        for (let i = 0; i < data.length; i++) {
+          if (y > doc.page.height - 55) {
+            this.drawFooterPageNumber(doc, currentPage);
+            currentPage++;
+            this.startContinuationPage(doc, 'REPORTE DE COMISIONES (Continuación)', currentPage);
+            y = 65;
+            y = drawTableHeader(y);
+          }
+
+          const row = data[i];
+          const bg = i % 2 === 1 ? '#F6F8FA' : '#FFFFFF';
+          doc.rect(45, y, fullWidth, rowHeight).fill(bg);
+          doc.lineWidth(0.5).strokeColor('#E2E8F0');
+          doc.rect(45, y, fullWidth, rowHeight).stroke();
+          drawColLines(y);
+
+          doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#1B2A4A');
+          doc.text(row.name, colX.employee + 6, y + 5, { width: colWidths.employee - 12 });
+
+          doc.font('Helvetica').fontSize(7.5).fillColor('#4B5563');
+          doc.text(String(row.salesCount), colX.sales + 6, y + 5, { width: colWidths.sales - 12, align: 'center' });
+          doc.text(`${row.commissionPercentage}%`, colX.commPct + 6, y + 5, { width: colWidths.commPct - 12, align: 'center' });
+          doc.text(row.commissionAmount.toFixed(2), colX.amount + 6, y + 5, { width: colWidths.amount - 12, align: 'right' });
+
+          const isPaid = row.payoutStatus === 'PAID';
+          const statusColor = isPaid ? '#22c55e' : '#eab308';
+          const statusBg = isPaid ? '#22c55e20' : '#eab30820';
+          doc.roundedRect(colX.status + 8, y + 3, colWidths.status - 16, 12, 6).fill(statusBg);
+          doc.fillColor(statusColor).font('Helvetica-Bold').fontSize(7);
+          doc.text(isPaid ? 'Pagado' : 'Pendiente', colX.status + 8, y + 5, { width: colWidths.status - 16, align: 'center' });
+
+          doc.fillColor('#000');
+          y += rowHeight;
+        }
+
+        // Totals row
+        if (y > doc.page.height - 50) {
+          this.drawFooterPageNumber(doc, currentPage);
+          currentPage++;
+          this.startContinuationPage(doc, 'REPORTE DE COMISIONES (Continuación)', currentPage);
+          y = 65;
+        }
+
+        doc.rect(colX.amount - 80, y, fullWidth - (colX.amount - 45 - 80), rowHeight).fill('#FAF2E8');
+        doc.lineWidth(0.5).strokeColor('#E2E8F0');
+        doc.rect(colX.amount - 80, y, fullWidth - (colX.amount - 45 - 80), rowHeight).stroke();
+
+        doc.font('Helvetica-Bold').fontSize(8).fillColor('#1B2A4A');
+        doc.text(`Total Agentes: ${data.length}`, colX.amount - 80, y + 5, { width: colWidths.amount - 12, align: 'left' });
+        doc.text(`RD$ ${totalCommission.toFixed(2)}`, colX.amount + 6, y + 5, { width: colWidths.amount - 12, align: 'right' });
+
+        this.drawFooterPageNumber(doc, currentPage);
 
         doc.end();
       } catch (err) {
@@ -642,6 +871,7 @@ export class PdfService {
   }
 
   async generateReturnReceiptPdf(rental: any): Promise<string> {
+    const company = await this.loadCompanyInfo();
     const returnSigBuf = await this.fetchImageBuffer(rental.returnSignatureUrl);
 
     // Load fee config outside the promise to prevent await inside the executor
@@ -674,7 +904,7 @@ export class PdfService {
 
         // 1. Draw invoice header
         const formattedDate = new Date().toLocaleDateString();
-        this.drawInvoiceHeader(doc, 'RECIBO DE DEVOLUCIÓN FLEETVAULT', `Referencia de Contrato: ${rental.id} | Fecha: ${formattedDate}`);
+        this.drawInvoiceHeader(doc, 'RECIBO DE DEVOLUCIÓN FLEETVAULT', `Referencia de Contrato: ${rental.id} | Fecha: ${formattedDate}`, company);
 
         // 2. Title & Reference
         doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(14).text('RECIBO DE DEVOLUCIÓN', 45, 130);
@@ -853,11 +1083,171 @@ export class PdfService {
           45, notesY + 15, { width: 260, align: 'justify' }
         );
 
-        // Signature on the right
-        this.drawSignatureSection(doc, 45, paymentY + 15, 505.28, returnSigBuf, rental.customer?.name || 'Firma del Cliente');
+        // Customer Signature (right)
+        this.drawSignatureSection(doc, 280, paymentY + 20, 270, returnSigBuf, rental.customer?.name || 'Firma del Cliente');
 
         // Footer page number 1
         this.drawFooterPageNumber(doc, 1);
+
+        doc.end();
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  async generateRentalReportPdf(rentals: any[], filters: { startDate?: string; endDate?: string; status?: string; vehicleTypeName?: string; search?: string }): Promise<string> {
+    const company = await this.loadCompanyInfo();
+
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ margin: 45, size: 'A4' });
+        const chunks: Buffer[] = [];
+
+        doc.on('data', (chunk: any) => chunks.push(chunk));
+        doc.on('end', async () => {
+          try {
+            const buffer = Buffer.concat(chunks);
+            const filename = `rentcar/reports/rentals-${Date.now()}.pdf`;
+            const blob = await put(filename, buffer, {
+              access: 'private',
+              contentType: 'application/pdf',
+              token: process.env.BLOB_READ_WRITE_TOKEN,
+            });
+            resolve(blob.url);
+          } catch (error) {
+            reject(error);
+          }
+        });
+
+        const formattedDate = new Date().toLocaleDateString();
+        this.drawInvoiceHeader(doc, 'REPORTE DE ALQUILERES', `Generado: ${formattedDate}`, company);
+
+        doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(14).text('REPORTE DE ALQUILERES', 45, 130);
+        doc.fillColor('#4B5563').font('Helvetica').fontSize(8.5).text(`Generado: ${formattedDate}`, 45, 150);
+
+        // Filter summary
+        const filterItems: { label: string; value: string }[] = [];
+        if (filters.startDate || filters.endDate) {
+          filterItems.push({ label: 'Rango de Fechas', value: `${filters.startDate || '—'} a ${filters.endDate || '—'}` });
+        }
+        if (filters.status) {
+          const statusMap: Record<string, string> = { PENDING: 'Pendiente', ACTIVE: 'Activo', COMPLETED: 'Completado' };
+          filterItems.push({ label: 'Estado', value: statusMap[filters.status] || filters.status });
+        }
+        if (filters.vehicleTypeName) {
+          filterItems.push({ label: 'Tipo de Vehículo', value: filters.vehicleTypeName });
+        }
+        if (filters.search) {
+          filterItems.push({ label: 'Búsqueda', value: filters.search });
+        }
+        if (filterItems.length > 0) {
+          doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(10).text('FILTROS APLICADOS', 45, 175);
+          this.drawLabelValueGrid(doc, 45, 190, filterItems);
+        }
+
+        // Table
+        const tableTop = filterItems.length > 0 ? 230 : 185;
+        const colWidths = { vehicle: 130, customer: 120, dates: 110, cost: 70, status: 75 };
+        const colX = {
+          vehicle: 45,
+          customer: 45 + colWidths.vehicle,
+          dates: 45 + colWidths.vehicle + colWidths.customer,
+          cost: 45 + colWidths.vehicle + colWidths.customer + colWidths.dates,
+          status: 45 + colWidths.vehicle + colWidths.customer + colWidths.dates + colWidths.cost,
+        };
+        const fullWidth = colWidths.vehicle + colWidths.customer + colWidths.dates + colWidths.cost + colWidths.status;
+        const rowHeight = 18;
+
+        let currentPage = 1;
+        let y = tableTop;
+
+        const drawTableHeader = (yPos: number) => {
+          doc.rect(45, yPos, fullWidth, rowHeight).fill('#0D6B7A');
+          doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(7.5);
+          doc.text('Vehículo', colX.vehicle + 6, yPos + 5, { width: colWidths.vehicle - 12 });
+          doc.text('Cliente', colX.customer + 6, yPos + 5, { width: colWidths.customer - 12 });
+          doc.text('Fechas', colX.dates + 6, yPos + 5, { width: colWidths.dates - 12 });
+          doc.text('Total', colX.cost + 6, yPos + 5, { width: colWidths.cost - 12, align: 'right' });
+          doc.text('Estado', colX.status + 6, yPos + 5, { width: colWidths.status - 12, align: 'center' });
+          return yPos + rowHeight;
+        };
+
+        // Draw header separator lines
+        const drawColLines = (yPos: number) => {
+          doc.lineWidth(0.5).strokeColor('#E2E8F0');
+          doc.moveTo(colX.customer, yPos).lineTo(colX.customer, yPos + rowHeight).stroke();
+          doc.moveTo(colX.dates, yPos).lineTo(colX.dates, yPos + rowHeight).stroke();
+          doc.moveTo(colX.cost, yPos).lineTo(colX.cost, yPos + rowHeight).stroke();
+          doc.moveTo(colX.status, yPos).lineTo(colX.status, yPos + rowHeight).stroke();
+        };
+
+        y = drawTableHeader(y);
+
+        let totalSum = 0;
+        for (let i = 0; i < rentals.length; i++) {
+          if (y > doc.page.height - 60) {
+            this.drawFooterPageNumber(doc, currentPage);
+            currentPage++;
+            this.startContinuationPage(doc, 'REPORTE DE ALQUILERES (Continuación)', currentPage);
+            y = 65;
+            y = drawTableHeader(y);
+          }
+
+          const rental = rentals[i];
+          const bg = i % 2 === 1 ? '#F6F8FA' : '#FFFFFF';
+          doc.rect(45, y, fullWidth, rowHeight).fill(bg);
+          doc.lineWidth(0.5).strokeColor('#E2E8F0');
+          doc.rect(45, y, fullWidth, rowHeight).stroke();
+          drawColLines(y);
+
+          const vehicleStr = `${rental.vehicle?.brand?.name || ''} ${rental.vehicle?.model?.name || 'N/A'}\n${rental.vehicle?.plateNumber || ''}`;
+          const customerStr = rental.customer?.name || 'N/A';
+          const datesStr = `${new Date(rental.rentalDate).toLocaleDateString()}\n${rental.actualReturnDate ? new Date(rental.actualReturnDate).toLocaleDateString() : new Date(rental.scheduledReturnDate).toLocaleDateString()}`;
+          const cost = rental.totalCost || 0;
+          totalSum += cost;
+
+          const statusMap: Record<string, string> = { PENDING: 'Pendiente', ACTIVE: 'Activo', COMPLETED: 'Completado' };
+          const statusStr = statusMap[rental.status] || rental.status;
+
+          doc.font('Helvetica-Bold').fontSize(7).fillColor('#1B2A4A');
+          doc.text(vehicleStr, colX.vehicle + 6, y + 3, { width: colWidths.vehicle - 12, lineBreak: false });
+
+          doc.font('Helvetica').fontSize(7).fillColor('#4B5563');
+          doc.text(customerStr, colX.customer + 6, y + 5, { width: colWidths.customer - 12, lineBreak: false });
+
+          doc.font('Helvetica').fontSize(6.5).fillColor('#4B5563');
+          doc.text(datesStr, colX.dates + 6, y + 3, { width: colWidths.dates - 12, lineBreak: false });
+
+          doc.font('Helvetica-Bold').fontSize(7).fillColor('#1B2A4A');
+          doc.text(`RD$ ${cost.toFixed(2)}`, colX.cost + 6, y + 5, { width: colWidths.cost - 12, align: 'right', lineBreak: false });
+
+          doc.font('Helvetica').fontSize(6.5).fillColor('#4B5563');
+          doc.text(statusStr, colX.status + 6, y + 5, { width: colWidths.status - 12, align: 'center', lineBreak: false });
+
+          y += rowHeight;
+        }
+
+        // Totals row
+        if (y > doc.page.height - 50) {
+          this.drawFooterPageNumber(doc, currentPage);
+          currentPage++;
+          this.startContinuationPage(doc, 'REPORTE DE ALQUILERES (Continuación)', currentPage);
+          y = 65;
+        }
+
+        doc.rect(colX.cost - 20, y, fullWidth - (colX.cost - 45 - 20), rowHeight).fill('#FAF2E8');
+        doc.lineWidth(0.5).strokeColor('#E2E8F0');
+        doc.rect(colX.cost - 20, y, fullWidth - (colX.cost - 45 - 20), rowHeight).stroke();
+
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#1B2A4A');
+        doc.text(`Total Alquileres: ${rentals.length}`, colX.cost - 20, y + 4, { width: colWidths.cost - 12, align: 'left' });
+        doc.text(`RD$ ${totalSum.toFixed(2)}`, colX.cost + 6, y + 4, { width: colWidths.cost - 12, align: 'right' });
+
+        y += rowHeight + 15;
+
+        // Footer
+        this.drawFooterPageNumber(doc, currentPage);
 
         doc.end();
       } catch (err) {

@@ -1,65 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ColumnDef } from '@tanstack/react-table';
-import { Download, Search as SearchIcon, Calendar } from 'lucide-react';
+import { Download, Search as SearchIcon, Calendar, FileDown } from 'lucide-react';
 import { formatCurrency } from '@rent-car/common';
-import { useRentalsList } from '../../Infrastructure/hooks/useRentals.js';
+import { useVehicleTypes } from '../../Infrastructure/hooks/useCatalog.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
 import { DataTable } from '../components/ui/DataTable.js';
 import { Input } from '../components/ui/Input.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
-import { getAccessToken } from '../../Infrastructure/api-client.js';
+import { getAccessToken, apiClient } from '../../Infrastructure/api-client.js';
+import { useQuery } from '@tanstack/react-query';
 
 export const RentalQueryPage: React.FC = () => {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [vehicleTypeId, setVehicleTypeId] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
 
-  // Fetch rentals list from hook
-  const { data, isLoading } = useRentalsList({
-    status: statusFilter || undefined,
-    page,
-    limit: 10
+  const { data: vehicleTypesData } = useVehicleTypes({});
+  const vehicleTypes = vehicleTypesData?.items || [];
+
+  const buildParams = useCallback(() => {
+    const params: Record<string, string> = { page: String(page), limit: '10' };
+    if (statusFilter) params.status = statusFilter;
+    if (vehicleTypeId) params.vehicleTypeId = vehicleTypeId;
+    if (dateFrom) params.startDate = dateFrom;
+    if (dateTo) params.endDate = dateTo;
+    if (searchTerm.trim()) params.search = searchTerm.trim();
+    return params;
+  }, [page, statusFilter, vehicleTypeId, dateFrom, dateTo, searchTerm]);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['rental-report', buildParams()],
+    queryFn: async () => {
+      const res = await apiClient('/api/reports/rentals', { params: buildParams() });
+      return res.data as { items: any[]; total: number; page: number; limit: number; pages: number };
+    },
   });
 
   const rentals = data?.items || [];
   const totalPages = data?.pages || 1;
 
-  // Filter rentals locally for fields that are not supported directly by backend pagination filter
-  const filteredRentals = rentals.filter((rental) => {
-    // 1. Search text filter (customer name, plate, PO number, employee name)
-    if (searchTerm.trim() !== '') {
-      const term = searchTerm.toLowerCase();
-      const customerMatch = rental.customer?.name?.toLowerCase().includes(term);
-      const plateMatch = rental.vehicle?.plateNumber?.toLowerCase().includes(term);
-      const vehicleMatch = `${rental.vehicle?.brand?.name} ${rental.vehicle?.model?.name}`.toLowerCase().includes(term);
-      const employeeMatch = rental.checkoutEmployee?.name?.toLowerCase().includes(term);
-      const poMatch = rental.purchaseOrderNumber?.toLowerCase().includes(term);
-      const idMatch = rental.id?.toLowerCase().includes(term);
-      if (!customerMatch && !plateMatch && !vehicleMatch && !employeeMatch && !poMatch && !idMatch) {
-        return false;
+  const handleExportPdf = async () => {
+    try {
+      const token = getAccessToken();
+      const params = new URLSearchParams(buildParams());
+      params.set('format', 'pdf');
+      const res = await fetch(`/api/reports/rentals?${params.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Failed to export report');
+      const json = await res.json();
+      if (json.success && json.data?.pdfUrl) {
+        window.open(`/api/uploads/proxy?url=${encodeURIComponent(json.data.pdfUrl)}`, '_blank');
       }
+    } catch (err) {
+      console.error('Failed to export rental report PDF:', err);
     }
-
-    // 2. Date filters
-    if (dateFrom) {
-      const fromTime = new Date(dateFrom).getTime();
-      const rentalTime = new Date(rental.rentalDate).getTime();
-      if (rentalTime < fromTime) return false;
-    }
-
-    if (dateTo) {
-      const toTime = new Date(dateTo).getTime();
-      const rentalTime = new Date(rental.rentalDate).getTime();
-      if (rentalTime > toTime) return false;
-    }
-
-    return true;
-  });
+  };
 
   const handleDownloadContract = async (rental: any) => {
     try {
@@ -219,7 +221,12 @@ export const RentalQueryPage: React.FC = () => {
       <PageHeader
         title={t('queryPage.title')}
         description={t('queryPage.subtitle')}
-      />
+      >
+        <Button variant="primary" size="sm" onClick={handleExportPdf} disabled={isLoading || !rentals.length} className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs">
+          <FileDown size={13} />
+          <span>{t('queryPage.exportReportPdf')}</span>
+        </Button>
+      </PageHeader>
 
       {/* Glass card Filters panel */}
       <div className="p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col md:flex-row gap-4 items-end">
@@ -235,19 +242,19 @@ export const RentalQueryPage: React.FC = () => {
               type="text"
               placeholder={t('queryPage.searchPlaceholder')}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
               className="w-full text-xs min-h-[44px] pl-10 pr-4 rounded-xl bg-bg-inset border border-border-surface/45 text-fg-main placeholder:text-fg-tertiary focus:outline-none focus:border-accent-primary transition-all"
             />
           </div>
         </div>
 
-        <div className="w-full md:w-48 flex flex-col gap-1.5">
+        <div className="w-full md:w-44 flex flex-col gap-1.5">
           <label className="text-xs font-bold uppercase tracking-wider text-fg-secondary">
             {t('queryPage.statusFilter')}
           </label>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
             className="w-full text-xs min-h-[44px] px-3 rounded-xl bg-bg-inset border border-border-surface/45 text-fg-main focus:outline-none focus:border-accent-primary transition-all"
           >
             <option value="">{t('queryPage.all')}</option>
@@ -258,25 +265,41 @@ export const RentalQueryPage: React.FC = () => {
         </div>
 
         <div className="w-full md:w-44 flex flex-col gap-1.5">
+          <label className="text-xs font-bold uppercase tracking-wider text-fg-secondary">
+            {t('queryPage.vehicleType')}
+          </label>
+          <select
+            value={vehicleTypeId}
+            onChange={(e) => { setVehicleTypeId(e.target.value); setPage(1); }}
+            className="w-full text-xs min-h-[44px] px-3 rounded-xl bg-bg-inset border border-border-surface/45 text-fg-main focus:outline-none focus:border-accent-primary transition-all"
+          >
+            <option value="">{t('queryPage.allVehicleTypes')}</option>
+            {vehicleTypes.map((vt: { id: string; name: string }) => (
+              <option key={vt.id} value={vt.id}>{vt.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="w-full md:w-40 flex flex-col gap-1.5">
           <label className="text-xs font-bold uppercase tracking-wider text-fg-secondary flex items-center gap-1">
             <Calendar size={13} /> {t('queryPage.dateFrom')}
           </label>
           <Input
             type="date"
             value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
+            onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
             className="w-full"
           />
         </div>
 
-        <div className="w-full md:w-44 flex flex-col gap-1.5">
+        <div className="w-full md:w-40 flex flex-col gap-1.5">
           <label className="text-xs font-bold uppercase tracking-wider text-fg-secondary flex items-center gap-1">
             <Calendar size={13} /> {t('queryPage.dateTo')}
           </label>
           <Input
             type="date"
             value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
+            onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
             className="w-full"
           />
         </div>
@@ -284,7 +307,7 @@ export const RentalQueryPage: React.FC = () => {
 
       <DataTable
         columns={columns}
-        data={filteredRentals}
+        data={rentals}
         isLoading={isLoading}
         pageCount={totalPages}
         pageIndex={page - 1}

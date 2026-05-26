@@ -41,7 +41,6 @@ export const EmployeesPage: React.FC = () => {
   const createMutation = useCreateEmployee();
   const updateMutation = useUpdateEmployee();
   const toggleStatusMutation = useToggleEmployeeStatus();
-
   // Dialog/Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -52,6 +51,7 @@ export const EmployeesPage: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [nationalId, setNationalId] = useState('');
+  const [phone, setPhone] = useState('');
   const [commissionPercentage, setCommissionPercentage] = useState(0);
   const [hireDate, setHireDate] = useState('');
   const [shift, setShift] = useState('MORNING');
@@ -64,6 +64,7 @@ export const EmployeesPage: React.FC = () => {
     setName('');
     setEmail('');
     setNationalId('');
+    setPhone('');
     setCommissionPercentage(0);
     setHireDate(new Date().toISOString().split('T')[0]);
     setShift('MORNING');
@@ -81,6 +82,7 @@ export const EmployeesPage: React.FC = () => {
     setName(item.name);
     setEmail(item.email || '');
     setNationalId(item.nationalId);
+    setPhone(item.phone || '');
     setCommissionPercentage(item.commissionPercentage);
     setHireDate(item.hireDate ? item.hireDate.split('T')[0] : '');
     setShift(item.shift);
@@ -103,6 +105,7 @@ export const EmployeesPage: React.FC = () => {
       name,
       email,
       nationalId,
+      phone: phone.trim() || undefined,
       commissionPercentage: Number(commissionPercentage),
       hireDate: hireDate ? new Date(hireDate).toISOString() : new Date().toISOString(),
       shift,
@@ -294,6 +297,16 @@ export const EmployeesPage: React.FC = () => {
                 { value: 'ADMINISTRATOR', label: t('employees.administrator') },
               ]}
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label={t('employees.phone', 'Phone')}>
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder={t('employees.placeholderPhone', '(809) 555-1234')}
+              />
+            </FormField>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

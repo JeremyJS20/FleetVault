@@ -17,5 +17,6 @@ export * from './schemas/gps.js';
 export * from './schemas/health.js';
 export * from './schemas/fee-config.js';
 export * from './schemas/rental-policy.js';
+export * from './schemas/company-info.js';
 export { formatCurrency } from './formatCurrency.js';
 

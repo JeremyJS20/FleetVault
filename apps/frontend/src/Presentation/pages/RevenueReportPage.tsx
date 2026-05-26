@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DollarSign, TrendingUp, Landmark, Printer, FileDown } from 'lucide-react';
+import { DollarSign, TrendingUp, Landmark, FileDown } from 'lucide-react';
 import { formatCurrency } from '@rent-car/common';
 import { useRevenueReport } from '../../Infrastructure/hooks/useReports.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
@@ -54,27 +54,16 @@ export const RevenueReportPage: React.FC = () => {
         title={t('revenuePage.title')}
         description={t('revenuePage.subtitle')}
       >
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleDownloadPdf}
-            disabled={downloading}
-            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs print-keep"
-          >
-            <FileDown size={13} />
-            <span>{downloading ? t('common.loading') : t('common.downloadPdf')}</span>
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs print-keep"
-          >
-            <Printer size={13} />
-            <span>{t('common.print')}</span>
-          </Button>
-        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={handleDownloadPdf}
+          disabled={downloading || isLoading}
+          className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs"
+        >
+          <FileDown size={13} />
+          <span>{downloading ? t('common.loading') : t('common.downloadPdf')}</span>
+        </Button>
       </PageHeader>
 
       {isLoading ? (

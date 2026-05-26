@@ -1,30 +1,32 @@
 {
   "nav": {
     "dashboard": "Dashboard",
-    "fleet": "Fleet Management",
+    "operations": "Operations",
+    "reservations": "Reservations",
+    "rentalQuery": "Rental Query",
+    "fleet": "Fleet",
     "vehicleTypes": "Vehicle Types",
     "brands": "Brands",
     "models": "Models",
     "fuelTypes": "Fuel Types",
     "vehicles": "Vehicles",
-    "people": "People Management",
+    "people": "People",
     "customers": "Customers",
     "employees": "Employees",
-    "pricing": "Pricing & Rates",
+    "settings": "Settings",
     "seasonalRates": "Seasonal Rates",
     "feeConfig": "Fees & Deposits",
-    "inspections": "Inspections Audit",
+    "inspections": "Inspections",
     "managementPortal": "Management Portal",
     "customerHub": "Customer Hub",
-    "advancedSearch": "Advanced Search",
-    "gpsMap": "GPS Live Map",
-    "geofenceConfig": "Geofence Config",
-    "reports": "Reports & Analytics",
+    "gpsMap": "GPS Map",
+    "geofenceConfig": "Geofences",
+    "reports": "Reports",
     "utilizationReport": "Utilization",
     "revenueReport": "Revenue",
     "commissionsReport": "Commissions",
     "rentalPolicies": "Rental Policies",
-    "tracking": "Tracking & GPS"
+    "companySettings": "Company Settings"
   },
   "common": {
     "actions": "Actions",
@@ -191,6 +193,10 @@
     "stepGeneral": "Step 1: General Info & Credit",
     "stepLicense": "Step 2: Driver Credentials",
     "name": "Full Name",
+    "phone": "Phone",
+    "address": "Address",
+    "placeholderPhone": "(809) 555-1234",
+    "placeholderAddress": "123 Main St",
     "nationalId": "National ID (RNC/Cedula)",
     "creditCardNumber": "Credit Card Number",
     "creditLimit": "Credit Limit",
@@ -238,6 +244,13 @@
     "name": "Full Name",
     "email": "Email Address",
     "nationalId": "National ID",
+    "phone": "Phone",
+    "placeholderPhone": "(809) 555-1234",
+    "signatureUrl": "Signature URL",
+    "uploadSignature": "Upload Signature Image",
+    "fileSelected": "File selected",
+    "signatureSaved": "Signature saved",
+    "uploadingSignature": "Uploading signature...",
     "commissionPercentage": "Commission (%)",
     "hireDate": "Hire Date",
     "shift": "Shift",
@@ -256,8 +269,8 @@
     "validationCommissionRange": "Commission percentage must be between 0 and 100"
   },
   "feeConfig": {
-    "title": "Fee Configuration",
-    "subtitle": "Manage penalty fees, deposits, and other chargeable amounts. All amounts are in RD$ (Dominican Pesos).",
+    "title": "Fees & Deposits",
+    "subtitle": "Configure penalty fees, security deposits, and service charges in RD$.",
     "fee": "Fee",
     "key": "Key",
     "amount": "Amount (RD$)",
@@ -284,7 +297,7 @@
     "publicTitle": "Rental Policies",
     "publicSubtitle": "Review our rental terms, coverage details, and company policies.",
     "termsTitle": "Terms & Conditions",
-    "termsContent": "1. The customer acknowledges receiving the vehicle in good condition as described in the checkout inspection.\n\n2. The customer agrees to return the vehicle on or before the scheduled return date. Late returns will incur penalties as per FleetVault policies.\n\n3. The customer is responsible for any damage, loss, or theft of the vehicle during the rental period, including tires, rims, and accessories.\n\n4. Fuel difference surcharges apply if the vehicle is returned with less fuel than at checkout, charged at market rate plus service fee.\n\n5. All penalties, surcharges, and fees are itemized in the Charges section above.\n\n6. The customer authorizes FleetVault to process charges for any outstanding amounts, including damage fees identified post-return.\n\n7. All rentals are subject to the Rental Policies described in this contract.\n\n8. This contract is governed by the laws of the Dominican Republic. Any dispute arising from this contract shall be submitted to the courts of Santo Domingo, waiving any other jurisdiction that may correspond."
+    "termsContent": "1. The customer declares having received the vehicle in good general condition as reflected in the checkout inspection.\n\n2. The vehicle must be returned on the agreed date and time. Late returns will incur a charge of RD$1,500 per hour after a 1-hour grace period.\n\n3. The customer is responsible for any damage to the vehicle during the rental period: broken glass RD$12,000, scratches RD$8,000, and damaged or missing tires RD$5,000 each.\n\n4. Fuel must be returned at the same level as checkout (FULL). Otherwise a RD$2,000 service fee plus RD$1,000 per missing fuel level will be charged.\n\n5. Non-corporate customers are subject to a RD$15,000 security deposit hold, which will be released upon returning the vehicle without incidents.\n\n6. Corporate accounts are invoiced via Purchase Order and are subject to available credit limit verification.\n\n7. The customer authorizes FleetVault to process additional charges for damage identified up to 48 hours after return.\n\n8. CDW coverage requires the main driver to hold a valid driver's license. Non-compliance voids all coverage.\n\n9. This contract is governed by the laws of the Dominican Republic."
   },
   "seasonalRates": {
     "title": "Seasonal Rates",
@@ -443,8 +456,8 @@
     "totalCharge": "Total Charge:"
   },
   "inspections": {
-    "title": "Vehicle Audits & Checklist",
-    "subtitle": "Conduct safety inspections, report damage logs, and submit return reviews.",
+    "title": "Inspections",
+    "subtitle": "Log vehicle inspections at checkout and return to track damage and condition.",
     "logNewInspection": "Log New Inspection",
     "loading": "LOADING INSPECTION HISTORY...",
     "noData": "No inspection logs available",
@@ -537,8 +550,8 @@
     "purchaseOrderNumber": "Purchase Order Number"
   },
   "reservations": {
-    "title": "Rental Operations Desk",
-    "subtitle": "Checkout pending reservations, return active contracts, and book walk-in customers.",
+    "title": "Reservations & Rentals",
+    "subtitle": "Checkout pending reservations, process returns, and manage walk-in rentals.",
     "walkinBooking": "Walk-in Rental Checkout",
     "allContracts": "All Contracts",
     "pendingReservations": "Pending Reservations",
@@ -682,7 +695,7 @@
     "creditLimitExceeded": "Corporate credit limit exceeded"
   },
   "queryPage": {
-    "title": "Advanced Rental Queries",
+    "title": "Rental Query",
     "subtitle": "Search and filter rentals, verify contracts, and download documents.",
     "searchPlaceholder": "Search by customer, plate, employee...",
     "statusFilter": "Status Filter",
@@ -691,11 +704,14 @@
     "all": "All",
     "contract": "Contract",
     "downloadPdf": "Download PDF",
-    "downloadReceipt": "Download Receipt"
+    "downloadReceipt": "Download Receipt",
+    "exportReportPdf": "Export Report PDF",
+    "vehicleType": "Vehicle Type",
+    "allVehicleTypes": "All Types"
   },
   "gpsPage": {
-    "title": "Live GPS Tracker",
-    "subtitle": "Monitor vehicle fleet real-time geographical coordinates.",
+    "title": "GPS Map",
+    "subtitle": "Monitor vehicle fleet in real-time with live GPS coordinates.",
     "lastUpdated": "Last updated at: {{time}}",
     "activeVehicles": "Active Vehicles",
     "selectVehicle": "Select Vehicle",
@@ -706,8 +722,8 @@
     "viewHistoricalTrail": "View Historical Trail"
   },
   "geofencePage": {
-    "title": "Geofence Configurations",
-    "subtitle": "Define geographical polygon boundaries for vehicle alerts.",
+    "title": "Geofences",
+    "subtitle": "Define geographic boundaries for vehicle alert notifications.",
     "name": "Geofence Name",
     "alertEmail": "Alert Email",
     "saveGeofence": "Save Geofence",
@@ -778,5 +794,19 @@
     "odometer": "Odometer:",
     "pointsCount": "Logs Count:",
     "speedProfile": "Speed Profile (km/h) over Time"
+  },
+  "companySettings": {
+    "title": "Company Settings",
+    "subtitle": "Configure your company information for invoices, contracts and receipts.",
+    "companyName": "Company Name",
+    "rnc": "RNC / Tax ID",
+    "address": "Address",
+    "phone": "Phone",
+    "email": "Email",
+    "website": "Website",
+    "city": "City",
+    "logoUrl": "Logo URL",
+    "savedSuccess": "Company information saved successfully",
+    "saveFailed": "Failed to save company information"
   }
 }

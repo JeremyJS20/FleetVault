@@ -18,17 +18,9 @@ export const defaultPolicies = [
     content:
       'El vehículo se entrega con el tanque de combustible lleno y debe ser devuelto con el tanque lleno. ' +
       'Si el vehículo es devuelto con menos combustible del que tenía al momento de la salida, ' +
-      'se cobrará el combustible faltante a la tarifa de mercado más una tarifa de servicio de RD$1,500. ' +
+      'se cobrará una tarifa de servicio de RD$2,000 más RD$1,000 por cada nivel de combustible faltante ' +
+      '(Ej: si se entrega en FULL y se devuelve en HALF = RD$2,000 + 2 × RD$1,000 = RD$4,000). ' +
       'Se pueden solicitar recibos de combustible como comprobante de recarga.',
-  },
-  {
-    key: 'kilometraje',
-    title: 'Kilometraje Incluido',
-    content:
-      'Todos los alquileres incluyen 200 kilómetros libres por día. ' +
-      'Los kilómetros adicionales se cobrarán a RD$15 por km para vehículos estándar ' +
-      'y RD$25 por km para vehículos de lujo/SUV. ' +
-      'Paquetes de kilometraje ilimitado están disponibles bajo solicitud para cuentas corporativas.',
   },
   {
     key: 'prohibiciones',
@@ -45,15 +37,6 @@ export const defaultPolicies = [
       '- Sacar el vehículo fuera de la República Dominicana bajo ninguna circunstancia.',
   },
   {
-    key: 'conductores-adicionales',
-    title: 'Conductores Adicionales',
-    content:
-      'Se pueden agregar conductores adicionales a este contrato por una tarifa de RD$500 por conductor por día. ' +
-      'Todos los conductores adicionales deben cumplir con los mismos requisitos de edad y licencia que el arrendatario principal ' +
-      'y deben estar presentes en la salida con su licencia de conducir original vigente. ' +
-      'Máximo de dos conductores adicionales por alquiler.',
-  },
-  {
     key: 'territorio',
     title: 'Límite Territorial',
     content:
@@ -67,7 +50,6 @@ export const defaultPolicies = [
       'La violación de los límites territoriales anula toda cobertura de seguro y el cliente asume ' +
       'la responsabilidad total por cualquier daño, robo o pérdida incurrida.',
   },
-
 ];
 
 export async function seedPolicies() {

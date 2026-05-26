@@ -19,6 +19,7 @@ import reportRouter from './report.routes.js';
 import gpsRouter from './gps.routes.js';
 import queryRouter from './query.routes.js';
 import policyRouter from './rental-policy.routes.js';
+import companyInfoRouter from './company-info.routes.js';
 
 const router = Router();
 
@@ -42,5 +43,6 @@ router.use('/dashboard', dashboardRouter);
 router.use('/reports', reportRouter);
 router.use('/gps', gpsRouter);
 router.use('/policies', policyRouter);
+router.use('/company', companyInfoRouter);
 
 export default router;

@@ -38,6 +38,7 @@ import { VehicleTrailPage } from './pages/VehicleTrailPage.js';
 import { UtilizationReportPage } from './pages/UtilizationReportPage.js';
 import { RevenueReportPage } from './pages/RevenueReportPage.js';
 import { CommissionsReportPage } from './pages/CommissionsReportPage.js';
+import { CompanySettingsPage } from './pages/CompanySettingsPage.js';
 
 import { NetworkStatusProvider } from '../Infrastructure/network-status.js';
 
@@ -83,7 +84,6 @@ export const App: React.FC = () => {
                 <Route path="/admin/reservations" element={<ReservationsPage />} />
                 <Route path="/admin/inspections" element={<InspectionsPage />} />
                 <Route path="/admin/fee-config" element={<FeeConfigPage />} />
-                <Route path="/admin/settings" element={<StubPage title="System Settings" />} />
                 <Route path="/admin/query" element={<RentalQueryPage />} />
                 <Route path="/admin/gps/map" element={<GpsMapPage />} />
                 <Route path="/admin/gps/geofences" element={<GeofenceConfigPage />} />
@@ -92,6 +92,7 @@ export const App: React.FC = () => {
                 <Route path="/admin/reports/utilization" element={<UtilizationReportPage />} />
                 <Route path="/admin/reports/revenue" element={<RevenueReportPage />} />
                 <Route path="/admin/reports/commissions" element={<CommissionsReportPage />} />
+                <Route path="/admin/company" element={<CompanySettingsPage />} />
               </Route>
 
               {/* Customer Hub */}

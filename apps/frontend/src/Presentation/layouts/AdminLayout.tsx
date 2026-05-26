@@ -52,7 +52,7 @@ export const AdminLayout: React.FC = () => {
       return <Navigate to="/admin/dashboard" replace />;
     }
   } else if (user?.role === 'AGENT') {
-    const forbiddenAgentPaths = ['/admin/employees', '/admin/seasonal-rates', '/admin/fee-config', '/admin/settings'];
+    const forbiddenAgentPaths = ['/admin/employees', '/admin/seasonal-rates', '/admin/fee-config', '/admin/policies', '/admin/company'];
     if (forbiddenAgentPaths.includes(pathname)) {
       return <Navigate to="/admin/dashboard" replace />;
     }
