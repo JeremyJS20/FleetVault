@@ -43,17 +43,28 @@ export const useCustomerDashboard = (enabled: boolean = true) => {
         activeVehicle: string | null;
         totalSpent: number;
         averageRental: number;
+        completedCount: number;
         memberSince: string;
         creditLimit: number;
         outstandingBalance: number;
         customerType: string;
+        poInvoicesCount: number | null;
+        activePOAmount: number | null;
+        creditUtilizationPct: number | null;
+        nextReturnDate: string | null;
+        nextReturnVehicle: string | null;
+        licenseStatus: string;
+        licenseExpDate: string | null;
+        monthlySpending: { month: string; amount: number }[];
         recentRentals: {
           id: string;
           car: string;
+          plate: string;
           startDate: string;
           endDate: string;
           status: string;
           amount: number;
+          purchaseOrderNumber: string | null;
         }[];
       };
     },

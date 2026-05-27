@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../Infrastructure/auth.context.js';
 import { useAdminDashboard, useCustomerDashboard } from '../../Infrastructure/hooks/useDashboard.js';
-import { useMyPaymentMethods } from '../../Infrastructure/hooks/useCatalog.js';
 import { formatCurrency } from '@rent-car/common';
 import {
   TrendingUp,
@@ -41,9 +40,12 @@ export const DashboardPage: React.FC = () => {
 
   const { data: adminData, isLoading: adminLoading } = useAdminDashboard(isAdmin);
   const { data: customerData, isLoading: customerLoading } = useCustomerDashboard(!isAdmin);
-  const { data: savedCards = [] } = useMyPaymentMethods();
 
   const loading = isAdmin ? adminLoading : customerLoading;
+
+  const chartData = isAdmin
+    ? (adminData?.revenueChart || [])
+    : (customerData?.monthlySpending || []).map(d => ({ month: d.month, revenue: d.amount }));
 
   const columns: ColumnDef<any>[] = [
     {
@@ -54,8 +56,27 @@ export const DashboardPage: React.FC = () => {
     {
       accessorKey: 'car',
       header: t('dashboard.vehicle'),
-      cell: (info) => <span className="font-semibold text-fg-main">{info.getValue() as string}</span>,
+      cell: (info) => {
+        const rental = info.row.original;
+        return (
+          <div className="flex flex-col">
+            <span className="font-semibold text-fg-main">{info.getValue() as string}</span>
+            <span className="text-[10px] text-fg-tertiary font-mono">{rental.plate}</span>
+          </div>
+        );
+      },
     },
+    ...(!isAdmin && customerData?.customerType === 'CORPORATE'
+      ? [{
+          accessorKey: 'purchaseOrderNumber' as const,
+          header: t('dashboard.poNumber'),
+          cell: (info: any) => {
+            const val = info.getValue() as string | null;
+            return val ? <span className="font-mono text-xs text-fg-secondary">{val}</span> : <span className="text-fg-tertiary text-xs">—</span>;
+          },
+        }]
+      : []
+    ),
     ...(isAdmin
       ? [{
           accessorKey: 'customer' as const,
@@ -149,52 +170,71 @@ export const DashboardPage: React.FC = () => {
           </>
         ) : customerData ? (
           <>
-            <StatCard
-              label={t('dashboard.activeBookings')}
-              icon={<Car size={16} />}
-              value={String(customerData.activeBookings)}
-              subtext={customerData.activeVehicle ? t('dashboard.vehicleActive', { vehicle: customerData.activeVehicle }) : t('dashboard.noActiveRental')}
-            />
-            <StatCard
-              label={t('dashboard.totalBookings')}
-              icon={<CalendarDays size={16} />}
-              value={String(customerData.totalBookings)}
-              subtext={t('dashboard.memberSince', { date: customerData.memberSince })}
-            />
-            <StatCard
-              label={t('dashboard.savedCards')}
-              icon={<CreditCard size={16} />}
-              value={String(savedCards.length)}
-              subtext={
-                <button
-                  type="button"
-                  onClick={() => navigate('/customer/profile')}
-                  className="underline hover:text-accent-primary transition-colors cursor-pointer"
-                >
-                  {t('dashboard.manageCards')}
-                </button>
-              }
-            />
             {customerData.customerType === 'CORPORATE' ? (
-              <StatCard
-                label={t('dashboard.availableCredit')}
-                icon={<DollarSign size={16} />}
-                value={formatCurrency(customerData.creditLimit - customerData.outstandingBalance)}
-                subtext={
-                  <span>
-                    {t('dashboard.ofCredit', { used: formatCurrency(customerData.outstandingBalance), total: formatCurrency(customerData.creditLimit) })}
-                  </span>
-                }
-                mono
-              />
+              <>
+                <StatCard
+                  label={t('dashboard.availableCredit')}
+                  icon={<DollarSign size={16} />}
+                  value={formatCurrency(customerData.creditLimit - customerData.outstandingBalance)}
+                  subtext={
+                    <div className="space-y-1.5">
+                      <span>{t('dashboard.creditUsed', { used: formatCurrency(customerData.outstandingBalance), total: formatCurrency(customerData.creditLimit) })}</span>
+                      <div className="w-full h-1.5 rounded-full bg-bg-surface/50 overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, customerData.creditUtilizationPct || 0)}%`, background: (customerData.creditUtilizationPct || 0) > 80 ? 'linear-gradient(90deg, #f59e0b, #ef4444)' : (customerData.creditUtilizationPct || 0) > 50 ? 'linear-gradient(90deg, #22c55e, #f59e0b)' : 'linear-gradient(90deg, #22c55e, #16a34a)' }} />
+                      </div>
+                    </div>
+                  }
+                  mono
+                />
+                <StatCard
+                  label={t('dashboard.activeBookings')}
+                  icon={<Car size={16} />}
+                  value={String(customerData.activeBookings)}
+                  subtext={customerData.activeVehicle ? t('dashboard.vehicleActive', { vehicle: customerData.activeVehicle }) : t('dashboard.noActiveRental')}
+                />
+                <StatCard
+                  label={t('dashboard.pendingInvoices')}
+                  icon={<CreditCard size={16} />}
+                  value={String(customerData.poInvoicesCount || 0)}
+                  subtext={customerData.activePOAmount ? t('dashboard.pendingInvoicesCount', { count: customerData.poInvoicesCount ?? 0, amount: formatCurrency(customerData.activePOAmount) }) : t('dashboard.noActiveRental')}
+                  mono
+                />
+                <StatCard
+                  label={t('dashboard.totalInvested')}
+                  icon={<CalendarDays size={16} />}
+                  value={formatCurrency(customerData.totalSpent)}
+                  subtext={t('dashboard.completedRentals', { count: customerData.completedCount })}
+                  mono
+                />
+              </>
             ) : (
-              <StatCard
-                label={t('dashboard.totalInvested')}
-                icon={<DollarSign size={16} />}
-                value={formatCurrency(customerData.totalSpent)}
-                subtext={t('dashboard.averageRental', { amount: formatCurrency(customerData.averageRental) })}
-                mono
-              />
+              <>
+                <StatCard
+                  label={t('dashboard.activeBookings')}
+                  icon={<Car size={16} />}
+                  value={String(customerData.activeBookings)}
+                  subtext={customerData.activeVehicle ? t('dashboard.vehicleActive', { vehicle: customerData.activeVehicle }) : t('dashboard.noActiveRental')}
+                />
+                <StatCard
+                  label={t('dashboard.nextReturn')}
+                  icon={<Clock size={16} />}
+                  value={customerData.nextReturnDate ? customerData.nextReturnDate : t('dashboard.noUpcomingReturn')}
+                  subtext={customerData.nextReturnVehicle ?? ''}
+                />
+                <StatCard
+                  label={t('dashboard.totalInvested')}
+                  icon={<DollarSign size={16} />}
+                  value={formatCurrency(customerData.totalSpent)}
+                  subtext={t('dashboard.completedRentals', { count: customerData.completedCount })}
+                  mono
+                />
+                <StatCard
+                  label={t('dashboard.licenseStatus')}
+                  icon={<CheckCircle2 size={16} />}
+                  value={customerData.licenseStatus === 'valid' ? t('dashboard.licenseValid') : customerData.licenseStatus === 'expiringSoon' ? t('dashboard.licenseExpiring') : t('dashboard.licenseMissing')}
+                  subtext={customerData.licenseExpDate ? t('dashboard.licenseExpDate', { date: customerData.licenseExpDate }) : ''}
+                />
+              </>
             )}
           </>
         ) : null}
@@ -204,15 +244,15 @@ export const DashboardPage: React.FC = () => {
         <div className="lg:col-span-2 p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col justify-between">
           <div className="mb-4">
             <h3 className="text-sm font-bold text-fg-main uppercase tracking-wider">
-              {t('dashboard.revenueGrowth')}
+              {isAdmin ? t('dashboard.revenueGrowth') : t('dashboard.monthlySpending')}
             </h3>
             <p className="text-xs text-fg-secondary mt-0.5">
-              {t('dashboard.visualizingTrends')}
+              {isAdmin ? t('dashboard.visualizingTrends') : t('dashboard.spendingTrend')}
             </p>
           </div>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={adminData?.revenueChart || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--accent-primary)" stopOpacity={0.4}/>
@@ -241,7 +281,19 @@ export const DashboardPage: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <Button variant="primary" size="sm" className="w-full !h-11 !rounded-xl" onClick={() => navigate('/customer/browse')}>{t('dashboard.browseVehicles')}</Button>
+                  {customerData?.customerType === 'CORPORATE' ? (
+                    <>
+                      <Button variant="primary" size="sm" className="w-full !h-11 !rounded-xl" onClick={() => navigate('/customer/browse')}>{t('dashboard.newReservation')}</Button>
+                      <Button variant="secondary" size="sm" className="w-full !h-11 !rounded-xl" onClick={() => navigate('/customer/invoices')}>{t('dashboard.viewInvoices')}</Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="primary" size="sm" className="w-full !h-11 !rounded-xl" onClick={() => navigate('/customer/browse')}>{t('dashboard.browseVehicles')}</Button>
+                      {customerData?.activeBookings && customerData.activeBookings > 0 ? (
+                        <Button variant="secondary" size="sm" className="w-full !h-11 !rounded-xl" onClick={() => navigate('/customer/rentals')}>{t('dashboard.extendRental')}</Button>
+                      ) : null}
+                    </>
+                  )}
                 </>
               )}
             </div>

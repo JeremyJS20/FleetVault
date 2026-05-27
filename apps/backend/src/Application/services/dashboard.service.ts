@@ -105,24 +105,81 @@ export class DashboardService {
       include: { vehicle: { include: { model: true, brand: true } } },
     });
 
-    const totalSpentResult = await prisma.rental.aggregate({
-      where: { customerId: customer.id, status: 'COMPLETED' },
-      _sum: { totalCost: true },
-    });
-    const totalSpent = totalSpentResult._sum.totalCost || 0;
+    const [totalSpentAgg, completedCount, outstandingAgg] = await Promise.all([
+      prisma.rental.aggregate({
+        where: { customerId: customer.id, status: 'COMPLETED' },
+        _sum: { totalCost: true },
+      }),
+      prisma.rental.count({
+        where: { customerId: customer.id, status: 'COMPLETED' },
+      }),
+      prisma.rental.aggregate({
+        where: { customerId: customer.id, status: { in: ['PENDING', 'ACTIVE', 'COMPLETED'] } },
+        _sum: { totalCost: true },
+      }),
+    ]);
+
+    const totalSpent = totalSpentAgg._sum.totalCost || 0;
+    const outstandingBalance = outstandingAgg._sum.totalCost || 0;
     const rentalCount = recentRentals.length;
     const averageRental = rentalCount > 0 ? totalSpent / rentalCount : 0;
 
-    const firstRental = recentRentals.length > 0
-      ? recentRentals[recentRentals.length - 1]
-      : null;
-    const memberSince = customer.createdAt.toISOString().split('T')[0];
+    // Monthly spending chart (last 6 months based on actualReturnDate for completed, rentalDate for others)
+    const now = new Date();
+    const monthlySpending: { month: string; amount: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const dEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      const agg = await prisma.rental.aggregate({
+        where: {
+          customerId: customer.id,
+          status: 'COMPLETED',
+          actualReturnDate: { gte: d, lt: dEnd },
+        },
+        _sum: { totalCost: true },
+      });
+      monthlySpending.push({
+        month: d.toLocaleString('en', { month: 'short' }),
+        amount: agg._sum.totalCost || 0,
+      });
+    }
 
-    const outstandingSum = await prisma.rental.aggregate({
-      where: { customerId: customer.id, status: { in: ['PENDING', 'ACTIVE', 'COMPLETED'] } },
-      _sum: { totalCost: true },
-    });
-    const outstandingBalance = outstandingSum._sum.totalCost || 0;
+    // Type-specific stats
+    let poInvoicesCount: number | null = null;
+    let activePOAmount: number | null = null;
+    let creditUtilizationPct: number | null = null;
+
+    let nextReturnDate: string | null = null;
+    let nextReturnVehicle: string | null = null;
+    let licenseStatus: string = 'missing';
+    let licenseExpDate: string | null = null;
+
+    if (customer.type === 'CORPORATE') {
+      const poRentals = await prisma.rental.findMany({
+        where: { customerId: customer.id, purchaseOrderNumber: { not: null } },
+      });
+      poInvoicesCount = poRentals.length;
+      activePOAmount = poRentals
+        .filter(r => r.status === 'ACTIVE')
+        .reduce((sum, r) => sum + (r.totalCost || 0), 0);
+      creditUtilizationPct = customer.creditLimit > 0
+        ? parseFloat(((outstandingBalance / customer.creditLimit) * 100).toFixed(1))
+        : 0;
+    } else {
+      // Individual-specific
+      if (activeRental) {
+        nextReturnDate = activeRental.scheduledReturnDate.toISOString().split('T')[0];
+        nextReturnVehicle = `${activeRental.vehicle.brand.name} ${activeRental.vehicle.model.name}`;
+      }
+      if (customer.licenseExpDate) {
+        const expDate = new Date(customer.licenseExpDate);
+        const daysUntilExp = Math.ceil((expDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        licenseStatus = daysUntilExp <= 30 ? 'expiringSoon' : 'valid';
+        licenseExpDate = expDate.toISOString().split('T')[0];
+      } else if (customer.licenseNumber) {
+        licenseStatus = 'valid';
+      }
+    }
 
     return {
       activeBookings,
@@ -132,17 +189,28 @@ export class DashboardService {
         : null,
       totalSpent,
       averageRental,
-      memberSince,
+      completedCount,
+      memberSince: customer.createdAt.toISOString().split('T')[0],
       creditLimit: customer.creditLimit,
       outstandingBalance,
       customerType: customer.type,
+      poInvoicesCount,
+      activePOAmount,
+      creditUtilizationPct,
+      nextReturnDate,
+      nextReturnVehicle,
+      licenseStatus,
+      licenseExpDate,
+      monthlySpending,
       recentRentals: recentRentals.map(r => ({
         id: r.id.slice(0, 8),
         car: `${r.vehicle.brand.name} ${r.vehicle.model.name}`,
+        plate: r.vehicle.plateNumber,
         startDate: r.rentalDate.toISOString().split('T')[0],
         endDate: r.scheduledReturnDate.toISOString().split('T')[0],
         status: r.status.charAt(0) + r.status.slice(1).toLowerCase(),
         amount: r.totalCost || 0,
+        purchaseOrderNumber: r.purchaseOrderNumber || null,
       })),
     };
   }
