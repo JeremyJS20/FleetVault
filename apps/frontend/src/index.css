@@ -45,6 +45,7 @@
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
   /* Dark theme overrides */
   --surface-base: #0B0F19;
   --surface-card: rgba(255, 255, 255, 0.05);

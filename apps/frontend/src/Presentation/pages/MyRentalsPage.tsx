@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getImageProxyUrl } from '../../Infrastructure/hooks/useUploads.js';
-import { apiClient } from '../../Infrastructure/api-client.js';
+import { apiClient, getAccessToken } from '../../Infrastructure/api-client.js';
 import { useOwnReservations, useCancelReservation } from '../../Infrastructure/hooks/useReservations.js';
 import { FormModal } from '../components/ui/FormModal.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
@@ -44,12 +44,9 @@ export const MyRentalsPage: React.FC = () => {
     fetchProfile();
   }, []);
 
-  const isProfileComplete = !!(
-    profile?.nationalId &&
-    profile?.licenseNumber &&
-    profile?.licenseCountry &&
-    profile?.licenseExpDate
-  );
+  const isProfileComplete = profile?.type === 'CORPORATE'
+    ? !!(profile?.nationalId)
+    : !!(profile?.nationalId && profile?.licenseNumber && profile?.licenseCountry && profile?.licenseExpDate);
 
   const checkLateCancellation = (rentalDateStr: string) => {
     const rentalDate = new Date(rentalDateStr);
@@ -67,6 +64,28 @@ export const MyRentalsPage: React.FC = () => {
       refetch();
     } catch (err: any) {
       setErrorMsg(err.message || t('common.operationFailed'));
+    }
+  };
+
+  const downloadPdf = async (rentalId: string, type: 'contract' | 'receipt') => {
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`/api/rentals/${rentalId}/${type}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Failed to download ${type}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const prefix = type === 'contract' ? 'Contract' : 'Receipt';
+      link.href = url;
+      link.download = `${prefix}_${rentalId.slice(0, 8)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(`Failed to download ${type} PDF:`, err);
     }
   };
 
@@ -179,15 +198,23 @@ export const MyRentalsPage: React.FC = () => {
                     </Button>
                   )}
 
-                  {booking.status === 'COMPLETED' && (
-                    <Button
-                      variant="secondary"
-                      className="!h-8 text-xs uppercase font-bold tracking-widest px-3 rounded-lg flex items-center gap-1"
-                      onClick={() => alert('Downloading PDF contract... (Functionality stub)')}
+                  {(booking.status === 'ACTIVE' || booking.status === 'COMPLETED') && (
+                    <button
+                      onClick={() => downloadPdf(booking.id, 'contract')}
+                      className="!h-8 text-[10px] font-bold uppercase tracking-widest px-2.5 rounded-lg inline-flex items-center gap-1 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all"
                     >
-                      <FileText className="w-3.5 h-3.5" />
+                      <FileText className="w-3 h-3" />
                       {t('myRentals.contractPdf')}
-                    </Button>
+                    </button>
+                  )}
+                  {booking.status === 'COMPLETED' && (
+                    <button
+                      onClick={() => downloadPdf(booking.id, 'receipt')}
+                      className="!h-8 text-[10px] font-bold uppercase tracking-widest px-2.5 rounded-lg inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all"
+                    >
+                      <FileText className="w-3 h-3" />
+                      {t('myRentals.receiptPdf')}
+                    </button>
                   )}
                 </div>
 

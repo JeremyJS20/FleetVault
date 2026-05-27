@@ -26,7 +26,9 @@
     "revenueReport": "Ingresos",
     "commissionsReport": "Comisiones",
     "rentalPolicies": "Políticas de Alquiler",
-    "companySettings": "Configuración de la Empresa"
+    "companySettings": "Configuración de la Empresa",
+    "transactions": "Libro de Transacciones",
+    "invoices": "Facturación"
   },
   "common": {
     "actions": "Acciones",
@@ -195,6 +197,7 @@
     "name": "Nombre Completo",
     "phone": "Teléfono",
     "address": "Dirección",
+    "email": "Correo Electrónico",
     "placeholderPhone": "(809) 555-1234",
     "placeholderAddress": "Calle Principal #123",
     "nationalId": "Identificación Nacional (RNC/Cédula)",
@@ -292,7 +295,7 @@
     "publicTitle": "Políticas de Alquiler",
     "publicSubtitle": "Revise nuestros términos de alquiler, detalles de cobertura y políticas de la empresa.",
     "termsTitle": "Términos y Condiciones",
-    "termsContent": "1. El cliente declara haber recibido el vehículo en buen estado general según lo reflejado en la inspección de salida.\n\n2. El vehículo debe ser devuelto en la fecha y hora acordadas. Las devoluciones tardías generarán un cargo de RD$1,500 por hora después de 1 hora de gracia.\n\n3. El cliente es responsable por cualquier daño al vehículo durante el período de alquiler: vidrios rotos RD$12,000, rayones RD$8,000, y neumáticos dañados o perdidos RD$5,000 cada uno.\n\n4. El combustible debe ser devuelto en el mismo nivel de salida (FULL). Caso contrario se cobrará RD$2,000 de servicio más RD$1,000 por cada nivel de combustible faltante.\n\n5. Los clientes no corporativos están sujetos a una retención de depósito de seguridad de RD$15,000, la cual será liberada al devolver el vehículo sin novedades.\n\n6. Las cuentas corporativas facturan mediante Orden de Compra y están sujetas a verificación de límite de crédito disponible.\n\n7. El cliente autoriza a FleetVault a procesar cargos adicionales por daños identificados hasta 48 horas después de la devolución.\n\n8. La cobertura CDW requiere que el conductor principal tenga una licencia de conducir válida y vigente. El incumplimiento anula toda cobertura.\n\n9. Este contrato se rige por las leyes de la República Dominicana."
+    "termsContent": "1. INSPECCIÓN Y ENTREGA: El cliente declara haber recibido el vehículo en buen estado general, conforme al formulario de inspección de salida firmado digitalmente. Cualquier discrepancia debe ser reportada antes de retirar el vehículo.\n\n2. DOCUMENTACIÓN Y CONDUCTOR: El conductor principal debe presentar una licencia de conducir física y vigente. Edad mínima de 21 años (25 años para vehículos de lujo). Conductores adicionales deben estar registrados en el contrato y cumplir los mismos requisitos.\n\n3. PERÍODO DE ALQUILER: El vehículo debe ser devuelto en la fecha y hora acordadas. Las extensiones deben solicitarse y autorizarse por escrito. Las devoluciones tardías sin autorización generarán un cargo por hora según la tarifa vigente, después de 1 hora de gracia.\n\n4. DEPÓSITO DE SEGURIDAD: Los clientes no corporativos están sujetos a una retención de depósito de seguridad según la tarifa vigente, liberada al devolver el vehículo sin novedades. Clientes corporativos están sujetos a verificación de límite de crédito disponible.\n\n5. RESPONSABILIDAD POR DAÑOS: El cliente es responsable por el deducible CDW según la póliza vigente y asume el costo total de daños excluidos: neumáticos, rines, parabrisas, daños inferiores, interiores y de techo, robo de objetos de valor, pérdida de llaves y grúa.\n\n6. MULTAS E INFRACCIONES: El cliente asume toda responsabilidad por multas de tránsito, infracciones, peajes y estacionamiento durante el período de alquiler. Autoriza a FleetVault a procesar estos cargos al método de pago registrado.\n\n7. COMBUSTIBLE: El vehículo se entrega con el tanque lleno y debe devolverse en el mismo estado. De lo contrario, se aplicará la tarifa de servicio vigente.\n\n8. USOS PROHIBIDOS: Queda prohibido conducir bajo efectos de alcohol o drogas, participar en competencias, transportar materiales ilegales, subarrendar, conducir fuera de carretera, o sacar el vehículo de República Dominicana.\n\n9. LÍMITE TERRITORIAL: El vehículo puede circular en todo el territorio nacional. Zonas fronterizas (Dajabón, Jimaní, Pedernales, Elías Piña) requieren autorización previa. Prohibido sacar el vehículo del país.\n\n10. CANCELACIONES: Cancelaciones con más de 48 horas de anticipación no tienen cargo. Cancelaciones tardías o no presentación generarán un cargo equivalente a un día de alquiler.\n\n11. COBERTURA CDW: Aplica solo si el conductor principal cumple con todos los requisitos de licencia, edad y documentación. El incumplimiento anula toda cobertura.\n\n12. CARGOS POSTERIORES: El cliente autoriza a FleetVault a procesar cargos adicionales por daños, multas o costos identificados hasta 15 días después de la devolución.\n\n13. FUERZA MAYOR: FleetVault no será responsable por incumplimientos debido a huracanes, desastres naturales, disturbios civiles, pandemias o eventos fuera de su control.\n\n14. LEY APLICABLE: Este contrato se rige por las leyes de la República Dominicana. Cualquier controversia será sometida a los tribunales competentes de la República Dominicana."
   },
   "seasonalRates": {
     "title": "Tarifas Estacionales",
@@ -360,10 +363,7 @@
     "quickActions": "Acciones Rápidas",
     "addNewVehicle": "Agregar Vehículo",
     "generateInvoices": "Generar Facturas",
-    "systemLogs": "Registros del Sistema",
     "browseVehicles": "Explorar Vehículos",
-    "loyaltyDetails": "Detalles de Fidelidad",
-    "contactSupport": "Soporte Técnico",
     "systemHealth": "Estado del Sistema",
     "allNodesFunctional": "Nodos de API activos y funcionales",
     "recentOps": "Bitácora de Operaciones Recientes",
@@ -375,6 +375,9 @@
     "startDate": "Fecha de Inicio",
     "endDate": "Fecha de Vencimiento",
     "totalCost": "Costo Total",
+    "rentalCost": "Costo Alquiler",
+    "deposit": "Depósito",
+    "totalWithDeposit": "Total Retenido",
     "vehiclesAvailable": "{{count}} disponibles",
     "utilizationRate": "{{rate}}% Tasa de Utilización",
     "revenueGrowthPct": "{{pct}}% crecimiento mensual",
@@ -384,7 +387,11 @@
     "memberSince": "Miembro desde {{date}}",
     "goldTier": "Estado de Miembro Nivel Oro",
     "silverTier": "Miembro Nivel Plata",
-    "averageRental": "Alquiler promedio: {{amount}}"
+    "averageRental": "Alquiler promedio: {{amount}}",
+    "savedCards": "Tarjetas Guardadas",
+    "manageCards": "Administrar",
+    "availableCredit": "Crédito Disponible",
+    "ofCredit": "{{used}} usado de {{total}}"
   },
   "stripe": {
     "securePayment": "Detalles de Pago Seguro",
@@ -395,7 +402,9 @@
     "cardConfirmed": "Tarjeta confirmada exitosamente",
     "savedPaymentMethods": "Métodos de Pago Guardados",
     "confirmRemoveCard": "¿Está seguro de que desea eliminar esta tarjeta?",
+    "cannotRemoveCardInUse": "No se puede eliminar esta tarjeta porque está respaldando un alquiler activo o pendiente.",
     "cardRemoved": "Tarjeta eliminada exitosamente",
+    "expires": "Vence",
     "useNewCard": "Usar una nueva tarjeta de crédito",
     "savedCardSelected": "Tarjeta guardada seleccionada para la retención de preautorización."
   },
@@ -429,7 +438,11 @@
     "licenseCountry": "País",
     "licenseExpiry": "Vencimiento",
     "saveChanges": "Guardar Cambios",
-    "accountStatus": "Estado de la cuenta:"
+    "accountStatus": "Estado de la cuenta:",
+    "uploadingPhoto": "Subiendo foto...",
+    "creditUsed": "Crédito consumido",
+    "creditAvailable": "Crédito disponible",
+    "creditLimitLabel": "Límite: {{amount}}"
   },
   "myRentals": {
     "title": "Mis Reservas y Contratos",
@@ -439,6 +452,7 @@
     "browsePrompt": "¡Diríjase a la página de búsqueda de vehículos para reservar su primer auto!",
     "cancelBooking": "Cancelar Reserva",
     "contractPdf": "PDF del Contrato",
+    "receiptPdf": "Recibo de Devolución",
     "cancelTitle": "Confirmar Cancelación",
     "cancelQuestion": "¿Está seguro de que desea cancelar su reserva para el",
     "lateFeeWarning": "Advertencia: Se Aplica Cargo por Cancelación Tardía",
@@ -803,5 +817,22 @@
     "logoUrl": "URL del Logo",
     "savedSuccess": "Información de la empresa guardada exitosamente",
     "saveFailed": "Error al guardar la información de la empresa"
+  },
+  "transactionsPage": {
+    "title": "Libro de Transacciones",
+    "subtitle": "Consulte todas las transacciones financieras del sistema: pagos, cargos, reembolsos y facturas.",
+    "type": "Tipo",
+    "amount": "Monto",
+    "customer": "Cliente",
+    "rental": "Alquiler",
+    "paymentMethod": "Método de Pago",
+    "comments": "Comentarios",
+    "date": "Fecha",
+    "searchPlaceholder": "Buscar por cliente...",
+    "typeFilter": "Filtrar por Tipo",
+    "allTypes": "Todos los Tipos",
+    "dateFrom": "Fecha Desde",
+    "dateTo": "Fecha Hasta",
+    "viewRental": "Ver Alquiler"
   }
 }

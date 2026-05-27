@@ -212,8 +212,8 @@ export class ReservationService {
           stripePaymentIntentId: holdResultId,
           purchaseOrderNumber: customer.type === 'CORPORATE' ? input.purchaseOrderNumber : null,
           comments: customer.type === 'CORPORATE' 
-            ? `Corporate invoice booked under PO ${input.purchaseOrderNumber} for RD$${result.totalEstimatedCost}`
-            : `Pre-auth hold of RD$${result.holdAmount} (Rent: RD$${result.totalEstimatedCost} + Deposit: RD$${result.depositAmount})`
+            ? `Factura OC emitida bajo OC ${input.purchaseOrderNumber} por RD$${result.totalEstimatedCost}`
+            : `Pre-autorización de RD$${result.holdAmount} (Alquiler: RD$${result.totalEstimatedCost} + Depósito: RD$${result.depositAmount})`
         }
       });
 
@@ -292,8 +292,8 @@ export class ReservationService {
             stripePaymentIntentId: isCorporate ? null : rental.stripePaymentIntentId,
             purchaseOrderNumber: isCorporate ? rental.purchaseOrderNumber : null,
             comments: isCorporate
-              ? `Late cancellation invoice (less than 24h notice) under PO ${rental.purchaseOrderNumber}: 1 day rate of RD$${penalty}`
-              : `Late cancellation charge (less than 24h notice): 1 day rate of RD$${penalty}`
+              ? `Factura por cancelación tardía (menos de 24h aviso) bajo OC ${rental.purchaseOrderNumber}: tarifa de 1 día RD$${penalty}`
+              : `Cargo por cancelación tardía (menos de 24h aviso): tarifa de 1 día RD$${penalty}`
           }
         });
 
@@ -302,7 +302,7 @@ export class ReservationService {
           data: {
             status: 'CANCELLED',
             totalCost: penalty,
-            comments: `Late cancellation penalty charged: RD$${penalty}`
+            comments: `Penalidad por cancelación tardía cargada: RD$${penalty}`
           },
           include: {
             vehicle: true
@@ -322,8 +322,8 @@ export class ReservationService {
             stripePaymentIntentId: isCorporate ? null : rental.stripePaymentIntentId,
             purchaseOrderNumber: isCorporate ? rental.purchaseOrderNumber : null,
             comments: isCorporate
-              ? `Reservation cancelled under PO ${rental.purchaseOrderNumber} with >24h notice. No charge invoice generated.`
-              : `Pre-auth hold released: Reservation cancelled with >24h notice`
+              ? `Reserva cancelada bajo OC ${rental.purchaseOrderNumber} con >24h aviso. Sin cargo generado.`
+              : `Retención liberada: Reserva cancelada con >24h aviso`
           }
         });
 
@@ -332,7 +332,7 @@ export class ReservationService {
           data: {
             status: 'CANCELLED',
             totalCost: 0.0,
-            comments: 'Cancelled with free notice'
+            comments: 'Cancelada sin cargo'
           },
           include: {
             vehicle: true

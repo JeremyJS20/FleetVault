@@ -191,21 +191,38 @@ router.get('/:id/contract', authMiddleware, async (req: AuthenticatedRequest, re
 
     let pdfUrl = rental.contractPdfUrl;
 
+    let localBuffer: Buffer | null = null;
+
     if (!pdfUrl) {
-      pdfUrl = await pdfService.generateContractPdf(rental);
-      await prisma.rental.update({
-        where: { id: rental.id },
-        data: { contractPdfUrl: pdfUrl }
-      });
+      const result = await pdfService.generateContractPdf(rental);
+      pdfUrl = result.url;
+      localBuffer = result.buffer;
+      if (pdfUrl) {
+        await prisma.rental.update({
+          where: { id: rental.id },
+          data: { contractPdfUrl: pdfUrl }
+        });
+      }
     }
 
-    const result = await get(pdfUrl, {
+    if (localBuffer) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Contract_${rental.id.slice(0, 8)}.pdf"`);
+      res.setHeader('Content-Length', localBuffer.length);
+      return res.send(localBuffer);
+    }
+
+    const result = await get(pdfUrl!, {
       access: 'private',
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
     if (!result || result.statusCode !== 200) {
-      return res.status(502).json({ success: false, error: 'Failed to fetch contract PDF' });
+      const fallback = await pdfService.generateContractPdf(rental);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Contract_${rental.id.slice(0, 8)}.pdf"`);
+      res.setHeader('Content-Length', fallback.buffer.length);
+      return res.send(fallback.buffer);
     }
 
     const reader = result.stream.getReader();
@@ -257,21 +274,38 @@ router.get('/:id/receipt', authMiddleware, async (req: AuthenticatedRequest, res
 
     let pdfUrl = rental.returnReceiptUrl;
 
+    let localBuffer: Buffer | null = null;
+
     if (!pdfUrl) {
-      pdfUrl = await pdfService.generateReturnReceiptPdf(rental);
-      await prisma.rental.update({
-        where: { id: rental.id },
-        data: { returnReceiptUrl: pdfUrl }
-      });
+      const result = await pdfService.generateReturnReceiptPdf(rental);
+      pdfUrl = result.url;
+      localBuffer = result.buffer;
+      if (pdfUrl) {
+        await prisma.rental.update({
+          where: { id: rental.id },
+          data: { returnReceiptUrl: pdfUrl }
+        });
+      }
     }
 
-    const result = await get(pdfUrl, {
+    if (localBuffer) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Receipt_${rental.id.slice(0, 8)}.pdf"`);
+      res.setHeader('Content-Length', localBuffer.length);
+      return res.send(localBuffer);
+    }
+
+    const result = await get(pdfUrl!, {
       access: 'private',
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
     if (!result || result.statusCode !== 200) {
-      return res.status(502).json({ success: false, error: 'Failed to fetch return receipt PDF' });
+      const fallback = await pdfService.generateReturnReceiptPdf(rental);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Receipt_${rental.id.slice(0, 8)}.pdf"`);
+      res.setHeader('Content-Length', fallback.buffer.length);
+      return res.send(fallback.buffer);
     }
 
     const reader = result.stream.getReader();

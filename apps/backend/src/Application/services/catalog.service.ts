@@ -60,6 +60,7 @@ export class CatalogService {
       data: {
         name: input.name,
         description: input.description || null,
+        baseDailyRate: input.baseDailyRate ?? 0,
         status: 'ACTIVE'
       }
     });
@@ -79,7 +80,8 @@ export class CatalogService {
       where: { id },
       data: {
         name: input.name,
-        description: input.description !== undefined ? input.description : undefined
+        description: input.description !== undefined ? input.description : undefined,
+        baseDailyRate: input.baseDailyRate !== undefined ? input.baseDailyRate : undefined
       }
     });
   }
@@ -1275,9 +1277,16 @@ export class CatalogService {
       include: { user: true }
     });
     if (!item) throw new NotFoundError('Customer profile not found for this user');
+
+    const outstandingSum = await prisma.rental.aggregate({
+      where: { customerId: item.id, status: { in: ['PENDING', 'ACTIVE', 'COMPLETED'] } },
+      _sum: { totalCost: true },
+    });
+
     return {
       ...item,
       email: item.user?.email || null,
+      outstandingBalance: outstandingSum._sum.totalCost || 0,
       user: undefined
     };
   }

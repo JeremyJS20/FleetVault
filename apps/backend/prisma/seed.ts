@@ -47,13 +47,13 @@ async function main() {
   console.log('Seeding Fee Config...');
   await prisma.feeConfig.createMany({
     data: [
-      { key: 'LATE_FEE_PER_HOUR', label: 'Late Return (per hour)', amount: 1500, description: 'Fee per hour after the scheduled return time (1h grace period)' },
-      { key: 'FUEL_FLAT_FEE', label: 'Fuel Service Charge', amount: 2000, description: 'Flat fee for refueling service when fuel is not returned full' },
-      { key: 'FUEL_PER_STEP', label: 'Fuel Per Step Missing', amount: 1000, description: 'Additional fee per fuel level step below the checkout level' },
-      { key: 'GLASS_DAMAGE', label: 'Broken Glass Damage', amount: 12000, description: 'Fee for broken windshield or window glass' },
-      { key: 'SCRATCHES', label: 'Scratch Damage', amount: 8000, description: 'Fee for new scratches found on return' },
-      { key: 'TIRE_DAMAGE', label: 'Per Tire Damaged', amount: 5000, description: 'Fee per damaged or missing tire' },
-      { key: 'SECURITY_DEPOSIT', label: 'Security Deposit', amount: 15000, description: 'Pre-auth hold deposit amount per rental' },
+      { key: 'LATE_FEE_PER_HOUR', label: 'Devolución tardía (por hora)', amount: 1500, description: 'Cargo por hora después de la hora de devolución (1h de gracia)' },
+      { key: 'FUEL_FLAT_FEE', label: 'Cargo por servicio de combustible', amount: 2000, description: 'Cargo fijo por reabastecimiento cuando no se devuelve lleno' },
+      { key: 'FUEL_PER_STEP', label: 'Combustible por nivel faltante', amount: 1000, description: 'Cargo adicional por cada nivel de combustible debajo del nivel de salida' },
+      { key: 'GLASS_DAMAGE', label: 'Daño de vidrios rotos', amount: 12000, description: 'Cargo por parabrisas o vidrios rotos' },
+      { key: 'SCRATCHES', label: 'Daño por rayones', amount: 8000, description: 'Cargo por rayones nuevos encontrados en la devolución' },
+      { key: 'TIRE_DAMAGE', label: 'Daño por neumático', amount: 5000, description: 'Cargo por neumático dañado o perdido' },
+      { key: 'SECURITY_DEPOSIT', label: 'Depósito de seguridad', amount: 15000, description: 'Monto de retención de depósito por alquiler' },
     ],
   });
 

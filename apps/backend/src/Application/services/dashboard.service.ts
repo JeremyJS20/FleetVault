@@ -118,6 +118,12 @@ export class DashboardService {
       : null;
     const memberSince = customer.createdAt.toISOString().split('T')[0];
 
+    const outstandingSum = await prisma.rental.aggregate({
+      where: { customerId: customer.id, status: { in: ['PENDING', 'ACTIVE', 'COMPLETED'] } },
+      _sum: { totalCost: true },
+    });
+    const outstandingBalance = outstandingSum._sum.totalCost || 0;
+
     return {
       activeBookings,
       totalBookings,
@@ -127,6 +133,9 @@ export class DashboardService {
       totalSpent,
       averageRental,
       memberSince,
+      creditLimit: customer.creditLimit,
+      outstandingBalance,
+      customerType: customer.type,
       recentRentals: recentRentals.map(r => ({
         id: r.id.slice(0, 8),
         car: `${r.vehicle.brand.name} ${r.vehicle.model.name}`,

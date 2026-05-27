@@ -5,8 +5,8 @@ export const defaultPolicies = [
     key: 'cobertura',
     title: 'Cobertura CDW / Seguro',
     content:
-      'Todos los alquileres incluyen Exención de Daños por Colisión (CDW) con un deducible de RD$25,000. ' +
-      'El deducible se reduce a RD$10,000 para clientes corporativos. ' +
+      'Todos los alquileres incluyen Exención de Daños por Colisión (CDW) con un deducible según la póliza vigente. ' +
+      'El deducible se reduce para clientes corporativos según la tarifa vigente. ' +
       'CDW no cubre: neumáticos, rines, parabrisas, daños en la parte inferior, daños interiores, ' +
       'daños en el techo, robo de objetos de valor, costos de grúa o pérdida de llaves. ' +
       'El seguro de responsabilidad civil a terceros está incluido hasta RD$500,000. ' +
@@ -18,8 +18,7 @@ export const defaultPolicies = [
     content:
       'El vehículo se entrega con el tanque de combustible lleno y debe ser devuelto con el tanque lleno. ' +
       'Si el vehículo es devuelto con menos combustible del que tenía al momento de la salida, ' +
-      'se cobrará una tarifa de servicio de RD$2,000 más RD$1,000 por cada nivel de combustible faltante ' +
-      '(Ej: si se entrega en FULL y se devuelve en HALF = RD$2,000 + 2 × RD$1,000 = RD$4,000). ' +
+      'se cobrará la tarifa de servicio vigente. ' +
       'Se pueden solicitar recibos de combustible como comprobante de recarga.',
   },
   {

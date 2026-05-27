@@ -3,6 +3,16 @@ import { put, get } from '@vercel/blob';
 import { prisma } from '../../Infrastructure/db.js';
 
 export class PdfService {
+  private formatDate(date: Date | string | null | undefined): string {
+    if (!date) return new Date().toLocaleDateString('es-DO');
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return new Date().toLocaleDateString('es-DO');
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
   private async fetchImageBuffer(url: string | null | undefined): Promise<Buffer | null> {
     if (!url) return null;
     try {
@@ -107,21 +117,23 @@ export class PdfService {
 
   private drawLabelValueGrid(doc: any, x: number, y: number, items: { label: string; value: string }[]) {
     doc.save();
-    const lineSpacing = 13;
     const labelWidth = 90;
-    
-    items.forEach((item, i) => {
-      const itemY = y + i * lineSpacing;
-      
-      // Label text
+    const valueWidth = 180;
+    let currentY = y;
+
+    items.forEach((item) => {
+      const valueText = `:   ${item.value || 'N/A'}`;
+
       doc.font('Helvetica-Bold').fontSize(8).fillColor('#1B2A4A');
-      doc.text(item.label, x, itemY, { width: labelWidth });
-      
-      // Aligned value with colon
+      doc.text(item.label, x, currentY, { width: labelWidth });
+
+      const prevY = doc.y;
       doc.font('Helvetica').fontSize(8).fillColor('#4B5563');
-      doc.text(`:   ${item.value || 'N/A'}`, x + labelWidth, itemY, { width: 180 });
+      doc.text(valueText, x + labelWidth, currentY, { width: valueWidth });
+
+      currentY = Math.max(doc.y, prevY) + 2;
     });
-    
+
     doc.restore();
   }
 
@@ -260,7 +272,7 @@ export class PdfService {
     doc.restore();
   }
 
-  async generateContractPdf(rental: any): Promise<string> {
+  async generateContractPdf(rental: any): Promise<{ url: string | null; buffer: Buffer }> {
     const company = await this.loadCompanyInfo();
     const sigBuf = await this.fetchImageBuffer(rental.signatureUrl);
 
@@ -285,19 +297,24 @@ export class PdfService {
           try {
             const buffer = Buffer.concat(chunks);
             const filename = `rentcar/contracts/contract-${rental.id}-${Date.now()}.pdf`;
-            const blob = await put(filename, buffer, {
-              access: 'private',
-              contentType: 'application/pdf',
-              token: process.env.BLOB_READ_WRITE_TOKEN,
-            });
-            resolve(blob.url);
+            let url: string | null = null;
+            if (process.env.BLOB_READ_WRITE_TOKEN) {
+              const blob = await put(filename, buffer, {
+                access: 'private',
+                contentType: 'application/pdf',
+                token: process.env.BLOB_READ_WRITE_TOKEN,
+              });
+              url = blob.url;
+            }
+            resolve({ url, buffer });
           } catch (error) {
-            reject(error);
+            const buffer = Buffer.concat(chunks);
+            resolve({ url: null, buffer });
           }
         });
 
         // 1. Draw invoice header
-        const formattedDate = new Date().toLocaleDateString();
+        const formattedDate = this.formatDate(new Date());
         this.drawInvoiceHeader(doc, 'CONTRATO DE ALQUILER FLEETVAULT', `Referencia de Contrato: ${rental.id} | Fecha: ${formattedDate}`, company);
 
         // 2. Title & Reference
@@ -324,8 +341,8 @@ export class PdfService {
         // 4. Vehicle Information (Y=255)
         doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(10).text('INFORMACIÓN DEL VEHÍCULO', 45, 255);
         const vehicleInfo = `${rental.vehicle?.brand?.name || ''} ${rental.vehicle?.model?.name || 'N/A'}`;
-        const rentalDateStr = new Date(rental.rentalDate).toLocaleDateString();
-        const returnDateStr = new Date(rental.scheduledReturnDate).toLocaleDateString();
+        const rentalDateStr = this.formatDate(rental.rentalDate);
+        const returnDateStr = this.formatDate(rental.scheduledReturnDate);
         const rentalPeriod = `${rentalDateStr} - ${returnDateStr}`;
 
         this.drawLabelValueGrid(doc, 45, 270, [
@@ -342,7 +359,7 @@ export class PdfService {
         ]);
 
         // 6. Charges Table (Y=330)
-        const rentalDays = Math.ceil(
+        const rentalDays = Math.round(
           (new Date(rental.scheduledReturnDate).getTime() - new Date(rental.rentalDate).getTime()) / (1000 * 60 * 60 * 24)
         ) || 1;
         const baseCost = rentalDays * rental.pricePerDay;
@@ -439,15 +456,20 @@ export class PdfService {
         }
 
         const terms = [
-          '1. El cliente declara haber recibido el vehículo en buen estado general según lo reflejado en la inspección de salida.',
-          '2. El vehículo debe ser devuelto en la fecha y hora acordadas. Las devoluciones tardías generarán un cargo de RD$1,500 por hora después de 1 hora de gracia.',
-          '3. El cliente es responsable por cualquier daño al vehículo durante el período de alquiler: vidrios rotos RD$12,000, rayones RD$8,000, y neumáticos dañados o perdidos RD$5,000 cada uno.',
-          '4. El combustible debe ser devuelto en el mismo nivel de salida (FULL). Caso contrario se cobrará RD$2,000 de servicio más RD$1,000 por cada nivel de combustible faltante.',
-          '5. Los clientes no corporativos están sujetos a una retención de depósito de seguridad de RD$15,000, la cual será liberada al devolver el vehículo sin novedades.',
-          '6. Las cuentas corporativas facturan mediante Orden de Compra y están sujetas a verificación de límite de crédito disponible.',
-          '7. El cliente autoriza a FleetVault a procesar cargos adicionales por daños identificados hasta 48 horas después de la devolución.',
-          '8. La cobertura CDW requiere que el conductor principal tenga una licencia de conducir válida y vigente. El incumplimiento anula toda cobertura.',
-          '9. Este contrato se rige por las leyes de la República Dominicana.'
+          '1. INSPECCIÓN Y ENTREGA: El cliente declara haber recibido el vehículo en buen estado general, conforme al formulario de inspección de salida firmado digitalmente. Cualquier discrepancia debe ser reportada antes de retirar el vehículo.',
+          '2. DOCUMENTACIÓN Y CONDUCTOR: El conductor principal debe presentar una licencia de conducir física y vigente. Edad mínima de 21 años (25 años para vehículos de lujo). Conductores adicionales deben estar registrados en el contrato y cumplir los mismos requisitos.',
+          '3. PERÍODO DE ALQUILER: El vehículo debe ser devuelto en la fecha y hora acordadas. Las extensiones deben solicitarse y autorizarse por escrito. Las devoluciones tardías sin autorización generarán un cargo por hora según la tarifa vigente, después de 1 hora de gracia.',
+          '4. DEPÓSITO DE SEGURIDAD: Los clientes no corporativos están sujetos a una retención de depósito de seguridad según la tarifa vigente, liberada al devolver el vehículo sin novedades. Clientes corporativos están sujetos a verificación de límite de crédito disponible.',
+          '5. RESPONSABILIDAD POR DAÑOS: El cliente es responsable por el deducible CDW según la póliza vigente y asume el costo total de daños excluidos: neumáticos, rines, parabrisas, daños inferiores, interiores y de techo, robo de objetos de valor, pérdida de llaves y grúa.',
+          '6. MULTAS E INFRACCIONES: El cliente asume toda responsabilidad por multas de tránsito, infracciones, peajes y estacionamiento durante el período de alquiler. Autoriza a FleetVault a procesar estos cargos al método de pago registrado.',
+          '7. COMBUSTIBLE: El vehículo se entrega con el tanque lleno y debe devolverse en el mismo estado. De lo contrario, se aplicará la tarifa de servicio vigente.',
+          '8. USOS PROHIBIDOS: Queda prohibido conducir bajo efectos de alcohol o drogas, participar en competencias, transportar materiales ilegales, subarrendar, conducir fuera de carretera, o sacar el vehículo de República Dominicana.',
+          '9. LÍMITE TERRITORIAL: El vehículo puede circular en todo el territorio nacional. Zonas fronterizas (Dajabón, Jimaní, Pedernales, Elías Piña) requieren autorización previa. Prohibido sacar el vehículo del país.',
+          '10. CANCELACIONES: Cancelaciones con más de 48 horas de anticipación no tienen cargo. Cancelaciones tardías o no presentación generarán un cargo equivalente a un día de alquiler.',
+          '11. COBERTURA CDW: Aplica solo si el conductor principal cumple con todos los requisitos de licencia, edad y documentación. El incumplimiento anula toda cobertura.',
+          '12. CARGOS POSTERIORES: El cliente autoriza a FleetVault a procesar cargos adicionales por daños, multas o costos identificados hasta 15 días después de la devolución.',
+          '13. FUERZA MAYOR: FleetVault no será responsable por incumplimientos debido a huracanes, desastres naturales, disturbios civiles, pandemias o eventos fuera de su control.',
+          '14. LEY APLICABLE: Este contrato se rige por las leyes de la República Dominicana. Cualquier controversia será sometida a los tribunales competentes de la República Dominicana.'
         ];
 
         doc.font('Helvetica').fontSize(7.5);
@@ -587,7 +609,7 @@ export class PdfService {
 
     return new Promise((resolve, reject) => {
       try {
-        const doc = new PDFDocument({ margin: 45, layout: 'landscape', size: 'A4' });
+        const doc = new PDFDocument({ margin: 45, size: 'A4' });
         const chunks: Buffer[] = [];
 
         doc.on('data', (chunk: any) => chunks.push(chunk));
@@ -624,26 +646,26 @@ export class PdfService {
         ]);
 
         const tableTop = 250;
-        const firstColW = 80;
-        const catColW = Math.min(85, (doc.page.width - 45 - 45 - firstColW - 70) / categories.length);
-        const totalColW = 70;
-        const fullWidth = firstColW + catColW * categories.length + totalColW;
+        const fullWidth = doc.page.width - 45 - 45;
+        const firstColW = 90;
+        const totalColW = 90;
+        const catColW = Math.max(1, (fullWidth - firstColW - totalColW) / Math.max(1, categories.length));
         const startX = 45;
-        const rowHeight = 16;
+        const rowHeight = 22;
 
         let y = tableTop;
         let currentPage = 1;
 
         const drawTableHeader = (yPos: number) => {
           doc.rect(startX, yPos, fullWidth, rowHeight).fill('#0D6B7A');
-          doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(7);
-          doc.text('Mes', startX + 6, yPos + 4.5, { width: firstColW - 12 });
+          doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(9);
+          doc.text('Mes', startX + 6, yPos + 6.5, { width: firstColW - 12 });
           let cx = startX + firstColW;
           categories.forEach((cat) => {
-            doc.text(cat, cx + 4, yPos + 4.5, { width: catColW - 8, align: 'right' });
+            doc.text(cat, cx + 4, yPos + 6.5, { width: catColW - 8, align: 'right' });
             cx += catColW;
           });
-          doc.text('Total', cx + 4, yPos + 4.5, { width: totalColW - 8, align: 'right' });
+          doc.text('Total', cx + 4, yPos + 6.5, { width: totalColW - 8, align: 'right' });
           return yPos + rowHeight;
         };
 
@@ -675,18 +697,18 @@ export class PdfService {
           doc.rect(startX, y, fullWidth, rowHeight).stroke();
           drawColLines(y);
 
-          doc.font('Helvetica-Bold').fontSize(7).fillColor('#1B2A4A');
-          doc.text(row.month, startX + 6, y + 4.5, { width: firstColW - 12 });
+          doc.font('Helvetica-Bold').fontSize(9).fillColor('#1B2A4A');
+          doc.text(row.month, startX + 6, y + 6.5, { width: firstColW - 12 });
 
-          doc.font('Helvetica').fontSize(7).fillColor('#4B5563');
+          doc.font('Helvetica').fontSize(9).fillColor('#4B5563');
           let cx = startX + firstColW;
           categories.forEach((cat) => {
-            doc.text((row[cat] || 0).toFixed(2), cx + 4, y + 4.5, { width: catColW - 8, align: 'right' });
+            doc.text((row[cat] || 0).toFixed(2), cx + 4, y + 6.5, { width: catColW - 8, align: 'right' });
             cx += catColW;
           });
 
-          doc.font('Helvetica-Bold').fontSize(7).fillColor('#1B2A4A');
-          doc.text(monthlySum.toFixed(2), cx + 4, y + 4.5, { width: totalColW - 8, align: 'right' });
+          doc.font('Helvetica-Bold').fontSize(9).fillColor('#1B2A4A');
+          doc.text(monthlySum.toFixed(2), cx + 4, y + 6.5, { width: totalColW - 8, align: 'right' });
 
           y += rowHeight;
         }
@@ -705,10 +727,10 @@ export class PdfService {
         doc.rect(startX, y, fullWidth, rowHeight).stroke();
         drawColLines(y);
 
-        doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#1B2A4A');
-        doc.text('TOTAL', startX + 6, y + 4, { width: firstColW - 12 });
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('#1B2A4A');
+        doc.text('TOTAL', startX + 6, y + 6, { width: firstColW - 12 });
 
-        doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#1B2A4A');
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('#1B2A4A');
         let cx = startX + firstColW;
         categories.forEach((cat) => {
           const catTotal = data.reduce((sum, r) => sum + (r[cat] || 0), 0);
@@ -870,7 +892,7 @@ export class PdfService {
     });
   }
 
-  async generateReturnReceiptPdf(rental: any): Promise<string> {
+  async generateReturnReceiptPdf(rental: any): Promise<{ url: string | null; buffer: Buffer }> {
     const company = await this.loadCompanyInfo();
     const returnSigBuf = await this.fetchImageBuffer(rental.returnSignatureUrl);
 
@@ -891,19 +913,24 @@ export class PdfService {
           try {
             const buffer = Buffer.concat(chunks);
             const filename = `rentcar/receipts/receipt-${rental.id}-${Date.now()}.pdf`;
-            const blob = await put(filename, buffer, {
-              access: 'private',
-              contentType: 'application/pdf',
-              token: process.env.BLOB_READ_WRITE_TOKEN,
-            });
-            resolve(blob.url);
+            let url: string | null = null;
+            if (process.env.BLOB_READ_WRITE_TOKEN) {
+              const blob = await put(filename, buffer, {
+                access: 'private',
+                contentType: 'application/pdf',
+                token: process.env.BLOB_READ_WRITE_TOKEN,
+              });
+              url = blob.url;
+            }
+            resolve({ url, buffer });
           } catch (error) {
-            reject(error);
+            const buffer = Buffer.concat(chunks);
+            resolve({ url: null, buffer });
           }
         });
 
         // 1. Draw invoice header
-        const formattedDate = new Date().toLocaleDateString();
+        const formattedDate = this.formatDate(new Date());
         this.drawInvoiceHeader(doc, 'RECIBO DE DEVOLUCIÓN FLEETVAULT', `Referencia de Contrato: ${rental.id} | Fecha: ${formattedDate}`, company);
 
         // 2. Title & Reference
@@ -923,15 +950,15 @@ export class PdfService {
         // Column 2 (X=350)
         this.drawLabelValueGrid(doc, 350, 175, [
           { label: 'Número de Factura', value: rental.id.substring(0, 15) + '...' },
-          { label: 'Fecha de Devolución', value: rental.actualReturnDate ? new Date(rental.actualReturnDate).toLocaleDateString() : formattedDate },
+          { label: 'Fecha de Devolución', value: this.formatDate(rental.scheduledReturnDate) },
           { label: 'Agente de Recibo', value: rental.returnEmployee?.name || 'N/A' }
         ]);
 
         // 4. Vehicle Information (Y=255)
         doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(10).text('INFORMACIÓN DEL VEHÍCULO', 45, 255);
         const vehicleInfo = `${rental.vehicle?.brand?.name || ''} ${rental.vehicle?.model?.name || 'N/A'}`;
-        const rentalDateStr = new Date(rental.rentalDate).toLocaleDateString();
-        const returnDateStr = rental.actualReturnDate ? new Date(rental.actualReturnDate).toLocaleDateString() : formattedDate;
+        const rentalDateStr = this.formatDate(rental.rentalDate);
+        const returnDateStr = this.formatDate(rental.scheduledReturnDate);
         const rentalPeriod = `${rentalDateStr} - ${returnDateStr}`;
 
         this.drawLabelValueGrid(doc, 45, 270, [
@@ -948,21 +975,6 @@ export class PdfService {
         ]);
 
         // 6. Charges Table (Y=330)
-        const rentalDays = Math.ceil(
-          (new Date(rental.actualReturnDate || rental.scheduledReturnDate).getTime() - new Date(rental.rentalDate).getTime()) / (1000 * 60 * 60 * 24)
-        ) || 1;
-        const baseCost = rentalDays * rental.pricePerDay;
-
-        const tableRows = [
-          {
-            desc: 'Cargos por Alquiler de Vehículo',
-            rate: `$ ${rental.pricePerDay.toFixed(2)}`,
-            qty: `${rentalDays} día${rentalDays > 1 ? 's' : ''}`,
-            subtotal: `$ ${baseCost.toFixed(2)}`
-          }
-        ];
-
-        // Recalculate Penalties to populate table items:
         const pickupInsp = rental.inspections?.find((i: any) => i.type === 'PICKUP');
         const returnInsp = rental.inspections?.find((i: any) => i.type === 'RETURN');
         
@@ -1011,6 +1023,19 @@ export class PdfService {
           damageFee = glassFee + scratchesFee + tiresFee;
         }
 
+        const totalCost = rental.totalCost || 0;
+        const baseCost = Math.max(0, totalCost - lateFee - fuelFee - damageFee);
+        const rentalDays = Math.round(baseCost / (rental.pricePerDay || 1)) || 1;
+
+        const tableRows = [
+          {
+            desc: 'Cargos por Alquiler de Vehículo',
+            rate: `$ ${rental.pricePerDay.toFixed(2)}`,
+            qty: `${rentalDays} día${rentalDays > 1 ? 's' : ''}`,
+            subtotal: `$ ${baseCost.toFixed(2)}`
+          }
+        ];
+
         if (lateFee > 0) {
           tableRows.push({
             desc: 'Penalización por Devolución Tardía',
@@ -1038,8 +1063,6 @@ export class PdfService {
           });
         }
 
-        const totalCost = rental.totalCost || (baseCost + lateFee + fuelFee + damageFee);
-        
         const endTableY = this.drawInvoiceTable(doc, 45, 330, 505.28, tableRows, baseCost, 0, totalCost);
 
         // 7. Payment Information (Y = endTableY + 15)

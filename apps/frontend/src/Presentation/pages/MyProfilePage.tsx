@@ -5,7 +5,11 @@ import { apiClient } from '../../Infrastructure/api-client.js';
 import { Button } from '../components/ui/Button.js';
 import { Input } from '../components/ui/Input.js';
 import { FormField } from '../components/ui/FormField.js';
-import { User, Shield, Check, AlertCircle } from 'lucide-react';
+import { LicensePhotoCapture } from '../components/ui/LicensePhotoCapture.js';
+import { useUploadImage } from '../../Infrastructure/hooks/useUploads.js';
+import { useMyPaymentMethods, useDeleteMyPaymentMethod } from '../../Infrastructure/hooks/useCatalog.js';
+import { formatCurrency } from '@rent-car/common';
+import { User, Shield, Check, AlertCircle, CreditCard, Trash2, DollarSign } from 'lucide-react';
 
 export const MyProfilePage: React.FC = () => {
   const { t } = useTranslation();
@@ -18,14 +22,19 @@ export const MyProfilePage: React.FC = () => {
 
   // Form fields
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [nationalId, setNationalId] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [creditLimit, setCreditLimit] = useState(0);
+  const [outstandingBalance, setOutstandingBalance] = useState(0);
   const [licenseNumber, setLicenseNumber] = useState('');
   const [licenseCountry, setLicenseCountry] = useState('');
   const [licenseExpDate, setLicenseExpDate] = useState('');
+  const [licensePhotoUrl, setLicensePhotoUrl] = useState('');
+  const [pendingLicenseFile, setPendingLicenseFile] = useState<File | null>(null);
   const [status, setStatus] = useState('ACTIVE');
-  const [type, setType] = useState('REGULAR');
+  const [type, setType] = useState('INDIVIDUAL');
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -35,16 +44,20 @@ export const MyProfilePage: React.FC = () => {
         if (res.data) {
           const c = res.data;
           setName(c.name || '');
+          setEmail(c.email || '');
           setNationalId(c.nationalId || '');
           setPhone(c.phone || '');
           setAddress(c.address || '');
+          setCreditLimit(c.creditLimit || 0);
+          setOutstandingBalance(c.outstandingBalance || 0);
           setLicenseNumber(c.licenseNumber || '');
           setLicenseCountry(c.licenseCountry || '');
           if (c.licenseExpDate) {
             setLicenseExpDate(new Date(c.licenseExpDate).toISOString().split('T')[0]);
           }
+          setLicensePhotoUrl(c.licensePhotoUrl || '');
           setStatus(c.status || 'ACTIVE');
-          setType(c.type || 'REGULAR');
+          setType(c.type || 'INDIVIDUAL');
         }
       } catch (err: any) {
         console.error('Failed to load profile:', err);
@@ -64,16 +77,32 @@ export const MyProfilePage: React.FC = () => {
       setSuccess(false);
       setError(null);
 
+      let finalPhotoUrl = licensePhotoUrl;
+      if (pendingLicenseFile && type !== 'CORPORATE') {
+        setError(t('profile.uploadingPhoto'));
+        const uploadResult = await uploadMutation.mutateAsync({
+          file: pendingLicenseFile,
+          folder: 'licenses',
+          entityType: 'customer',
+          entityId: '',
+        });
+        finalPhotoUrl = uploadResult.url;
+        setPendingLicenseFile(null);
+      }
+
       await apiClient('/api/customers/me', {
         method: 'PUT',
         body: JSON.stringify({
           name,
+          email: email.trim() || undefined,
           nationalId,
           phone,
           address,
-          licenseNumber: type === 'CORPORATE' ? null : licenseNumber,
-          licenseCountry: type === 'CORPORATE' ? null : licenseCountry,
+          creditLimit: type === 'CORPORATE' ? creditLimit : 0,
+          licenseNumber: type === 'CORPORATE' ? null : (licenseNumber.trim() || undefined),
+          licenseCountry: type === 'CORPORATE' ? null : (licenseCountry.trim() || undefined),
           licenseExpDate: (type !== 'CORPORATE' && licenseExpDate) ? new Date(licenseExpDate).toISOString() : null,
+          licensePhotoUrl: type === 'CORPORATE' ? null : (finalPhotoUrl || undefined),
           status,
           type
         })
@@ -88,9 +117,13 @@ export const MyProfilePage: React.FC = () => {
     }
   };
 
+  const uploadMutation = useUploadImage();
+  const { data: savedCards = [], refetch: refetchCards } = useMyPaymentMethods();
+  const deleteCardMutation = useDeleteMyPaymentMethod();
+
   const isProfileComplete = type === 'CORPORATE'
-    ? !!nationalId
-    : !!(nationalId && licenseNumber && licenseCountry && licenseExpDate);
+    ? !!(name && email && nationalId && phone)
+    : !!(name && email && nationalId && phone && licenseNumber && licenseCountry && licenseExpDate);
 
   const scrollToForm = () => {
     const element = document.getElementById('profile-form');
@@ -188,6 +221,16 @@ export const MyProfilePage: React.FC = () => {
             />
           </FormField>
 
+          <FormField label={t('customers.email')}>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+              placeholder={t('customers.email')}
+              className="!h-9 rounded-lg"
+            />
+          </FormField>
+
           <FormField label={t('profile.phoneNumber')} required>
             <Input
               type="tel"
@@ -210,6 +253,40 @@ export const MyProfilePage: React.FC = () => {
             />
           </FormField>
         </div>
+
+        {type === 'CORPORATE' && (
+          <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-3">
+            <span className="text-xs font-bold uppercase tracking-widest text-accent-primary flex items-center gap-2">
+              <DollarSign className="w-3.5 h-3.5" />
+              {t('customers.creditLimit')}
+            </span>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-fg-secondary text-xs">{t('profile.creditUsed')}</span>
+              <span className="font-mono font-bold text-fg-main">{formatCurrency(outstandingBalance)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-fg-secondary text-xs">{t('profile.creditAvailable')}</span>
+              <span className="font-mono font-bold text-emerald-500">{formatCurrency(Math.max(0, creditLimit - outstandingBalance))}</span>
+            </div>
+            <div className="w-full h-2 rounded-full bg-bg-surface/50 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${Math.min(100, (outstandingBalance / (creditLimit || 1)) * 100)}%`,
+                  background: outstandingBalance > creditLimit * 0.8
+                    ? 'linear-gradient(90deg, #f59e0b, #ef4444)'
+                    : outstandingBalance > creditLimit * 0.5
+                    ? 'linear-gradient(90deg, #22c55e, #f59e0b)'
+                    : 'linear-gradient(90deg, #22c55e, #16a34a)'
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-fg-tertiary">
+              <span>{formatCurrency(0)}</span>
+              <span>{t('profile.creditLimitLabel', { amount: formatCurrency(creditLimit) })}</span>
+            </div>
+          </div>
+        )}
 
         {type !== 'CORPORATE' && (
           <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-4">
@@ -250,6 +327,63 @@ export const MyProfilePage: React.FC = () => {
                   required
                 />
               </FormField>
+            </div>
+
+            <div className="pt-1">
+              <LicensePhotoCapture
+                value={licensePhotoUrl}
+                onChange={setLicensePhotoUrl}
+                onFileSelect={setPendingLicenseFile}
+                label={t('customers.licensePhoto')}
+              />
+            </div>
+          </div>
+        )}
+
+        {savedCards.length > 0 && (
+          <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-3">
+            <span className="text-xs font-bold uppercase tracking-widest text-accent-primary flex items-center gap-2">
+              <CreditCard className="w-3.5 h-3.5" />
+              {t('stripe.savedPaymentMethods')}
+            </span>
+            <div className="space-y-2">
+              {savedCards.map((card: any) => (
+                <div key={card.id} className="flex items-center justify-between p-3 rounded-lg bg-bg-surface/30 border border-border-surface/20">
+                  <div className="flex items-center gap-3">
+                    <CreditCard className="w-4 h-4 text-fg-tertiary" />
+                    <div>
+                      <p className="text-xs font-bold text-fg-main uppercase">
+                        {card.card.brand} •••• {card.card.last4}
+                      </p>
+                      <p className="text-[10px] text-fg-tertiary">
+                        {t('stripe.expires')} {card.card.exp_month}/{card.card.exp_year}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (confirm(t('stripe.confirmRemoveCard'))) {
+                        try {
+                          setError(null);
+                          await deleteCardMutation.mutateAsync(card.id);
+                          refetchCards();
+                        } catch (err: any) {
+                          const msg = err.message || '';
+                          if (msg.includes('currently backing an active or pending rental hold')) {
+                            setError(t('stripe.cannotRemoveCardInUse'));
+                          } else {
+                            setError(msg || t('common.operationFailed'));
+                          }
+                        }
+                      }
+                    }}
+                    className="p-2 text-fg-tertiary hover:text-accent-error transition-all rounded-lg hover:bg-white/5 cursor-pointer"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}

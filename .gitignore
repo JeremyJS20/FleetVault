@@ -5,3 +5,9 @@ dist
 *.db-journal
 .turbo
 .vercel
+
+# generated/test artifacts
+scratch/
+debug-*.js
+debug-*.cjs
+*.tmp

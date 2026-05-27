@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ColumnDef } from '@tanstack/react-table';
-import { Download, Search as SearchIcon, Calendar, FileDown } from 'lucide-react';
+import { FileText, Search as SearchIcon, Calendar, FileDown } from 'lucide-react';
 import { formatCurrency } from '@rent-car/common';
 import { useVehicleTypes } from '../../Infrastructure/hooks/useCatalog.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
@@ -164,13 +164,36 @@ export const RentalQueryPage: React.FC = () => {
       ),
     },
     {
-      accessorKey: 'totalCost',
-      header: t('dashboard.totalCost'),
-      cell: (info) => (
-        <span className="font-bold font-mono">
-          {formatCurrency(info.getValue() as number || 0)}
-        </span>
-      ),
+      id: 'rentalCost',
+      header: t('dashboard.rentalCost'),
+      cell: (info) => {
+        const rental = info.row.original;
+        return <span className="font-bold font-mono">{formatCurrency(rental.totalCost || 0)}</span>;
+      },
+    },
+    {
+      id: 'deposit',
+      header: t('dashboard.deposit'),
+      cell: (info) => {
+        const rental = info.row.original;
+        if (rental.status !== 'ACTIVE' && rental.status !== 'PENDING') return <span className="font-mono">—</span>;
+        const holdTxn = rental.transactions?.find((t: any) => t.type !== 'CHARGE');
+        const deposit = holdTxn ? Math.max(0, (holdTxn.amount || 0) - (rental.totalCost || 0)) : 0;
+        return <span className="font-mono">{deposit > 0 ? formatCurrency(deposit) : '—'}</span>;
+      },
+    },
+    {
+      id: 'totalHeld',
+      header: t('dashboard.totalWithDeposit'),
+      cell: (info) => {
+        const rental = info.row.original;
+        let total = rental.totalCost || 0;
+        if (rental.status === 'ACTIVE' || rental.status === 'PENDING') {
+          const holdTxn = rental.transactions?.find((t: any) => t.type !== 'CHARGE');
+          if (holdTxn) total = holdTxn.amount || 0;
+        }
+        return <span className="font-bold font-mono">{formatCurrency(total)}</span>;
+      },
     },
     {
       accessorKey: 'status',
@@ -187,28 +210,24 @@ export const RentalQueryPage: React.FC = () => {
         return (
           <div className="flex items-center gap-1.5">
             {(isActive || isCompleted) && (
-              <Button
-                variant="secondary"
-                size="sm"
+              <button
                 onClick={() => handleDownloadContract(rental)}
-                className="flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-xs"
+                className="h-7 text-[10px] font-bold uppercase tracking-widest px-2 rounded-lg inline-flex items-center gap-1 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all"
                 title={t('queryPage.downloadPdf')}
               >
-                <Download size={13} />
-                <span>{t('queryPage.contract')}</span>
-              </Button>
+                <FileText size={11} />
+                {t('myRentals.contractPdf')}
+              </button>
             )}
             {isCompleted && (
-              <Button
-                variant="secondary"
-                size="sm"
+              <button
                 onClick={() => handleDownloadReceipt(rental)}
-                className="flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-xs"
+                className="h-7 text-[10px] font-bold uppercase tracking-widest px-2 rounded-lg inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all"
                 title={t('queryPage.downloadReceipt')}
               >
-                <Download size={13} />
-                <span>{t('queryPage.downloadReceipt')}</span>
-              </Button>
+                <FileText size={11} />
+                {t('myRentals.receiptPdf')}
+              </button>
             )}
           </div>
         );

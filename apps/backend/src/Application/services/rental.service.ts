@@ -175,11 +175,13 @@ export class RentalService {
         }
       });
       if (fullRental) {
-        const pdfUrl = await pdfService.generateContractPdf(fullRental);
-        await prisma.rental.update({
-          where: { id: rentalId },
-          data: { contractPdfUrl: pdfUrl }
-        });
+        const pdfResult = await pdfService.generateContractPdf(fullRental);
+        if (pdfResult.url) {
+          await prisma.rental.update({
+            where: { id: rentalId },
+            data: { contractPdfUrl: pdfResult.url }
+          });
+        }
       }
     } catch (pdfErr) {
       console.error('[activateReservation] Failed to generate contract PDF:', pdfErr);
@@ -393,16 +395,16 @@ export class RentalService {
 
       let ledgerType = 'PRE_AUTH_HOLD';
       let ledgerAmount = result.holdAmount;
-      let ledgerComments = `Counter pre-auth hold of RD$${result.holdAmount} (Rent: RD$${result.totalCost} + Deposit: RD$${result.depositAmount})`;
+      let ledgerComments = `Pre-autorización de mostrador de RD$${result.holdAmount} (Alquiler: RD$${result.totalCost} + Depósito: RD$${result.depositAmount})`;
 
       if (isCorporate) {
         ledgerType = 'PO_INVOICE';
         ledgerAmount = result.totalCost;
-        ledgerComments = `Corporate invoice under PO ${input.purchaseOrderNumber} for RD$${result.totalCost}`;
+        ledgerComments = `Factura OC bajo OC ${input.purchaseOrderNumber} por RD$${result.totalCost}`;
       } else if (isCash) {
         ledgerType = 'CASH';
         ledgerAmount = result.holdAmount;
-        ledgerComments = `Upfront cash payment collected for RD$${result.holdAmount} (Rent: RD$${result.totalCost} + Deposit: RD$${result.depositAmount})`;
+        ledgerComments = `Pago en efectivo recibido por RD$${result.holdAmount} (Alquiler: RD$${result.totalCost} + Depósito: RD$${result.depositAmount})`;
       }
 
       await tx.transactionLedger.create({
@@ -432,11 +434,13 @@ export class RentalService {
         }
       });
       if (fullRental) {
-        const pdfUrl = await pdfService.generateContractPdf(fullRental);
-        await prisma.rental.update({
-          where: { id: newRental.id },
-          data: { contractPdfUrl: pdfUrl }
-        });
+        const pdfResult = await pdfService.generateContractPdf(fullRental);
+        if (pdfResult.url) {
+          await prisma.rental.update({
+            where: { id: newRental.id },
+            data: { contractPdfUrl: pdfResult.url }
+          });
+        }
       }
     } catch (pdfErr) {
       console.error('[createWalkInRental] Failed to generate contract PDF:', pdfErr);
@@ -621,20 +625,20 @@ export class RentalService {
     // 3. Update database record in a transaction
     const completedRental = await prisma.$transaction(async (tx) => {
       let ledgerType = 'CHARGE';
-      let ledgerComments = `Final check-in charge of RD$${calcs.totalFinalCost} (Rent: RD$${calcs.baseCost}, Late Fee: RD$${calcs.lateFee}, Fuel Fee: RD$${calcs.fuelFee}, Damage Fee: RD$${calcs.totalDamageFee})`;
+      let ledgerComments = `Cobro final de devolución de RD$${calcs.totalFinalCost} (Alquiler: RD$${calcs.baseCost}, Morosidad: RD$${calcs.lateFee}, Combustible: RD$${calcs.fuelFee}, Daños: RD$${calcs.totalDamageFee})`;
       
       if (isCorporate) {
         ledgerType = 'PO_INVOICE';
-        ledgerComments = `Corporate invoice return check-in under PO ${rental.purchaseOrderNumber} for RD$${calcs.totalFinalCost} (Rent: RD$${calcs.baseCost}, Late Fee: RD$${calcs.lateFee}, Fuel Fee: RD$${calcs.fuelFee}, Damage Fee: RD$${calcs.totalDamageFee})`;
+        ledgerComments = `Factura OC de devolución bajo OC ${rental.purchaseOrderNumber} por RD$${calcs.totalFinalCost} (Alquiler: RD$${calcs.baseCost}, Morosidad: RD$${calcs.lateFee}, Combustible: RD$${calcs.fuelFee}, Daños: RD$${calcs.totalDamageFee})`;
       } else if (isCash) {
         ledgerType = 'CASH';
         // Calculate cash reconciliation adjustments
         const initialCashPaid = checkoutLedger?.amount || 0;
         const diff = initialCashPaid - calcs.totalFinalCost;
         if (diff >= 0) {
-          ledgerComments = `Cash return check-in completed. Refunded RD$${diff.toFixed(2)} in cash (Initial: RD$${initialCashPaid}, Final Cost: RD$${calcs.totalFinalCost})`;
+          ledgerComments = `Devolución en efectivo completada. Reembolsado RD$${diff.toFixed(2)} en efectivo (Inicial: RD$${initialCashPaid}, Costo Final: RD$${calcs.totalFinalCost})`;
         } else {
-          ledgerComments = `Cash return check-in completed. Collected additional RD$${Math.abs(diff).toFixed(2)} in cash (Initial: RD$${initialCashPaid}, Final Cost: RD$${calcs.totalFinalCost})`;
+          ledgerComments = `Devolución en efectivo completada. Cobrado adicional RD$${Math.abs(diff).toFixed(2)} en efectivo (Inicial: RD$${initialCashPaid}, Costo Final: RD$${calcs.totalFinalCost})`;
         }
       }
 
@@ -681,7 +685,7 @@ export class RentalService {
           returnEmployeeId: input.returnEmployeeId,
           totalCost: calcs.totalFinalCost,
           commissionAmount: commAmount,
-          comments: input.comments || `Returned successfully. Penalties applied: RD$${calcs.totalFinalCost - calcs.baseCost}`
+          comments: input.comments || `Devuelto exitosamente. Penalidades aplicadas: RD$${calcs.totalFinalCost - calcs.baseCost}`
         },
         include: {
           vehicle: {
@@ -706,10 +710,12 @@ export class RentalService {
 
     // Generate Return Receipt PDF
     try {
-      const pdfUrl = await pdfService.generateReturnReceiptPdf(completedRental);
+      const pdfResult = await pdfService.generateReturnReceiptPdf(completedRental);
+      const updateData: any = {};
+      if (pdfResult.url) updateData.returnReceiptUrl = pdfResult.url;
       const finalRental = await prisma.rental.update({
         where: { id: rentalId },
-        data: { returnReceiptUrl: pdfUrl },
+        data: updateData,
         include: {
           vehicle: {
             include: {
@@ -871,8 +877,8 @@ export class RentalService {
               stripePaymentIntentId: isCorporate ? null : rental.stripePaymentIntentId,
               purchaseOrderNumber: isCorporate ? rental.purchaseOrderNumber : null,
               comments: isCorporate
-                ? `No-show cancellation invoice (over 2h late) under PO ${rental.purchaseOrderNumber}: 1 day penalty of RD$${penalty}`
-                : `No-show cancellation charge (over 2h late): 1 day penalty of RD$${penalty}`
+                ? `Factura por cancelación por inasistencia (más de 2h de retraso) OC ${rental.purchaseOrderNumber}: penalidad de 1 día RD$${penalty}`
+                : `Cargo por cancelación por inasistencia (más de 2h de retraso): penalidad de 1 día RD$${penalty}`
             }
           });
 
@@ -881,7 +887,7 @@ export class RentalService {
             data: {
               status: 'CANCELLED',
               totalCost: penalty,
-              comments: `System cancelled: No-show for scheduled pickup. Charged 1-day penalty RD$${penalty}`
+              comments: `Sistema canceló: Inasistencia a recogida programada. Penalidad de 1 día cargada RD$${penalty}`
             }
           });
         });

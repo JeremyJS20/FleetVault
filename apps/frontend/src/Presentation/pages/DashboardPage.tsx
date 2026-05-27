@@ -1,14 +1,16 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../Infrastructure/auth.context.js';
 import { useAdminDashboard, useCustomerDashboard } from '../../Infrastructure/hooks/useDashboard.js';
+import { useMyPaymentMethods } from '../../Infrastructure/hooks/useCatalog.js';
 import { formatCurrency } from '@rent-car/common';
 import {
   TrendingUp,
   Car,
   DollarSign,
   CalendarDays,
-  Award,
+  CreditCard,
   Clock,
   CheckCircle2
 } from 'lucide-react';
@@ -34,10 +36,12 @@ const statusColors: Record<string, string> = {
 export const DashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = user?.role === 'ADMINISTRATOR' || user?.role === 'AGENT';
 
   const { data: adminData, isLoading: adminLoading } = useAdminDashboard(isAdmin);
   const { data: customerData, isLoading: customerLoading } = useCustomerDashboard(!isAdmin);
+  const { data: savedCards = [] } = useMyPaymentMethods();
 
   const loading = isAdmin ? adminLoading : customerLoading;
 
@@ -158,18 +162,40 @@ export const DashboardPage: React.FC = () => {
               subtext={t('dashboard.memberSince', { date: customerData.memberSince })}
             />
             <StatCard
-              label={t('dashboard.rewardsProgram')}
-              icon={<Award size={16} />}
-              value={String(customerData.totalBookings * 100)}
-              subtext={customerData.totalBookings > 5 ? t('dashboard.goldTier') : t('dashboard.silverTier')}
+              label={t('dashboard.savedCards')}
+              icon={<CreditCard size={16} />}
+              value={String(savedCards.length)}
+              subtext={
+                <button
+                  type="button"
+                  onClick={() => navigate('/customer/profile')}
+                  className="underline hover:text-accent-primary transition-colors cursor-pointer"
+                >
+                  {t('dashboard.manageCards')}
+                </button>
+              }
             />
-            <StatCard
-              label={t('dashboard.totalInvested')}
-              icon={<DollarSign size={16} />}
-              value={formatCurrency(customerData.totalSpent)}
-              subtext={t('dashboard.averageRental', { amount: formatCurrency(customerData.averageRental) })}
-              mono
-            />
+            {customerData.customerType === 'CORPORATE' ? (
+              <StatCard
+                label={t('dashboard.availableCredit')}
+                icon={<DollarSign size={16} />}
+                value={formatCurrency(customerData.creditLimit - customerData.outstandingBalance)}
+                subtext={
+                  <span>
+                    {t('dashboard.ofCredit', { used: formatCurrency(customerData.outstandingBalance), total: formatCurrency(customerData.creditLimit) })}
+                  </span>
+                }
+                mono
+              />
+            ) : (
+              <StatCard
+                label={t('dashboard.totalInvested')}
+                icon={<DollarSign size={16} />}
+                value={formatCurrency(customerData.totalSpent)}
+                subtext={t('dashboard.averageRental', { amount: formatCurrency(customerData.averageRental) })}
+                mono
+              />
+            )}
           </>
         ) : null}
       </div>
@@ -210,15 +236,12 @@ export const DashboardPage: React.FC = () => {
             <div className="flex flex-col gap-2.5">
               {isAdmin ? (
                 <>
-                  <Button variant="primary" size="sm" className="w-full !h-11 !rounded-xl">{t('dashboard.addNewVehicle')}</Button>
-                  <Button variant="secondary" size="sm" className="w-full !h-11 !rounded-xl">{t('dashboard.generateInvoices')}</Button>
-                  <Button variant="secondary" size="sm" className="w-full !h-11 !rounded-xl">{t('dashboard.systemLogs')}</Button>
+                  <Button variant="primary" size="sm" className="w-full !h-11 !rounded-xl" onClick={() => navigate('/admin/vehicles')}>{t('dashboard.addNewVehicle')}</Button>
+                  <Button variant="secondary" size="sm" className="w-full !h-11 !rounded-xl" onClick={() => navigate('/admin/query')}>{t('dashboard.generateInvoices')}</Button>
                 </>
               ) : (
                 <>
-                  <Button variant="primary" size="sm" className="w-full !h-11 !rounded-xl">{t('dashboard.browseVehicles')}</Button>
-                  <Button variant="secondary" size="sm" className="w-full !h-11 !rounded-xl">{t('dashboard.loyaltyDetails')}</Button>
-                  <Button variant="secondary" size="sm" className="w-full !h-11 !rounded-xl">{t('dashboard.contactSupport')}</Button>
+                  <Button variant="primary" size="sm" className="w-full !h-11 !rounded-xl" onClick={() => navigate('/customer/browse')}>{t('dashboard.browseVehicles')}</Button>
                 </>
               )}
             </div>

@@ -44,6 +44,9 @@ export const useCustomerDashboard = (enabled: boolean = true) => {
         totalSpent: number;
         averageRental: number;
         memberSince: string;
+        creditLimit: number;
+        outstandingBalance: number;
+        customerType: string;
         recentRentals: {
           id: string;
           car: string;

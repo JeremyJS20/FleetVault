@@ -25,6 +25,7 @@ import { SeasonalRatesPage } from './pages/SeasonalRatesPage.js';
 import { FeeConfigPage } from './pages/FeeConfigPage.js';
 import { RentalPolicyPage } from './pages/RentalPolicyPage.js';
 import { PolicyListPage } from './pages/PolicyListPage.js';
+import { CustomerInvoicesPage } from './pages/CustomerInvoicesPage.js';
 import { CatalogPage } from './pages/CatalogPage.js';
 import { MyProfilePage } from './pages/MyProfilePage.js';
 import { MyRentalsPage } from './pages/MyRentalsPage.js';
@@ -39,6 +40,7 @@ import { UtilizationReportPage } from './pages/UtilizationReportPage.js';
 import { RevenueReportPage } from './pages/RevenueReportPage.js';
 import { CommissionsReportPage } from './pages/CommissionsReportPage.js';
 import { CompanySettingsPage } from './pages/CompanySettingsPage.js';
+import { TransactionsPage } from './pages/TransactionsPage.js';
 
 import { NetworkStatusProvider } from '../Infrastructure/network-status.js';
 
@@ -93,6 +95,7 @@ export const App: React.FC = () => {
                 <Route path="/admin/reports/revenue" element={<RevenueReportPage />} />
                 <Route path="/admin/reports/commissions" element={<CommissionsReportPage />} />
                 <Route path="/admin/company" element={<CompanySettingsPage />} />
+                <Route path="/admin/transactions" element={<TransactionsPage />} />
               </Route>
 
               {/* Customer Hub */}
@@ -102,6 +105,7 @@ export const App: React.FC = () => {
                 <Route path="/customer/reservations" element={<MyRentalsPage />} />
                 <Route path="/customer/profile" element={<MyProfilePage />} />
                 <Route path="/customer/policies" element={<PolicyListPage />} />
+                <Route path="/customer/invoices" element={<CustomerInvoicesPage />} />
                 <Route path="/customer/settings" element={<StubPage title="Account Settings" />} />
               </Route>
 

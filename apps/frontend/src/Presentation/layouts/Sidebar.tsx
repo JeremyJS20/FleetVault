@@ -24,7 +24,9 @@ import {
   TrendingUp,
   Coins,
   FileText,
-  Building2
+  Building2,
+  BookOpen,
+  Receipt
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -45,7 +47,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
   const customerLinks = [
     { to: '/customer/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
     { to: '/customer/browse', labelKey: 'nav.vehicles', icon: Search },
-    { to: '/customer/reservations', labelKey: 'nav.fleet', icon: Calendar },
+    { to: '/customer/reservations', labelKey: 'nav.reservations', icon: Calendar },
+    { to: '/customer/invoices', labelKey: 'nav.invoices', icon: Receipt },
     { to: '/customer/profile', labelKey: 'nav.people', icon: UserIcon },
     { to: '/customer/policies', labelKey: 'nav.rentalPolicies', icon: FileText },
   ];
@@ -70,9 +73,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
       titleKey: 'nav.fleet',
       links: [
         { to: '/admin/vehicles', labelKey: 'nav.vehicles', icon: Car },
-        { to: '/admin/vehicle-types', labelKey: 'nav.vehicleTypes', icon: Tags },
-        { to: '/admin/brands', labelKey: 'nav.brands', icon: Wrench },
         { to: '/admin/models', labelKey: 'nav.models', icon: Layers },
+        { to: '/admin/brands', labelKey: 'nav.brands', icon: Wrench },
+        { to: '/admin/vehicle-types', labelKey: 'nav.vehicleTypes', icon: Tags },
         { to: '/admin/fuel-types', labelKey: 'nav.fuelTypes', icon: Droplet },
       ]
     },
@@ -99,6 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
         { to: '/admin/reports/utilization', labelKey: 'nav.utilizationReport', icon: BarChart3 },
         { to: '/admin/reports/revenue', labelKey: 'nav.revenueReport', icon: TrendingUp },
         { to: '/admin/reports/commissions', labelKey: 'nav.commissionsReport', icon: Coins },
+        { to: '/admin/transactions', labelKey: 'nav.transactions', icon: BookOpen },
       ]
     }
   ];

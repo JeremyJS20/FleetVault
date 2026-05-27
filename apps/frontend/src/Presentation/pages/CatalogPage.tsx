@@ -54,6 +54,7 @@ export const CatalogPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [useNewCard, setUseNewCard] = useState(false);
   const [purchaseOrderNumber, setPurchaseOrderNumber] = useState('');
+  const [acceptedTnc, setAcceptedTnc] = useState(false);
 
   // Fetch customer profile when authenticated
   const { data: customerProfile } = useMyCustomerProfile(isAuthenticated);
@@ -67,6 +68,7 @@ export const CatalogPage: React.FC = () => {
   // Reset/default saved card selection when entering Step 2
   useEffect(() => {
     if (bookingStep === 2) {
+      setAcceptedTnc(false);
       if (savedCards && savedCards.length > 0) {
         setUseNewCard(false);
         setStripePaymentMethodId(savedCards[0].id);
@@ -467,19 +469,35 @@ export const CatalogPage: React.FC = () => {
                         required
                       />
                     </FormField>
-                    <div className="flex justify-end gap-2 pt-2">
-                      <Button variant="secondary" onClick={() => setBookingStep(1)}>
-                        {t('catalog.back')}
-                      </Button>
-                      <Button
-                        onClick={handleConfirmBooking}
-                        isLoading={createReservationMutation.isPending}
-                        disabled={!purchaseOrderNumber.trim()}
-                        className="flex items-center gap-1.5"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        {t('catalog.confirmReservation', 'Confirm Booking')}
-                      </Button>
+                    <div className="flex flex-col gap-3 pt-3 border-t border-border-surface/15">
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={acceptedTnc}
+                          onChange={(e) => setAcceptedTnc(e.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span className="text-[11px] text-fg-secondary leading-relaxed">
+                          {t('reservations.acceptTnc', 'He leído y acepto las')}{' '}
+                          <a href="/policies" target="_blank" rel="noopener noreferrer" className="text-accent-primary underline hover:text-accent-primary/80">
+                            {t('reservations.policiesAndTerms', 'Políticas de Alquiler y Términos y Condiciones')}
+                          </a>
+                        </span>
+                      </label>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="secondary" onClick={() => setBookingStep(1)}>
+                          {t('catalog.back')}
+                        </Button>
+                        <Button
+                          onClick={handleConfirmBooking}
+                          isLoading={createReservationMutation.isPending}
+                          disabled={!purchaseOrderNumber.trim() || !acceptedTnc}
+                          className="flex items-center gap-1.5"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          {t('catalog.confirmReservation', 'Confirm Booking')}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -586,19 +604,35 @@ export const CatalogPage: React.FC = () => {
                         {t('stripe.savedCardSelected', 'Saved card selected for pre-authorization hold.')}
                       </div>
                     )}
-                    <div className="flex justify-end gap-2 pt-2">
-                      <Button variant="secondary" onClick={() => setBookingStep(1)}>
-                        {t('catalog.back')}
-                      </Button>
-                      <Button
-                        onClick={handleConfirmBooking}
-                        isLoading={createReservationMutation.isPending}
-                        disabled={!stripePaymentMethodId}
-                        className="flex items-center gap-1.5"
-                      >
-                        <CreditCard className="w-3.5 h-3.5" />
-                        {t('catalog.placeHold')}
-                      </Button>
+                    <div className="flex flex-col gap-3 pt-3 border-t border-border-surface/15">
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={acceptedTnc}
+                          onChange={(e) => setAcceptedTnc(e.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span className="text-[11px] text-fg-secondary leading-relaxed">
+                          {t('reservations.acceptTnc', 'He leído y acepto las')}{' '}
+                          <a href="/policies" target="_blank" rel="noopener noreferrer" className="text-accent-primary underline hover:text-accent-primary/80">
+                            {t('reservations.policiesAndTerms', 'Políticas de Alquiler y Términos y Condiciones')}
+                          </a>
+                        </span>
+                      </label>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="secondary" onClick={() => setBookingStep(1)}>
+                          {t('catalog.back')}
+                        </Button>
+                        <Button
+                          onClick={handleConfirmBooking}
+                          isLoading={createReservationMutation.isPending}
+                          disabled={!stripePaymentMethodId || !acceptedTnc}
+                          className="flex items-center gap-1.5"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          {t('catalog.placeHold')}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
