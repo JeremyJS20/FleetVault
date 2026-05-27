@@ -74,6 +74,16 @@ export class PdfService {
     return mappings[level.toUpperCase()] || level;
   }
 
+  private translateTireCondition(cond: string | null | undefined): string {
+    if (!cond) return '—';
+    const mappings: Record<string, string> = {
+      'GOOD': 'Bueno',
+      'DAMAGED': 'Dañado',
+      'MISSING': 'Faltante'
+    };
+    return mappings[cond.toUpperCase()] || cond;
+  }
+
   private drawInvoiceHeader(doc: any, title: string, subtitle: string, company?: any) {
     doc.save();
     const c = company || {};
@@ -334,7 +344,7 @@ export class PdfService {
         // Column 2 (X=350)
         this.drawLabelValueGrid(doc, 350, 175, [
           { label: 'Número de Contrato', value: rental.id.substring(0, 15) + '...' },
-          { label: 'Fecha de Contrato', value: formattedDate },
+          { label: 'Fecha de Contrato', value: this.formatDate(rental.rentalDate) },
           { label: 'Agente de Salida', value: rental.checkoutEmployee?.name || 'N/A' }
         ]);
 
@@ -353,12 +363,44 @@ export class PdfService {
 
         // 5. Checkout Conditions (Column 2: X=350, Y=255)
         doc.fillColor('#1B2A4A').font('Helvetica-Bold').fontSize(10).text('ESTADO DE SALIDA', 350, 255);
-        this.drawLabelValueGrid(doc, 350, 270, [
-          { label: 'Odómetro (Salida)', value: `${rental.checkoutOdometer} km` },
-          { label: 'Combustible (Salida)', value: this.translateFuelLevel(rental.checkoutFuelLevel) }
-        ]);
 
-        // 6. Charges Table (Y=330)
+        const pickupInsp = rental.inspections?.find((i: any) => i.type === 'PICKUP');
+        let checkoutItems: { label: string; value: string }[];
+
+        if (pickupInsp) {
+          const tFL = this.translateTireCondition(pickupInsp.tireConditionFrontLeft);
+          const tFR = this.translateTireCondition(pickupInsp.tireConditionFrontRight);
+          const tRL = this.translateTireCondition(pickupInsp.tireConditionRearLeft);
+          const tRR = this.translateTireCondition(pickupInsp.tireConditionRearRight);
+          const tires = [tFL, tFR, tRL, tRR];
+          const allSame = tires.every(c => c === tires[0]);
+          const tireValue = allSame ? `${tires[0]} x4` : `${tires.filter(c => c === 'Bueno').length} Buenas · ${tires.filter(c => c !== 'Bueno').length} No Buenas`;
+
+          const bodyParts: string[] = [];
+          bodyParts.push(pickupInsp.hasScratches ? 'Con rayones' : 'Sin rayones');
+          bodyParts.push(pickupInsp.hasBrokenGlass ? 'Cristales rotos' : 'Cristales intactos');
+
+          const equipParts: string[] = [];
+          equipParts.push(pickupInsp.missingSpareTire ? 'Repuesto faltante' : 'Repuesto OK');
+          equipParts.push(pickupInsp.missingJack ? 'Gato faltante' : 'Gato OK');
+
+          checkoutItems = [
+            { label: 'Odómetro (Salida)', value: `${pickupInsp.odometer} km` },
+            { label: 'Combustible (Salida)', value: this.translateFuelLevel(pickupInsp.fuelGaugeLevel) },
+            { label: 'Neumáticos', value: tireValue },
+            { label: 'Carrocería', value: bodyParts.join(', ') },
+            { label: 'Equipo', value: equipParts.join(', ') },
+            { label: 'Estado', value: pickupInsp.status === 'PASSED' ? 'Aprobado ✓' : (pickupInsp.comments || 'Fallado') },
+          ];
+        } else {
+          checkoutItems = [
+            { label: 'Odómetro (Salida)', value: `${rental.checkoutOdometer} km` },
+            { label: 'Combustible (Salida)', value: this.translateFuelLevel(rental.checkoutFuelLevel) },
+          ];
+        }
+
+        this.drawLabelValueGrid(doc, 350, 270, checkoutItems);
+        const tableY = doc.y + 15;
         const rentalDays = Math.round(
           (new Date(rental.scheduledReturnDate).getTime() - new Date(rental.rentalDate).getTime()) / (1000 * 60 * 60 * 24)
         ) || 1;
@@ -387,7 +429,7 @@ export class PdfService {
 
         const totalCost = baseCost + (isCorporate ? 0 : depositAmount);
         
-        const endTableY = this.drawInvoiceTable(doc, 45, 330, 505.28, tableRows, baseCost, 0, totalCost);
+        const endTableY = this.drawInvoiceTable(doc, 45, tableY, 505.28, tableRows, baseCost, 0, totalCost);
 
         // 7. Payment Information (Y = endTableY + 15)
         const paymentY = endTableY + 15;
