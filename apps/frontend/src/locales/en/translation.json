@@ -87,7 +87,8 @@
     "tireWorn": "WORN",
     "tireDamaged": "DAMAGED",
     "tireMissing": "MISSING",
-    "fieldsRequired": "All fields are required"
+    "fieldsRequired": "All fields are required",
+    "clear": "Clear"
   },
   "vehicleTypes": {
     "title": "Vehicle Types",
@@ -486,7 +487,8 @@
     "keepBooking": "Keep Booking",
     "confirmCancel": "Confirm Cancel",
     "plate": "Plate:",
-    "totalCharge": "Total Charge:"
+    "totalCharge": "Total Charge:",
+    "showingSpecific": "Showing specific reservation"
   },
   "inspections": {
     "title": "Inspections",

@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { ColumnDef } from '@tanstack/react-table';
 import { FileText, Search as SearchIcon, Calendar, FileDown } from 'lucide-react';
 import { formatCurrency } from '@rent-car/common';
@@ -14,7 +15,9 @@ import { useQuery } from '@tanstack/react-query';
 
 export const RentalQueryPage: React.FC = () => {
   const { t } = useTranslation();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchParams] = useSearchParams();
+  const rentalIdParam = searchParams.get('rentalId') || '';
+  const [searchTerm, setSearchTerm] = useState(rentalIdParam);
   const [statusFilter, setStatusFilter] = useState('');
   const [vehicleTypeId, setVehicleTypeId] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -31,8 +34,9 @@ export const RentalQueryPage: React.FC = () => {
     if (dateFrom) params.startDate = dateFrom;
     if (dateTo) params.endDate = dateTo;
     if (searchTerm.trim()) params.search = searchTerm.trim();
+    if (rentalIdParam) params.rentalId = rentalIdParam;
     return params;
-  }, [page, statusFilter, vehicleTypeId, dateFrom, dateTo, searchTerm]);
+  }, [page, statusFilter, vehicleTypeId, dateFrom, dateTo, searchTerm, rentalIdParam]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['rental-report', buildParams()],

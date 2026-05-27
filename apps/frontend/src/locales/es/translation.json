@@ -87,7 +87,8 @@
     "tireWorn": "GASTADO",
     "tireDamaged": "DAÑADO",
     "tireMissing": "FALTANTE",
-    "fieldsRequired": "Todos los campos son obligatorios"
+    "fieldsRequired": "Todos los campos son obligatorios",
+    "clear": "Limpiar"
   },
   "vehicleTypes": {
     "title": "Tipos de Vehículo",
@@ -481,7 +482,8 @@
     "keepBooking": "Mantener Reserva",
     "confirmCancel": "Confirmar Cancelación",
     "plate": "Placa:",
-    "totalCharge": "Cargo Total:"
+    "totalCharge": "Cargo Total:",
+    "showingSpecific": "Mostrando reserva específica"
   },
   "inspections": {
     "title": "Inspecciones",

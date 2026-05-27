@@ -221,7 +221,7 @@ export class ReservationService {
     });
   }
 
-  async listOwnReservations(userId: string, statusFilter?: string, page: number = 1, limit: number = 10) {
+  async listOwnReservations(userId: string, statusFilter?: string, page: number = 1, limit: number = 10, id?: string) {
     const customer = await prisma.customer.findUnique({ where: { userId } });
     if (!customer) {
       throw new NotFoundError('Customer profile not found for this user');
@@ -230,6 +230,7 @@ export class ReservationService {
     const skip = (page - 1) * limit;
     const where: any = { customerId: customer.id };
     if (statusFilter) where.status = statusFilter;
+    if (id) where.id = id;
 
     const [items, total] = await Promise.all([
       prisma.rental.findMany({

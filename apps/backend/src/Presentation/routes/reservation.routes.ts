@@ -29,9 +29,10 @@ router.get(
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const statusFilter = req.query.status?.toString();
+      const id = req.query.id?.toString();
       const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
       const limit = Math.max(1, Math.min(50, parseInt(req.query.limit as string, 10) || 10));
-      const result = await service.listOwnReservations(req.user!.userId, statusFilter, page, limit);
+      const result = await service.listOwnReservations(req.user!.userId, statusFilter, page, limit, id);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);

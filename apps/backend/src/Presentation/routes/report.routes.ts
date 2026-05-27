@@ -153,7 +153,7 @@ router.get('/commissions', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR'
 // GET /api/reports/rentals - Rental Report with filters
 router.get('/rentals', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), async (req, res, next) => {
   try {
-    const { startDate, endDate, status, vehicleTypeId, search, page: pageStr, limit: limitStr } = req.query as Record<string, string | undefined>;
+    const { startDate, endDate, status, vehicleTypeId, search, rentalId, page: pageStr, limit: limitStr } = req.query as Record<string, string | undefined>;
 
     const page = Math.max(1, parseInt(pageStr || '1', 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(limitStr || '50', 10) || 50));
@@ -162,6 +162,7 @@ router.get('/rentals', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), 
 
     if (status) where.status = status;
     if (vehicleTypeId) where.vehicle = { vehicleTypeId };
+    if (rentalId) where.id = rentalId;
 
     if (startDate || endDate) {
       where.rentalDate = {};
@@ -175,7 +176,7 @@ router.get('/rentals', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), 
       }
     }
 
-    if (search && search.trim() !== '') {
+    if (!rentalId && search && search.trim() !== '') {
       const q = search.trim();
       where.OR = [
         { driverName: { contains: q } },

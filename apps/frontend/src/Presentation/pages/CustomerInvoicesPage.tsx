@@ -165,7 +165,7 @@ export const CustomerInvoicesPage: React.FC = () => {
             <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
               {txn.rental && (
                 <Link
-                  to={`/customer/reservations`}
+                  to={`/customer/reservations?rentalId=${txn.rental.id}`}
                   className="text-[10px] font-bold uppercase tracking-wider text-accent-primary hover:text-accent-primary/80 transition-colors flex items-center gap-1"
                 >
                   {lang === 'es' ? 'Ver Reserva' : 'View Rental'}

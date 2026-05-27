@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getImageProxyUrl } from '../../Infrastructure/hooks/useUploads.js';
 import { apiClient, getAccessToken } from '../../Infrastructure/api-client.js';
@@ -8,11 +8,14 @@ import { FormModal } from '../components/ui/FormModal.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
 import { Pagination } from '../components/ui/Pagination.js';
-import { Calendar, Trash2, ShieldAlert, FileText, AlertCircle } from 'lucide-react';
+import { Calendar, Trash2, ShieldAlert, FileText, AlertCircle, X } from 'lucide-react';
 import { formatCurrency } from '@rent-car/common';
 
 export const MyRentalsPage: React.FC = () => {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const rentalIdParam = searchParams.get('rentalId') || '';
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
@@ -20,7 +23,12 @@ export const MyRentalsPage: React.FC = () => {
   const limit = 10;
 
   // Queries & Mutations
-  const { data, isLoading, refetch } = useOwnReservations(statusFilter || undefined, page, limit);
+  const { data, isLoading, refetch } = useOwnReservations(
+    statusFilter || undefined,
+    rentalIdParam ? 1 : page,
+    limit,
+    rentalIdParam || undefined
+  );
   const bookings = data?.items || [];
   const totalPages = data?.pages || 1;
   const cancelMutation = useCancelReservation();
@@ -143,6 +151,21 @@ export const MyRentalsPage: React.FC = () => {
           >
             {t('auth.completeProfileLink')} &rarr;
           </Link>
+        </div>
+      )}
+
+      {rentalIdParam && (
+        <div className="flex items-center justify-between p-3 rounded-xl bg-accent-primary/10 border border-accent-primary/20 text-xs">
+          <span className="font-semibold text-fg-secondary">
+            {t('myRentals.showingSpecific')}
+          </span>
+          <button
+            onClick={() => navigate('/customer/reservations')}
+            className="flex items-center gap-1 text-accent-primary hover:text-accent-primary/80 font-bold uppercase transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+            {t('common.clear')}
+          </button>
         </div>
       )}
 
