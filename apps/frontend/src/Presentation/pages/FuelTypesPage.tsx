@@ -29,7 +29,7 @@ export const FuelTypesPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
-  const limit = 10;
+  const limit = 1;
 
   // Query hook
   const { data, isLoading } = useFuelTypes({ search, status, page, limit });
@@ -184,6 +184,7 @@ export const FuelTypesPage: React.FC = () => {
         pageIndex={page - 1}
         pageSize={limit}
         pageCount={data?.pages || 1}
+        totalRecords={data?.total}
         onPageChange={(idx) => setPage(idx + 1)}
       />
 

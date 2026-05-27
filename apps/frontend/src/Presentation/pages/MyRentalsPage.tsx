@@ -7,6 +7,7 @@ import { useOwnReservations, useCancelReservation } from '../../Infrastructure/h
 import { FormModal } from '../components/ui/FormModal.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
+import { Pagination } from '../components/ui/Pagination.js';
 import { Calendar, Trash2, ShieldAlert, FileText, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '@rent-car/common';
 
@@ -15,9 +16,13 @@ export const MyRentalsPage: React.FC = () => {
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const limit = 10;
 
   // Queries & Mutations
-  const { data: bookings = [], isLoading, refetch } = useOwnReservations(statusFilter || undefined);
+  const { data, isLoading, refetch } = useOwnReservations(statusFilter || undefined, page, limit);
+  const bookings = data?.items || [];
+  const totalPages = data?.pages || 1;
   const cancelMutation = useCancelReservation();
 
   // Cancellation Modal state
@@ -115,7 +120,7 @@ export const MyRentalsPage: React.FC = () => {
         <div />
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
           className="w-full md:w-40 h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
         >
           <option value="">{t('common.allStatuses')}</option>
@@ -223,6 +228,14 @@ export const MyRentalsPage: React.FC = () => {
           })}
         </div>
       )}
+
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        totalRecords={data?.total}
+        onPageChange={setPage}
+        isLoading={isLoading}
+      />
 
       {/* Cancel Warning Modal dialog */}
       {cancellingBooking && (

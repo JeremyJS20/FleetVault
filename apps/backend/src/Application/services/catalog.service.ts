@@ -385,7 +385,7 @@ export class CatalogService {
           model: true,
           fuelType: true
         },
-        orderBy: { plateNumber: 'asc' }
+        orderBy: { createdAt: 'desc' }
       }),
       prisma.vehicle.count({ where })
     ]);
@@ -621,7 +621,7 @@ export class CatalogService {
         skip,
         take: limit,
         include: { user: true },
-        orderBy: { name: 'asc' }
+        orderBy: { createdAt: 'desc' }
       }),
       prisma.customer.count({ where }),
       prisma.rental.groupBy({
@@ -931,7 +931,7 @@ export class CatalogService {
         where,
         skip,
         take: limit,
-        orderBy: { name: 'asc' },
+        orderBy: { createdAt: 'desc' },
         include: { user: { select: { email: true, role: true } } }
       }),
       prisma.employee.count({ where })

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '../api-client.js';
 
 export const useRentalsList = (params: { status?: string; customerId?: string; page?: number; limit?: number }) => {
@@ -15,6 +15,7 @@ export const useRentalsList = (params: { status?: string; customerId?: string; p
       const res = await apiClient('/api/rentals', { params: requestParams });
       return res.data as { items: any[]; total: number; page: number; limit: number; pages: number };
     },
+    placeholderData: keepPreviousData,
   });
 };
 

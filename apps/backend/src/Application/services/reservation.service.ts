@@ -221,29 +221,37 @@ export class ReservationService {
     });
   }
 
-  async listOwnReservations(userId: string, statusFilter?: string) {
+  async listOwnReservations(userId: string, statusFilter?: string, page: number = 1, limit: number = 10) {
     const customer = await prisma.customer.findUnique({ where: { userId } });
     if (!customer) {
       throw new NotFoundError('Customer profile not found for this user');
     }
 
+    const skip = (page - 1) * limit;
     const where: any = { customerId: customer.id };
     if (statusFilter) where.status = statusFilter;
 
-    return await prisma.rental.findMany({
-      where,
-      include: {
-        vehicle: {
-          include: {
-            brand: true,
-            model: true,
-            vehicleType: true
-          }
+    const [items, total] = await Promise.all([
+      prisma.rental.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          vehicle: {
+            include: {
+              brand: true,
+              model: true,
+              vehicleType: true
+            }
+          },
+          checkoutEmployee: true
         },
-        checkoutEmployee: true
-      },
-      orderBy: { rentalDate: 'desc' }
-    });
+        orderBy: { rentalDate: 'desc' }
+      }),
+      prisma.rental.count({ where })
+    ]);
+
+    return { items, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
   async cancelReservation(userId: string, id: string) {

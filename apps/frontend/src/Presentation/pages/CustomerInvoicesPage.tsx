@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../../Infrastructure/api-client.js';
 import { formatCurrency } from '@rent-car/common';
+import { Pagination } from '../components/ui/Pagination.js';
 import { FileText, Receipt, AlertCircle, ArrowRight } from 'lucide-react';
 
 const TYPE_LABELS: Record<string, { es: string; en: string }> = {
@@ -36,6 +37,10 @@ export const CustomerInvoicesPage: React.FC = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const limit = 10;
 
   const lang = i18n.language?.startsWith('es') ? 'es' : 'en';
 
@@ -43,8 +48,10 @@ export const CustomerInvoicesPage: React.FC = () => {
     const fetch = async () => {
       try {
         setIsLoading(true);
-        const res = await apiClient('/api/transactions/me');
-        setTransactions(res.data || []);
+        const res = await apiClient('/api/transactions/me', { params: { page: String(page), limit: String(limit) } });
+        setTransactions(res.data?.items || []);
+        setTotalPages(res.data?.pages || 1);
+        setTotalRecords(res.data?.total || 0);
       } catch (err: any) {
         setError(err.message || t('common.operationFailed'));
       } finally {
@@ -52,7 +59,7 @@ export const CustomerInvoicesPage: React.FC = () => {
       }
     };
     fetch();
-  }, []);
+  }, [page, limit]);
 
   if (isLoading) {
     return (
@@ -169,6 +176,14 @@ export const CustomerInvoicesPage: React.FC = () => {
           </div>
         ))}
       </div>
+
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        totalRecords={totalRecords}
+        onPageChange={setPage}
+        isLoading={isLoading}
+      />
     </div>
   );
 };

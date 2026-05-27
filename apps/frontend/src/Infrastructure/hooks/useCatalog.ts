@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '../api-client.js';
 
 // Generic List Query Helper
@@ -18,6 +18,7 @@ const createListHook = <T>(queryKey: string, endpoint: string) => {
         const res = await apiClient(endpoint, { params: requestParams });
         return res.data as { items: T[]; total: number; page: number; limit: number; pages: number };
       },
+      placeholderData: keepPreviousData,
     });
   };
 };

@@ -5,7 +5,7 @@ import {
   ColumnDef,
 } from '@tanstack/react-table';
 import { useTranslation } from 'react-i18next';
-import { Button } from './Button.js';
+import { Pagination } from './Pagination.js';
 
 interface DataTableProps<TData> {
   columns: ColumnDef<TData, any>[];
@@ -14,6 +14,7 @@ interface DataTableProps<TData> {
   pageIndex?: number;
   pageSize?: number;
   pageCount?: number;
+  totalRecords?: number;
   onPageChange?: (page: number) => void;
 }
 
@@ -24,6 +25,7 @@ export function DataTable<TData>({
   pageIndex = 0,
   pageSize = 10,
   pageCount = 1,
+  totalRecords,
   onPageChange,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
@@ -88,31 +90,15 @@ export function DataTable<TData>({
         </table>
       </div>
 
-      {onPageChange && pageCount > 1 ? (
-        <div className="flex items-center justify-between px-2">
-          <span className="text-sm font-semibold text-fg-secondary">
-            {t('common.pageOf', { current: pageIndex + 1, total: pageCount })}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={pageIndex === 0 || isLoading}
-              onClick={() => onPageChange(pageIndex - 1)}
-            >
-              {t('common.previous')}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={pageIndex >= pageCount - 1 || isLoading}
-              onClick={() => onPageChange(pageIndex + 1)}
-            >
-              {t('common.next')}
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      {onPageChange && (
+        <Pagination
+          currentPage={pageIndex + 1}
+          totalPages={pageCount}
+          totalRecords={totalRecords}
+          onPageChange={(p) => onPageChange(p - 1)}
+          isLoading={isLoading}
+        />
+      )}
     </div>
   );
 }

@@ -16,30 +16,44 @@ router.get(
       const customer = await prisma.customer.findUnique({ where: { userId: req.user!.userId } });
       if (!customer) return res.status(404).json({ success: false, error: 'Customer profile not found' });
 
+      const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+      const limit = Math.max(1, Math.min(50, parseInt(req.query.limit as string, 10) || 10));
+      const skip = (page - 1) * limit;
+
       const rentals = await prisma.rental.findMany({
         where: { customerId: customer.id },
         select: { id: true },
       });
       const rentalIds = rentals.map((r) => r.id);
 
-      const items = await prisma.transactionLedger.findMany({
-        where: { rentalId: { in: rentalIds } },
-        include: {
-          rental: {
-            select: {
-              id: true,
-              status: true,
-              totalCost: true,
-              rentalDate: true,
-              scheduledReturnDate: true,
-              vehicle: { select: { plateNumber: true, vehicleType: { select: { name: true } } } },
+      const where = { rentalId: { in: rentalIds } };
+
+      const [items, total] = await Promise.all([
+        prisma.transactionLedger.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            rental: {
+              select: {
+                id: true,
+                status: true,
+                totalCost: true,
+                rentalDate: true,
+                scheduledReturnDate: true,
+                vehicle: { select: { plateNumber: true, vehicleType: { select: { name: true } } } },
+              },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.transactionLedger.count({ where }),
+      ]);
 
-      res.status(200).json({ success: true, data: items });
+      res.status(200).json({
+        success: true,
+        data: { items, total, page, limit, pages: Math.ceil(total / limit) },
+      });
     } catch (error) {
       next(error);
     }

@@ -62,6 +62,7 @@
     "previous": "Previous",
     "next": "Next",
     "pageOf": "Page {{current}} of {{total}}",
+    "records": "records",
     "logout": "Sign Out",
     "verifyingCredentials": "Verifying credentials...",
     "switchLanguage": "Switch language",

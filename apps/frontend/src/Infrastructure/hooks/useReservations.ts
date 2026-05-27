@@ -1,16 +1,19 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '../api-client.js';
 
-export const useOwnReservations = (status?: string) => {
+export const useOwnReservations = (status?: string, page: number = 1, limit: number = 10) => {
   const params: Record<string, string> = {};
   if (status) params.status = status;
+  params.page = String(page);
+  params.limit = String(limit);
 
   return useQuery({
-    queryKey: ['my-reservations', { status }],
+    queryKey: ['my-reservations', { status, page, limit }],
     queryFn: async () => {
       const res = await apiClient('/api/reservations/me', { params });
-      return res.data as any[];
+      return res.data as { items: any[]; total: number; page: number; limit: number; pages: number };
     },
+    placeholderData: keepPreviousData,
   });
 };
 
