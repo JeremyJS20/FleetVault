@@ -349,6 +349,9 @@
   },
   "dashboard": {
     "welcome": "Bienvenido",
+    "goodMorning": "Buenos días",
+    "goodAfternoon": "Buenas tardes",
+    "goodEvening": "Buenas noches",
     "overviewAdmin": "Aquí tiene una vista general de las métricas de logística, alquileres y operaciones de la flota.",
     "overviewCustomer": "Explore vehículos disponibles, vea sus reservaciones activas o administre sus alquileres.",
     "totalFleetSize": "Tamaño Total de Flota",

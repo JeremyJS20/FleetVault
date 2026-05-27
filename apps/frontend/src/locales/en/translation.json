@@ -354,6 +354,9 @@
   },
   "dashboard": {
     "welcome": "Welcome back",
+    "goodMorning": "Good morning",
+    "goodAfternoon": "Good afternoon",
+    "goodEvening": "Good evening",
     "overviewAdmin": "Here is an overview of your fleet logistics, rentals, and operations metrics.",
     "overviewCustomer": "Explore available vehicles, view your active bookings, or manage your rentals.",
     "totalFleetSize": "Total Fleet Size",

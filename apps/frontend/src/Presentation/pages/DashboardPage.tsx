@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../Infrastructure/auth.context.js';
@@ -33,8 +33,35 @@ const statusColors: Record<string, string> = {
 };
 
 export const DashboardPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getGreeting = () => {
+    const hrs = time.getHours();
+    if (hrs < 12) return t('dashboard.goodMorning', 'Good morning');
+    if (hrs < 18) return t('dashboard.goodAfternoon', 'Good afternoon');
+    return t('dashboard.goodEvening', 'Good evening');
+  };
+
+  const formattedDate = time.toLocaleDateString(i18n.language === 'es' ? 'es-ES' : 'en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  const formattedTime = time.toLocaleTimeString(i18n.language === 'es' ? 'es-ES' : 'en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
   const navigate = useNavigate();
   const isAdmin = user?.role === 'ADMINISTRATOR' || user?.role === 'AGENT';
 
@@ -125,13 +152,22 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      <div>
-        <h2 className="text-2xl font-extrabold tracking-tight text-fg-main">
-          {t('dashboard.welcome')}, {user?.name?.split(' ')[0] || 'User'}!
-        </h2>
-        <p className="text-xs text-fg-secondary mt-1">
-          {isAdmin ? t('dashboard.overviewAdmin') : t('dashboard.overviewCustomer')}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md">
+        <div>
+          <h2 className="text-2xl font-extrabold tracking-tight text-fg-main">
+            {getGreeting()}, {user?.name?.split(' ')[0] || 'User'}!
+          </h2>
+          <p className="text-xs text-fg-secondary mt-1">
+            {isAdmin ? t('dashboard.overviewAdmin') : t('dashboard.overviewCustomer')}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 bg-bg-inset/50 px-4 py-2.5 rounded-xl border border-border-surface/20 shrink-0 self-start sm:self-auto">
+          <Clock size={16} className="text-accent-primary animate-pulse" />
+          <div className="text-left">
+            <span className="block text-xs font-mono font-bold text-fg-main">{formattedTime}</span>
+            <span className="block text-[10px] font-semibold text-fg-tertiary capitalize">{formattedDate}</span>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
