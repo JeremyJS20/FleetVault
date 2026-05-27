@@ -506,7 +506,7 @@ export class PdfService {
         doc.on('end', async () => {
           try {
             const buffer = Buffer.concat(chunks);
-            const filename = `rentcar/reports/utilization-${Date.now()}.pdf`;
+            const filename = `rentcar/reports/utilization-report.pdf`;
             const blob = await put(filename, buffer, {
               access: 'private',
               contentType: 'application/pdf',
@@ -616,7 +616,7 @@ export class PdfService {
         doc.on('end', async () => {
           try {
             const buffer = Buffer.concat(chunks);
-            const filename = `rentcar/reports/revenue-${Date.now()}.pdf`;
+            const filename = `rentcar/reports/revenue-report.pdf`;
             const blob = await put(filename, buffer, {
               access: 'private',
               contentType: 'application/pdf',
@@ -767,7 +767,7 @@ export class PdfService {
         doc.on('end', async () => {
           try {
             const buffer = Buffer.concat(chunks);
-            const filename = `rentcar/reports/commissions-${Date.now()}.pdf`;
+            const filename = `rentcar/reports/commissions-report.pdf`;
             const blob = await put(filename, buffer, {
               access: 'private',
               contentType: 'application/pdf',
@@ -1080,11 +1080,18 @@ export class PdfService {
         if (isCorporate) {
           paymentItems.push({ label: 'Facturación OC', value: `Cobrar OC ${rental.purchaseOrderNumber || 'N/A'}` });
         } else if (hasCashTx) {
-          const checkoutTx = rental.transactions?.find((t: any) => t.type === 'CASH' && t.comments?.includes('collected'));
+          const cashTxns = rental.transactions?.filter((t: any) => t.type === 'CASH') || [];
+          const checkoutTx = cashTxns.find((t: any) => t.comments?.includes('collected') || t.comments?.includes('recibido'));
+          const returnTx = cashTxns.find((t: any) => t.comments?.includes('completada'));
           const initialPaid = checkoutTx ? checkoutTx.amount : 0;
           const diff = initialPaid - totalCost;
           paymentItems.push({ label: 'Efectivo Recibido', value: `RD$ ${initialPaid.toFixed(2)}` });
-          if (diff > 0) {
+          if (returnTx) {
+            if (diff > 0) {
+              paymentItems.push({ label: 'Efectivo Devuelto', value: `RD$ ${diff.toFixed(2)}` });
+            }
+            paymentItems.push({ label: 'Estado', value: 'Saldado en Efectivo' });
+          } else if (diff > 0) {
             paymentItems.push({ label: 'Reembolso Pendiente', value: `RD$ ${diff.toFixed(2)} (Depósito)` });
           } else if (diff < 0) {
             paymentItems.push({ label: 'Cobrar Diferencia', value: `RD$ ${Math.abs(diff).toFixed(2)}` });
@@ -1131,7 +1138,7 @@ export class PdfService {
         doc.on('end', async () => {
           try {
             const buffer = Buffer.concat(chunks);
-            const filename = `rentcar/reports/rentals-${Date.now()}.pdf`;
+            const filename = `rentcar/reports/rentals-report.pdf`;
             const blob = await put(filename, buffer, {
               access: 'private',
               contentType: 'application/pdf',
@@ -1226,7 +1233,7 @@ export class PdfService {
 
           const vehicleStr = `${rental.vehicle?.brand?.name || ''} ${rental.vehicle?.model?.name || 'N/A'}\n${rental.vehicle?.plateNumber || ''}`;
           const customerStr = rental.customer?.name || 'N/A';
-          const datesStr = `${new Date(rental.rentalDate).toLocaleDateString()}\n${rental.actualReturnDate ? new Date(rental.actualReturnDate).toLocaleDateString() : new Date(rental.scheduledReturnDate).toLocaleDateString()}`;
+          const datesStr = `${new Date(rental.rentalDate).toLocaleDateString()}\n${new Date(rental.scheduledReturnDate).toLocaleDateString()}`;
           const cost = rental.totalCost || 0;
           totalSum += cost;
 

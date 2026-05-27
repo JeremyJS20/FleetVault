@@ -47,16 +47,11 @@ export const RentalQueryPage: React.FC = () => {
 
   const handleExportPdf = async () => {
     try {
-      const token = getAccessToken();
-      const params = new URLSearchParams(buildParams());
-      params.set('format', 'pdf');
-      const res = await fetch(`/api/reports/rentals?${params.toString()}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      const res = await apiClient('/api/reports/rentals', {
+        params: { ...buildParams(), format: 'pdf' },
       });
-      if (!res.ok) throw new Error('Failed to export report');
-      const json = await res.json();
-      if (json.success && json.data?.pdfUrl) {
-        window.open(`/api/uploads/proxy?url=${encodeURIComponent(json.data.pdfUrl)}`, '_blank');
+      if (res.success && res.data?.pdfUrl) {
+        window.open(`/api/uploads/proxy?url=${encodeURIComponent(res.data.pdfUrl)}`, '_blank');
       }
     } catch (err) {
       console.error('Failed to export rental report PDF:', err);

@@ -69,20 +69,18 @@ router.get('/revenue', authMiddleware, requireRole(['AGENT', 'ADMINISTRATOR']), 
       const entry: Record<string, any> = { month: monthLabel };
 
       for (const cat of categories) {
-        const result = await prisma.transactionLedger.aggregate({
+        const result = await prisma.rental.aggregate({
           where: {
-            createdAt: { gte: d, lt: dEnd },
-            rental: {
-              vehicle: {
-                vehicleTypeId: cat.id
-              }
+            status: 'COMPLETED',
+            actualReturnDate: { gte: d, lt: dEnd },
+            vehicle: {
+              vehicleTypeId: cat.id
             }
           },
-          _sum: { amount: true }
+          _sum: { totalCost: true }
         });
 
-        const amount = result._sum.amount || 0;
-        entry[cat.name] = amount;
+        entry[cat.name] = result._sum.totalCost || 0;
       }
 
       data.push(entry);

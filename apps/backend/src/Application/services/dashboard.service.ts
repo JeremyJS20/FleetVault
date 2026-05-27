@@ -15,19 +15,19 @@ export class DashboardService {
     const firstOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
     const [monthlyRevenueResult, lastMonthRevenueResult, newCustomers] = await Promise.all([
-      prisma.transactionLedger.aggregate({
-        where: { type: 'CHARGE', createdAt: { gte: firstOfMonth } },
-        _sum: { amount: true },
+      prisma.rental.aggregate({
+        where: { status: 'COMPLETED', actualReturnDate: { gte: firstOfMonth } },
+        _sum: { totalCost: true },
       }),
-      prisma.transactionLedger.aggregate({
-        where: { type: 'CHARGE', createdAt: { gte: firstOfLastMonth, lt: firstOfMonth } },
-        _sum: { amount: true },
+      prisma.rental.aggregate({
+        where: { status: 'COMPLETED', actualReturnDate: { gte: firstOfLastMonth, lt: firstOfMonth } },
+        _sum: { totalCost: true },
       }),
       prisma.customer.count({ where: { createdAt: { gte: firstOfMonth } } }),
     ]);
 
-    const monthlyRevenue = monthlyRevenueResult._sum.amount || 0;
-    const lastMonthRevenue = lastMonthRevenueResult._sum.amount || 0;
+    const monthlyRevenue = monthlyRevenueResult._sum.totalCost || 0;
+    const lastMonthRevenue = lastMonthRevenueResult._sum.totalCost || 0;
     const revenueGrowth = lastMonthRevenue > 0
       ? parseFloat((((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100).toFixed(1))
       : 0;
@@ -36,13 +36,13 @@ export class DashboardService {
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const dEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-      const result = await prisma.transactionLedger.aggregate({
-        where: { type: 'CHARGE', createdAt: { gte: d, lt: dEnd } },
-        _sum: { amount: true },
+      const result = await prisma.rental.aggregate({
+        where: { status: 'COMPLETED', actualReturnDate: { gte: d, lt: dEnd } },
+        _sum: { totalCost: true },
       });
       monthlyRevenues.push({
         month: d.toLocaleString('en', { month: 'short' }),
-        revenue: result._sum.amount || 0,
+        revenue: result._sum.totalCost || 0,
       });
     }
 
@@ -105,11 +105,11 @@ export class DashboardService {
       include: { vehicle: { include: { model: true, brand: true } } },
     });
 
-    const totalSpentResult = await prisma.transactionLedger.aggregate({
-      where: { rental: { customerId: customer.id }, type: 'CHARGE' },
-      _sum: { amount: true },
+    const totalSpentResult = await prisma.rental.aggregate({
+      where: { customerId: customer.id, status: 'COMPLETED' },
+      _sum: { totalCost: true },
     });
-    const totalSpent = totalSpentResult._sum.amount || 0;
+    const totalSpent = totalSpentResult._sum.totalCost || 0;
     const rentalCount = recentRentals.length;
     const averageRental = rentalCount > 0 ? totalSpent / rentalCount : 0;
 
