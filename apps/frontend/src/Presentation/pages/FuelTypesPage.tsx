@@ -29,7 +29,7 @@ export const FuelTypesPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
-  const limit = 1;
+  const limit = 10;
 
   // Query hook
   const { data, isLoading } = useFuelTypes({ search, status, page, limit });

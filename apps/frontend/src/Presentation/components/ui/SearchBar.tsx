@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Input } from './Input.js';
 
@@ -17,6 +17,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
   const { t } = useTranslation();
   const [localVal, setLocalVal] = useState(value);
+  // Keep a stable ref to onChange so the debounce effect doesn't re-fire
+  // every time the parent re-renders with a new inline arrow function.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
 
   useEffect(() => {
     setLocalVal(value);
@@ -24,11 +30,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      onChange(localVal);
+      onChangeRef.current(localVal);
     }, debounceMs);
 
     return () => clearTimeout(handler);
-  }, [localVal, debounceMs, onChange]);
+  }, [localVal, debounceMs]);
 
   return (
     <div className="relative w-full max-w-sm">
