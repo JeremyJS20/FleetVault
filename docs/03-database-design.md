@@ -1,6 +1,6 @@
 # Database Design and Entity Model
 
-**FleetVault Enterprise** data persistence is managed through a relational engine (**SQLite** in development and testing environments, and **PostgreSQL** via **Supabase** in production). Access and migrations are controlled through **Prisma ORM**.
+**FleetVault Enterprise** data persistence is managed through **PostgreSQL** via **Supabase** in production. Local development also uses PostgreSQL (Supabase connection or local pg instance). Access and migrations are controlled through **Prisma ORM**.
 
 ---
 
@@ -268,8 +268,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
