@@ -116,7 +116,7 @@ export const CustomerInvoicesPage: React.FC = () => {
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${TYPE_COLORS[txn.type] || 'text-fg-secondary bg-bg-surface/30'}`}>
+                  <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${TYPE_COLORS[txn.type] || 'text-fg-secondary bg-bg-surface/30'}`}>
                     {TYPE_LABELS[txn.type]?.[lang] || txn.type}
                   </span>
                   {(txn.type === 'PO_INVOICE' || txn.type === 'CASH') && (() => {
@@ -130,12 +130,12 @@ export const CustomerInvoicesPage: React.FC = () => {
                       Cancellation: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
                     };
                     return ctx ? (
-                      <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${ctxColors[ctx] || 'text-purple-300/70'}`}>
+                      <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${ctxColors[ctx] || 'text-purple-300/70'}`}>
                         {ctx}
                       </span>
                     ) : null;
                   })()}
-                  <span className="text-[10px] text-fg-tertiary font-mono">
+                  <span className="text-xs text-fg-tertiary font-mono">
                     {new Date(txn.createdAt).toLocaleDateString()}
                   </span>
                 </div>
@@ -157,7 +157,7 @@ export const CustomerInvoicesPage: React.FC = () => {
                 </div>
 
                 {txn.comments && (
-                  <p className="text-[10px] text-fg-tertiary mt-1 line-clamp-1">{txn.comments}</p>
+                  <p className="text-xs text-fg-tertiary mt-1 line-clamp-1">{txn.comments}</p>
                 )}
               </div>
             </div>
@@ -166,7 +166,7 @@ export const CustomerInvoicesPage: React.FC = () => {
               {txn.rental && (
                 <Link
                   to={`/customer/reservations?rentalId=${txn.rental.id}`}
-                  className="text-[10px] font-bold uppercase tracking-wider text-accent-primary hover:text-accent-primary/80 transition-colors flex items-center gap-1"
+                  className="text-xs font-bold uppercase tracking-wider text-accent-primary hover:text-accent-primary/80 transition-colors flex items-center gap-1"
                 >
                   {lang === 'es' ? 'Ver Reserva' : 'View Rental'}
                   <ArrowRight className="w-3 h-3" />

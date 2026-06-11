@@ -281,7 +281,7 @@ export const MyProfilePage: React.FC = () => {
                 }}
               />
             </div>
-            <div className="flex items-center justify-between text-[10px] text-fg-tertiary">
+            <div className="flex items-center justify-between text-xs text-fg-tertiary">
               <span>{formatCurrency(0)}</span>
               <span>{t('profile.creditLimitLabel', { amount: formatCurrency(creditLimit) })}</span>
             </div>
@@ -355,7 +355,7 @@ export const MyProfilePage: React.FC = () => {
                       <p className="text-xs font-bold text-fg-main uppercase">
                         {card.card.brand} •••• {card.card.last4}
                       </p>
-                      <p className="text-[10px] text-fg-tertiary">
+                      <p className="text-xs text-fg-tertiary">
                         {t('stripe.expires')} {card.card.exp_month}/{card.card.exp_year}
                       </p>
                     </div>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Power } from 'lucide-react';
+
 import { useAuth } from '../../Infrastructure/auth.context.js';
 import {
   useCustomers,
@@ -21,8 +21,10 @@ import { formatCurrency } from '@rent-car/common';
 import { FormField } from '../components/ui/FormField.js';
 import { Input } from '../components/ui/Input.js';
 import { SelectField } from '../components/ui/SelectField.js';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog.js';
+import { ToggleSwitch } from '../components/ui/ToggleSwitch.js';
 import { Toast } from '../components/ui/Toast.js';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog.js';
+import { Plus, Pencil } from 'lucide-react';
 
 export const CustomersPage: React.FC = () => {
   const { t } = useTranslation();
@@ -53,8 +55,8 @@ export const CustomersPage: React.FC = () => {
   // Dialog/Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [confirmItem, setConfirmItem] = useState<any>(null);
+  const [confirmState, setConfirmState] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+
   const [formStep, setFormStep] = useState(1);
 
   // Form states
@@ -225,17 +227,10 @@ export const CustomersPage: React.FC = () => {
     }
   };
 
-  const handleOpenToggle = (item: any) => {
-    setConfirmItem(item);
-    setIsConfirmOpen(true);
-  };
-
-  const handleConfirmToggle = async () => {
-    if (!confirmItem) return;
+  const handleToggle = async (item: any) => {
     try {
-      await toggleStatusMutation.mutateAsync({ id: confirmItem.id });
+      await toggleStatusMutation.mutateAsync({ id: item.id });
       setToast({ message: t('common.statusUpdated'), type: 'success' });
-      setIsConfirmOpen(false);
     } catch (err: any) {
       setToast({ message: err.message || t('common.statusUpdateFailed'), type: 'error' });
     }
@@ -308,25 +303,19 @@ export const CustomersPage: React.FC = () => {
       cell: (info) => {
         const item = info.row.original;
         return (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleOpenEdit(item)}
-              title={t('common.edit')}
-              className="!p-2.5 rounded-xl"
-            >
-              <Pencil size={15} />
-            </Button>
-            <Button
-              variant={item.status === 'ACTIVE' ? 'danger' : 'primary'}
-              size="sm"
-              onClick={() => handleOpenToggle(item)}
-              title={t('common.toggleStatus')}
-              className="!p-2.5 rounded-xl"
-            >
-              <Power size={15} />
-            </Button>
+          <div className="flex items-center gap-3">
+            <ToggleSwitch
+              checked={item.status === 'ACTIVE'}
+              onChange={() => setConfirmState({
+                title: 'Confirmar',
+                message: item.status === 'ACTIVE' ? `¿Desactivar ${item.name}?` : `¿Activar ${item.name}?`,
+                onConfirm: () => handleToggle(item),
+              })}
+              loading={toggleStatusMutation.isPending}
+            />
+            <button onClick={() => handleOpenEdit(item)} title={t('common.edit')} className="text-accent-primary hover:text-accent-primary/80 transition-colors">
+              <Pencil size={14} />
+            </button>
           </div>
         );
       },
@@ -340,8 +329,9 @@ export const CustomersPage: React.FC = () => {
         description={t('customers.subtitle')}
       >
         {canMutate && (
-          <Button variant="primary" onClick={handleOpenCreate}>
-            {t('common.create')}
+          <Button variant="primary" size="sm" onClick={handleOpenCreate} className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs">
+            <Plus size={13} />
+            <span>{t('common.create')}</span>
           </Button>
         )}
       </PageHeader>
@@ -400,7 +390,7 @@ export const CustomersPage: React.FC = () => {
 
           {/* Dynamic Step Header */}
           {type !== 'CORPORATE' && (
-            <span className="text-[10px] font-extrabold text-accent-primary uppercase tracking-widest block leading-none mb-1">
+            <span className="text-xs font-extrabold text-accent-primary uppercase tracking-widest block leading-none mb-1">
               {formStep === 1 
                 ? t('customers.stepGeneral', 'Step 1: General Info & Credit') 
                 : t('customers.stepLicense', 'Step 2: Driver Credentials')
@@ -574,15 +564,19 @@ export const CustomersPage: React.FC = () => {
         </form>
       </FormModal>
 
-      {/* Confirm Status Change Modal */}
-      <ConfirmDialog
-        isOpen={isConfirmOpen}
-        onClose={() => setIsConfirmOpen(false)}
-        onConfirm={handleConfirmToggle}
-        title={t('common.confirmStatusChange', { entity: 'Customer' })}
-        message={t('common.confirmStatusChangeMsg', { name: confirmItem?.name })}
-        isLoading={toggleStatusMutation.isPending}
-      />
+
+
+      {/* Confirm Dialog */}
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={true}
+          onClose={() => setConfirmState(null)}
+          onConfirm={() => { confirmState.onConfirm(); setConfirmState(null); }}
+          title={confirmState.title}
+          message={confirmState.message}
+          isLoading={toggleStatusMutation.isPending}
+        />
+      )}
 
       {/* Toast Alert */}
       {toast && (

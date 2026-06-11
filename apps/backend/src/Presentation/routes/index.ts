@@ -21,6 +21,7 @@ import queryRouter from './query.routes.js';
 import policyRouter from './rental-policy.routes.js';
 import companyInfoRouter from './company-info.routes.js';
 import transactionRouter from './transaction.routes.js';
+import damageTypeRouter from './damage-type.routes.js';
 
 const router = Router();
 
@@ -46,5 +47,6 @@ router.use('/gps', gpsRouter);
 router.use('/policies', policyRouter);
 router.use('/company', companyInfoRouter);
 router.use('/transactions', transactionRouter);
+router.use('/damage-types', damageTypeRouter);
 
 export default router;

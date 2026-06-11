@@ -11,6 +11,7 @@ export const UserRole = ['CUSTOMER', 'INSPECTOR', 'AGENT', 'ADMINISTRATOR'] as c
 export const EmployeeRole = ['INSPECTOR', 'AGENT', 'ADMINISTRATOR'] as const;
 export const EntityStatus = ['ACTIVE', 'INACTIVE'] as const;
 export const TireCondition = ['GOOD', 'WORN', 'DAMAGED', 'MISSING'] as const;
+export const TirePosition = ['FRONT_LEFT', 'FRONT_RIGHT', 'REAR_LEFT', 'REAR_RIGHT'] as const;
 
 export type VehicleStatusType = typeof VehicleStatus[number];
 export type CleaningStatusType = typeof CleaningStatus[number];
@@ -25,3 +26,4 @@ export type UserRoleType = typeof UserRole[number];
 export type EmployeeRoleType = typeof EmployeeRole[number];
 export type EntityStatusType = typeof EntityStatus[number];
 export type TireConditionType = typeof TireCondition[number];
+export type TirePositionType = typeof TirePosition[number];

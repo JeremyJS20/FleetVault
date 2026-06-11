@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Award, DollarSign, CheckCircle2, UserCheck, ShieldAlert, FileDown } from 'lucide-react';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog.js';
 import { formatCurrency } from '@rent-car/common';
 import { useCommissionsReport } from '../../Infrastructure/hooks/useReports.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
@@ -16,6 +17,7 @@ export const CommissionsReportPage: React.FC = () => {
   // Local state to track payouts interactively
   const [commissions, setCommissions] = useState<any[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [confirmState, setConfirmState] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   useEffect(() => {
     if (serverCommissions.length > 0) {
@@ -88,7 +90,7 @@ export const CommissionsReportPage: React.FC = () => {
                 <DollarSign size={22} />
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-tertiary">
+                <span className="text-xs font-bold uppercase tracking-wider text-fg-tertiary">
                   {t('commissionsPage.totalPaidOut')}
                 </span>
                 <span className="text-xl font-bold font-mono text-fg-main mt-0.5">
@@ -102,7 +104,7 @@ export const CommissionsReportPage: React.FC = () => {
                 <ShieldAlert size={22} />
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-tertiary">
+                <span className="text-xs font-bold uppercase tracking-wider text-fg-tertiary">
                   {t('commissionsPage.pendingPayouts')}
                 </span>
                 <span className="text-xl font-bold font-mono text-fg-main mt-0.5">
@@ -116,7 +118,7 @@ export const CommissionsReportPage: React.FC = () => {
                 <UserCheck size={22} />
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-tertiary">
+                <span className="text-xs font-bold uppercase tracking-wider text-fg-tertiary">
                   {t('commissionsPage.activeAgents')}
                 </span>
                 <span className="text-xl font-bold font-mono text-fg-main mt-0.5">
@@ -136,13 +138,13 @@ export const CommissionsReportPage: React.FC = () => {
             <div className="w-full overflow-x-auto">
               <table className="w-full border-collapse text-left text-xs text-fg-secondary">
                 <thead>
-                  <tr className="border-b border-border-surface/35 text-fg-tertiary font-bold uppercase tracking-wider text-[10px]">
-                    <th className="py-3 px-4">{t('commissionsPage.agent')}</th>
-                    <th className="py-3 px-4 text-center">{t('commissionsPage.rateLabel')}</th>
-                    <th className="py-3 px-4 text-center">{t('commissionsPage.salesCount')}</th>
-                    <th className="py-3 px-4 text-right">{t('commissionsPage.commissionAmount')}</th>
-                    <th className="py-3 px-4 text-center">{t('commissionsPage.payoutStatus')}</th>
-                    <th className="py-3 px-4 text-right">{t('common.actions')}</th>
+                  <tr className="border-b border-border-surface bg-bg-inset/40">
+                    <th className="py-3 px-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('commissionsPage.agent')}</th>
+                    <th className="py-3 px-4 text-center text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('commissionsPage.rateLabel')}</th>
+                    <th className="py-3 px-4 text-center text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('commissionsPage.salesCount')}</th>
+                    <th className="py-3 px-4 text-right text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('commissionsPage.commissionAmount')}</th>
+                    <th className="py-3 px-4 text-center text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('commissionsPage.payoutStatus')}</th>
+                    <th className="py-3 px-4 text-right text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('common.actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-surface/20">
@@ -165,7 +167,7 @@ export const CommissionsReportPage: React.FC = () => {
                       </td>
                       <td className="py-4 px-4 text-center">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                             c.payoutStatus === 'PAID'
                               ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/25'
                               : 'text-amber-500 bg-amber-500/10 border-amber-500/25'
@@ -182,17 +184,20 @@ export const CommissionsReportPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-4 px-4 text-right">
-                        {c.payoutStatus === 'UNPAID' ? (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleMarkPaid(c.employeeId, c.name)}
-                            className="text-[10px] py-1 px-2 rounded-lg"
-                          >
-                            {t('commissionsPage.markPaid')}
-                          </Button>
+                    {c.payoutStatus === 'UNPAID' ? (
+                      <button
+                        onClick={() => setConfirmState({
+                          title: 'Confirmar',
+                          message: `¿Marcar como pagado a ${c.name}?`,
+                          onConfirm: () => handleMarkPaid(c.employeeId, c.name),
+                        })}
+                        title={t('commissionsPage.markPaid')}
+                        className="text-accent-primary hover:text-accent-primary/80 transition-colors"
+                      >
+                        <CheckCircle2 size={14} />
+                      </button>
                         ) : (
-                          <span className="text-[10px] text-fg-tertiary italic">{t('commissionsPage.settled')}</span>
+                          <span className="text-xs text-fg-tertiary italic">{t('commissionsPage.settled')}</span>
                         )}
                       </td>
                     </tr>
@@ -202,6 +207,16 @@ export const CommissionsReportPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={true}
+          onClose={() => setConfirmState(null)}
+          onConfirm={() => { confirmState.onConfirm(); setConfirmState(null); }}
+          title={confirmState.title}
+          message={confirmState.message}
+        />
       )}
 
       {toast && (

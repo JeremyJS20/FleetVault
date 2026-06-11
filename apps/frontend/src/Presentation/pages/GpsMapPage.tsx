@@ -75,7 +75,7 @@ export const GpsMapPage: React.FC = () => {
             <span>{t('network.sync')}</span>
           </Button>
           {dataUpdatedAt && (
-            <span className="text-[10px] font-mono text-fg-tertiary">
+            <span className="text-xs font-mono text-fg-tertiary">
               {t('gpsPage.lastUpdated', { time: new Date(dataUpdatedAt).toLocaleTimeString() })}
             </span>
           )}
@@ -113,7 +113,7 @@ export const GpsMapPage: React.FC = () => {
                     <span className="font-bold text-fg-main">
                       {v.brand} {v.model}
                     </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusColor(v.status)}`}>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${getStatusColor(v.status)}`}>
                       {v.status}
                     </span>
                   </div>
@@ -129,12 +129,12 @@ export const GpsMapPage: React.FC = () => {
                         e.stopPropagation();
                         navigate(`/admin/gps/trail/${v.vehicleId}`);
                       }}
-                      className="text-[10px] font-semibold text-accent-primary hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-xs font-semibold text-accent-primary hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <Eye size={10} />
                       <span>{t('gpsPage.viewTrail')}</span>
                     </button>
-                    <span className="text-[10px] font-mono text-fg-tertiary">
+                    <span className="text-xs font-mono text-fg-tertiary">
                       {new Date(v.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </span>
                   </div>
@@ -180,14 +180,14 @@ export const GpsMapPage: React.FC = () => {
                     <span className="font-mono text-fg-secondary">
                       {t('gpsPage.heading')} {v.heading}°
                     </span>
-                    <span className="font-mono text-fg-tertiary text-[10px] mt-1">
+                    <span className="font-mono text-fg-tertiary text-xs mt-1">
                       {new Date(v.timestamp).toLocaleString()}
                     </span>
                     <Button
                       variant="primary"
                       size="sm"
                       onClick={() => navigate(`/admin/gps/trail/${v.vehicleId}`)}
-                      className="mt-2 text-[10px] !min-h-[28px] !py-1 !px-2 rounded-lg"
+                      className="mt-2 text-xs !min-h-[28px] !py-1 !px-2 rounded-lg"
                     >
                       {t('gpsPage.viewHistoricalTrail')}
                     </Button>

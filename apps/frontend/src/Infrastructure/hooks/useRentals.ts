@@ -53,14 +53,7 @@ export const useCreateRental = () => {
       driverLicenseCountry?: string;
       driverLicenseExpDate?: string;
       driverLicensePhotoUrl?: string;
-      hasScratches?: boolean;
-      hasBrokenGlass?: boolean;
-      missingSpareTire?: boolean;
-      missingJack?: boolean;
-      tireConditionFrontLeft?: string;
-      tireConditionFrontRight?: string;
-      tireConditionRearLeft?: string;
-      tireConditionRearRight?: string;
+      damages?: { damageTypeId: string; tirePosition?: string | null }[];
       photoUrls?: string[];
       inspectionComments?: string | null;
     }) => {
@@ -121,9 +114,6 @@ export const useRentalReturnEstimate = () => {
         lateFee: number;
         fuelDifference: number;
         fuelFee: number;
-        glassFee: number;
-        scratchesFee: number;
-        tiresFee: number;
         totalDamageFee: number;
         totalFinalCost: number;
       };

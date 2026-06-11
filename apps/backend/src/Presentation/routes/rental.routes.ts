@@ -83,7 +83,7 @@ router.post(
           vehicleId: req.body.vehicleId,
           rentalDate: req.body.rentalDate,
           scheduledReturnDate: req.body.scheduledReturnDate,
-          pricePerDay: Number(req.body.pricePerDay),
+          pricePerDay: req.body.pricePerDay ? Number(req.body.pricePerDay) : undefined,
           driverName: req.body.driverName,
           driverLicenseNumber: req.body.driverLicenseNumber,
           driverLicenseCountry: req.body.driverLicenseCountry,
@@ -96,14 +96,7 @@ router.post(
           stripePaymentMethodId: req.body.stripePaymentMethodId,
           paymentMethod: req.body.paymentMethod,
           purchaseOrderNumber: req.body.purchaseOrderNumber,
-          hasScratches: req.body.hasScratches,
-          hasBrokenGlass: req.body.hasBrokenGlass,
-          missingSpareTire: req.body.missingSpareTire,
-          missingJack: req.body.missingJack,
-          tireConditionFrontLeft: req.body.tireConditionFrontLeft,
-          tireConditionFrontRight: req.body.tireConditionFrontRight,
-          tireConditionRearLeft: req.body.tireConditionRearLeft,
-          tireConditionRearRight: req.body.tireConditionRearRight,
+          damages: req.body.damages,
           photoUrls: req.body.photoUrls,
           inspectionComments: req.body.inspectionComments
         });
@@ -173,12 +166,13 @@ router.get('/:id/contract', authMiddleware, async (req: AuthenticatedRequest, re
             vehicleType: true
           }
         },
-        customer: true,
+        customer: { include: { user: { select: { email: true } } } },
         checkoutEmployee: true,
         returnEmployee: true,
         inspections: {
           include: {
-            employee: true
+            employee: true,
+            damages: { include: { damageType: true } }
           }
         },
         transactions: true
@@ -212,12 +206,25 @@ router.get('/:id/contract', authMiddleware, async (req: AuthenticatedRequest, re
       return res.send(localBuffer);
     }
 
-    const result = await get(pdfUrl!, {
-      access: 'private',
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
+    let blobBuffer: Buffer | null = null;
+    try {
+      const result = await get(pdfUrl!, {
+        access: 'private',
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
+      if (result && result.statusCode === 200) {
+        const reader = result.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        blobBuffer = Buffer.concat(chunks);
+      }
+    } catch { /* blob fetch failed, will regenerate below */ }
 
-    if (!result || result.statusCode !== 200) {
+    if (!blobBuffer) {
       const fallback = await pdfService.generateContractPdf(rental);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="Contract_${rental.id.slice(0, 8)}.pdf"`);
@@ -225,19 +232,10 @@ router.get('/:id/contract', authMiddleware, async (req: AuthenticatedRequest, re
       return res.send(fallback.buffer);
     }
 
-    const reader = result.stream.getReader();
-    const chunks: Uint8Array[] = [];
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-    }
-    const buffer = Buffer.concat(chunks);
-
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Contract_${rental.id.slice(0, 8)}.pdf"`);
-    res.setHeader('Content-Length', buffer.length);
-    res.send(buffer);
+    res.setHeader('Content-Length', blobBuffer.length);
+    res.send(blobBuffer);
   } catch (error) {
     next(error);
   }
@@ -256,12 +254,13 @@ router.get('/:id/receipt', authMiddleware, async (req: AuthenticatedRequest, res
             vehicleType: true
           }
         },
-        customer: true,
+        customer: { include: { user: { select: { email: true } } } },
         checkoutEmployee: true,
         returnEmployee: true,
         inspections: {
           include: {
-            employee: true
+            employee: true,
+            damages: { include: { damageType: true } }
           }
         },
         transactions: true
@@ -295,12 +294,25 @@ router.get('/:id/receipt', authMiddleware, async (req: AuthenticatedRequest, res
       return res.send(localBuffer);
     }
 
-    const result = await get(pdfUrl!, {
-      access: 'private',
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
+    let blobBuffer: Buffer | null = null;
+    try {
+      const result = await get(pdfUrl!, {
+        access: 'private',
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
+      if (result && result.statusCode === 200) {
+        const reader = result.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        blobBuffer = Buffer.concat(chunks);
+      }
+    } catch { /* blob fetch failed, will regenerate below */ }
 
-    if (!result || result.statusCode !== 200) {
+    if (!blobBuffer) {
       const fallback = await pdfService.generateReturnReceiptPdf(rental);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="Receipt_${rental.id.slice(0, 8)}.pdf"`);
@@ -308,19 +320,10 @@ router.get('/:id/receipt', authMiddleware, async (req: AuthenticatedRequest, res
       return res.send(fallback.buffer);
     }
 
-    const reader = result.stream.getReader();
-    const chunks: Uint8Array[] = [];
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-    }
-    const buffer = Buffer.concat(chunks);
-
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Receipt_${rental.id.slice(0, 8)}.pdf"`);
-    res.setHeader('Content-Length', buffer.length);
-    res.send(buffer);
+    res.setHeader('Content-Length', blobBuffer.length);
+    res.send(blobBuffer);
   } catch (error) {
     next(error);
   }

@@ -7,6 +7,7 @@ export * from './schemas/fuel-type.js';
 export * from './schemas/vehicle.js';
 export * from './schemas/customer.js';
 export * from './schemas/employee.js';
+export * from './schemas/damage-type.js';
 export * from './schemas/inspection.js';
 export * from './schemas/rental.js';
 export * from './schemas/reservation.js';

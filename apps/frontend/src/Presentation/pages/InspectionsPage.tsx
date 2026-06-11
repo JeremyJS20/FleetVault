@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInspectionsList, useCreateInspection } from '../../Infrastructure/hooks/useInspections.js';
 import { useRentalsList } from '../../Infrastructure/hooks/useRentals.js';
+import { useDamageTypes } from '../../Infrastructure/hooks/useCatalog.js';
 import { useUploadImage } from '../../Infrastructure/hooks/useUploads.js';
 import { useNetworkStatus } from '../../Infrastructure/network-status.js';
 import { queueOfflineInspection } from '../../Infrastructure/offline-queue.js';
@@ -18,32 +19,22 @@ export const InspectionsPage: React.FC = () => {
   const { t } = useTranslation();
   const { isOnline, triggerQueueRefresh } = useNetworkStatus();
 
-  // Filters
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [page, setPage] = useState(1);
   const limit = 10;
 
-  // Dialog & Lists States
   const [isOpen, setIsOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Form Fields
   const [type, setType] = useState<'PICKUP' | 'RETURN'>('PICKUP');
   const [rentalId, setRentalId] = useState('');
   const [selectedRental, setSelectedRental] = useState<any | null>(null);
   const [odometer, setOdometer] = useState(0);
   const [fuelGaugeLevel, setFuelGaugeLevel] = useState('FULL');
-  const [hasScratches, setHasScratches] = useState(false);
-  const [hasBrokenGlass, setHasBrokenGlass] = useState(false);
-  const [missingSpareTire, setMissingSpareTire] = useState(false);
-  const [missingJack, setMissingJack] = useState(false);
-  const [tireConditionFrontLeft, setTireConditionFrontLeft] = useState('GOOD');
-  const [tireConditionFrontRight, setTireConditionFrontRight] = useState('GOOD');
-  const [tireConditionRearLeft, setTireConditionRearLeft] = useState('GOOD');
-  const [tireConditionRearRight, setTireConditionRearRight] = useState('GOOD');
+  const [damages, setDamages] = useState<{ damageTypeId: string; tirePosition?: string | null }[]>([]);
   const [comments, setComments] = useState('');
   interface VehiclePhotoSlot { value: string; file: File | null }
   const [vehiclePhotoSlots, setVehiclePhotoSlots] = useState<VehiclePhotoSlot[]>([]);
@@ -64,7 +55,6 @@ export const InspectionsPage: React.FC = () => {
     setVehiclePhotoSlots(prev => [...prev, { value: '', file: null }]);
   };
 
-  // Queries
   const { data: inspectionsData, isLoading: isInspectionsLoading, refetch } = useInspectionsList({ search, type: filterType, status: filterStatus, page, limit });
   const inspections = inspectionsData?.items || [];
 
@@ -72,9 +62,27 @@ export const InspectionsPage: React.FC = () => {
   const { data: activeRentalsData } = useRentalsList({ status: 'ACTIVE' });
   const rentals = type === 'PICKUP' ? (pendingRentalsData?.items || []) : (activeRentalsData?.items || []);
 
-  // Mutations
+  const { data: damageTypes = [] } = useDamageTypes();
+
   const createInspectionMutation = useCreateInspection();
   const uploadImageMutation = useUploadImage();
+
+  const isDamageSelected = (damageTypeId: string, tirePosition?: string) =>
+    damages.some(d => d.damageTypeId === damageTypeId && (d.tirePosition ?? null) === (tirePosition ?? null));
+
+  const toggleDamage = (damageTypeId: string) => {
+    setDamages(prev => prev.some(d => d.damageTypeId === damageTypeId && !d.tirePosition)
+      ? prev.filter(d => !(d.damageTypeId === damageTypeId && !d.tirePosition))
+      : [...prev, { damageTypeId }]
+    );
+  };
+
+  const toggleTireDamage = (damageTypeId: string, tirePosition: string) => {
+    setDamages(prev => prev.some(d => d.damageTypeId === damageTypeId && d.tirePosition === tirePosition)
+      ? prev.filter(d => !(d.damageTypeId === damageTypeId && d.tirePosition === tirePosition))
+      : [...prev, { damageTypeId, tirePosition }]
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +93,6 @@ export const InspectionsPage: React.FC = () => {
 
     try {
       setErrorMsg(null);
-
       const uploadedPhotoUrls: string[] = [];
       for (const slot of vehiclePhotoSlots) {
         if (slot.file && isOnline) {
@@ -97,28 +104,19 @@ export const InspectionsPage: React.FC = () => {
       const payload = {
         rentalId,
         type,
-        hasScratches,
         fuelGaugeLevel,
-        missingSpareTire,
-        missingJack,
-        hasBrokenGlass,
-        tireConditionFrontLeft,
-        tireConditionFrontRight,
-        tireConditionRearLeft,
-        tireConditionRearRight,
         odometer,
+        damages,
         photoUrls: uploadedPhotoUrls,
         comments: comments || null
       };
 
       if (!isOnline) {
-        // Queue Offline
         await queueOfflineInspection(payload);
         await triggerQueueRefresh();
         setSuccessMsg(t('common.statusUpdated'));
         setTimeout(() => { setSuccessMsg(null); setIsOpen(false); resetForm(); }, 3500);
       } else {
-        // Upload Online
         await createInspectionMutation.mutateAsync(payload);
         setSuccessMsg(t('common.statusUpdated'));
         setTimeout(() => { setSuccessMsg(null); setIsOpen(false); resetForm(); }, 2000);
@@ -134,14 +132,7 @@ export const InspectionsPage: React.FC = () => {
     setVehiclePhotoSlots([]);
     setOdometer(0);
     setFuelGaugeLevel('FULL');
-    setHasScratches(false);
-    setHasBrokenGlass(false);
-    setMissingSpareTire(false);
-    setMissingJack(false);
-    setTireConditionFrontLeft('GOOD');
-    setTireConditionFrontRight('GOOD');
-    setTireConditionRearLeft('GOOD');
-    setTireConditionRearRight('GOOD');
+    setDamages([]);
     setComments('');
   };
 
@@ -152,9 +143,11 @@ export const InspectionsPage: React.FC = () => {
     setSelectedRental(null);
   };
 
+  const tirePositions = ['FRONT_LEFT', 'FRONT_RIGHT', 'REAR_LEFT', 'REAR_RIGHT'];
+  const tireDt = damageTypes.find((dt: any) => dt.key === 'TIRE');
+
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Header controls */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-extrabold tracking-tight text-fg-main uppercase">
@@ -165,13 +158,12 @@ export const InspectionsPage: React.FC = () => {
           </p>
         </div>
 
-        <Button onClick={() => setIsOpen(true)} className="flex items-center gap-2">
-          <ClipboardCheck className="w-4 h-4" />
-          {t('inspections.logNewInspection')}
+        <Button variant="primary" size="sm" onClick={() => setIsOpen(true)} className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs">
+          <ClipboardCheck size={13} />
+          <span>{t('inspections.logNewInspection')}</span>
         </Button>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col md:flex-row items-center gap-4 justify-between">
         <SearchBar value={search} onChange={(val) => { setSearch(val); setPage(1); }} />
         <div className="flex gap-2 w-full md:w-auto">
@@ -188,7 +180,6 @@ export const InspectionsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Inspections Listings */}
       {isInspectionsLoading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <div className="w-8 h-8 rounded-full border-2 border-accent-primary/20 border-t-accent-primary animate-spin" />
@@ -202,7 +193,6 @@ export const InspectionsPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {inspections.map((insp: any) => (
             <div key={insp.id} className="p-5 rounded-2xl border border-border-surface/30 bg-bg-card/45 backdrop-blur-md space-y-4 hover:border-border-surface transition-all">
-              
               <div className="flex justify-between items-start border-b border-border-surface/10 pb-3">
                 <div>
                   <h3 className="text-xs font-bold text-fg-tertiary uppercase font-mono">#{insp.id.substring(0, 8)}</h3>
@@ -211,7 +201,7 @@ export const InspectionsPage: React.FC = () => {
                   </h2>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                  <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                     insp.type === 'PICKUP'
                       ? 'bg-blue-500/10 text-blue-500'
                       : 'bg-purple-500/10 text-purple-500'
@@ -224,26 +214,36 @@ export const InspectionsPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs font-semibold text-fg-secondary">
                 <div>
-                  <span className="text-fg-tertiary block text-[9px] uppercase tracking-wider">{t('inspections.odometerReading')}</span>
+                  <span className="text-fg-tertiary block text-xs uppercase tracking-wider">{t('inspections.odometerReading')}</span>
                   <span className="text-fg-main">{insp.odometer} km</span>
                 </div>
                 <div>
-                  <span className="text-fg-tertiary block text-[9px] uppercase tracking-wider">{t('inspections.fuelLevel')}</span>
+                  <span className="text-fg-tertiary block text-xs uppercase tracking-wider">{t('inspections.fuelLevel')}</span>
                   <span className="text-fg-main uppercase">{insp.fuelGaugeLevel}</span>
                 </div>
                 <div>
-                  <span className="text-fg-tertiary block text-[9px] uppercase tracking-wider">{t('inspections.customerVerified')}</span>
+                  <span className="text-fg-tertiary block text-xs uppercase tracking-wider">{t('inspections.customerVerified')}</span>
                   <span className="text-fg-main truncate block max-w-[120px]">{insp.customer.name}</span>
                 </div>
                 <div>
-                  <span className="text-fg-tertiary block text-[9px] uppercase tracking-wider">{t('inspections.inspectedBy')}</span>
+                  <span className="text-fg-tertiary block text-xs uppercase tracking-wider">{t('inspections.inspectedBy')}</span>
                   <span className="text-fg-main truncate block max-w-[120px]">{insp.employee?.name || '—'}</span>
                 </div>
                 <div>
-                  <span className="text-fg-tertiary block text-[9px] uppercase tracking-wider">{t('inspections.inspectionDate')}</span>
+                  <span className="text-fg-tertiary block text-xs uppercase tracking-wider">{t('inspections.inspectionDate')}</span>
                   <span className="text-fg-main">{new Date(insp.inspectionDate).toLocaleDateString()}</span>
                 </div>
               </div>
+
+              {insp.damages?.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {insp.damages.map((d: any) => (
+                    <span key={d.id} className="text-xs font-bold px-2 py-0.5 rounded-full bg-accent-error/10 text-accent-error border border-accent-error/20">
+                      {d.damageType?.name ?? 'Desconocido'}{d.tirePosition ? ` (${d.tirePosition})` : ''}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {insp.comments && (
                 <div className="p-2.5 rounded-lg bg-bg-inset border border-border-surface/20 text-xs text-fg-secondary">
@@ -255,7 +255,6 @@ export const InspectionsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Pagination */}
       {inspectionsData && inspectionsData.pages > 1 && (
         <div className="flex items-center justify-center gap-4 pt-4">
           <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
@@ -270,7 +269,6 @@ export const InspectionsPage: React.FC = () => {
         </div>
       )}
 
-      {/* CREATE INSPECTION DIALOG OVERLAY */}
       {isOpen && (
         <FormModal isOpen={isOpen} onClose={() => { setIsOpen(false); resetForm(); }} title={t('inspections.logInspectionTitle')}>
 
@@ -299,8 +297,6 @@ export const InspectionsPage: React.FC = () => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-
-              {/* Type toggle */}
               <div className="flex gap-2 p-1 rounded-xl bg-bg-inset border border-border-surface/20">
                 <button
                   type="button"
@@ -338,27 +334,13 @@ export const InspectionsPage: React.FC = () => {
                       setOdometer(rental.returnOdometer || rental.vehicle.odometer);
                       if (type === 'RETURN') {
                         const pickupInsp = rental.inspections?.find((i: any) => i.type === 'PICKUP');
-                        if (pickupInsp) {
-                          setHasScratches(pickupInsp.hasScratches || false);
-                          setHasBrokenGlass(pickupInsp.hasBrokenGlass || false);
-                          setMissingSpareTire(pickupInsp.missingSpareTire || false);
-                          setMissingJack(pickupInsp.missingJack || false);
-                          setTireConditionFrontLeft(pickupInsp.tireConditionFrontLeft || 'GOOD');
-                          setTireConditionFrontRight(pickupInsp.tireConditionFrontRight || 'GOOD');
-                          setTireConditionRearLeft(pickupInsp.tireConditionRearLeft || 'GOOD');
-                          setTireConditionRearRight(pickupInsp.tireConditionRearRight || 'GOOD');
-                          setFuelGaugeLevel(pickupInsp.fuelGaugeLevel || 'FULL');
-                        }
+                        setFuelGaugeLevel(pickupInsp?.fuelGaugeLevel || 'FULL');
+                        setDamages(pickupInsp?.damages?.map((d: any) => ({
+                          damageTypeId: d.damageTypeId,
+                          tirePosition: d.tirePosition ?? null,
+                        })) || []);
                       } else {
-                        // Reset if switching PICKUP rental
-                        setHasScratches(false);
-                        setHasBrokenGlass(false);
-                        setMissingSpareTire(false);
-                        setMissingJack(false);
-                        setTireConditionFrontLeft('GOOD');
-                        setTireConditionFrontRight('GOOD');
-                        setTireConditionRearLeft('GOOD');
-                        setTireConditionRearRight('GOOD');
+                        setDamages([]);
                         setFuelGaugeLevel('FULL');
                       }
                     } else {
@@ -380,11 +362,11 @@ export const InspectionsPage: React.FC = () => {
               {selectedRental && (
                 <div className="p-3 rounded-xl bg-bg-inset border border-border-surface/30 grid grid-cols-2 gap-2 text-xs font-semibold">
                   <div>
-                    <span className="text-fg-tertiary block text-[9px] uppercase tracking-wider">{t('inspections.assignedVehicle')}</span>
+                    <span className="text-fg-tertiary block text-xs uppercase tracking-wider">{t('inspections.assignedVehicle')}</span>
                     <span className="text-fg-main">{selectedRental.vehicle.brand.name} {selectedRental.vehicle.model.name} ({selectedRental.vehicle.plateNumber})</span>
                   </div>
                   <div>
-                    <span className="text-fg-tertiary block text-[9px] uppercase tracking-wider">{t('inspections.associatedCustomer')}</span>
+                    <span className="text-fg-tertiary block text-xs uppercase tracking-wider">{t('inspections.associatedCustomer')}</span>
                     <span className="text-fg-main">{selectedRental.customer.name}</span>
                   </div>
                 </div>
@@ -416,7 +398,6 @@ export const InspectionsPage: React.FC = () => {
                 </FormField>
               </div>
 
-              {/* Vehicle Photos Gallery */}
               <div className="border border-border-surface/30 p-3 rounded-xl bg-bg-surface/10 space-y-3">
                 <span className="text-xs font-bold text-accent-primary uppercase tracking-widest flex items-center gap-2">
                   <Camera className="w-3.5 h-3.5" />
@@ -449,111 +430,56 @@ export const InspectionsPage: React.FC = () => {
                       className="w-full sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.33%-0.5rem)] xl:w-[calc(25%-0.5625rem)] max-w-[240px] aspect-[4/3] rounded-xl border-2 border-dashed border-border-surface/40 bg-bg-inset/50 flex flex-col items-center justify-center gap-1.5 text-fg-tertiary hover:border-accent-primary hover:text-accent-primary transition-all cursor-pointer"
                     >
                       <Camera className="w-5 h-5" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider">{t('inspections.addPhoto', 'Add Photo')}</span>
+                      <span className="text-xs font-bold uppercase tracking-wider">{t('inspections.addPhoto', 'Add Photo')}</span>
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* INTERACTIVE CAR DAMAGE OVERLAY */}
+              {/* Dynamic Damage Checklist */}
               <div className="p-4 rounded-xl border border-border-surface/30 space-y-3 bg-bg-surface/10">
                 <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block">{t('inspections.damageChecklist')}</span>
-                
-                <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
-                  <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={hasScratches}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHasScratches(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
-                    />
-                    {t('inspections.bodyScratches')}
-                  </label>
 
-                  <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={hasBrokenGlass}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHasBrokenGlass(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
-                    />
-                    {t('inspections.brokenGlass')}
-                  </label>
+                {damageTypes.length === 0 ? (
+                  <p className="text-xs text-fg-tertiary">No hay tipos de daño configurados</p>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Non-tire damages as checkboxes */}
+                    <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                      {damageTypes.filter((dt: any) => dt.key !== 'TIRE').map((dt: any) => (
+                        <label key={dt.id} className="flex items-center gap-2 text-fg-secondary cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isDamageSelected(dt.id)}
+                            onChange={() => toggleDamage(dt.id)}
+                            className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
+                          />
+                          {dt.name}
+                        </label>
+                      ))}
+                    </div>
 
-                  <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={missingSpareTire}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMissingSpareTire(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
-                    />
-                    {t('inspections.missingSpareTire')}
-                  </label>
-
-                  <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={missingJack}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMissingJack(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
-                    />
-                    {t('inspections.missingJack')}
-                  </label>
-                </div>
-
-                <div className="border-t border-border-surface/10 pt-3 grid grid-cols-2 gap-4">
-                  <FormField label={t('inspections.tireFLCondition')}>
-                    <select
-                      value={tireConditionFrontLeft}
-                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTireConditionFrontLeft(e.target.value)}
-                      className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none"
-                    >
-                      <option value="GOOD">{t('common.tireGood')}</option>
-                      <option value="WORN">{t('common.tireWorn')}</option>
-                      <option value="DAMAGED">{t('common.tireDamaged')}</option>
-                      <option value="MISSING">{t('common.tireMissing')}</option>
-                    </select>
-                  </FormField>
-
-                  <FormField label={t('inspections.tireFRCondition')}>
-                    <select
-                      value={tireConditionFrontRight}
-                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTireConditionFrontRight(e.target.value)}
-                      className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none"
-                    >
-                      <option value="GOOD">{t('common.tireGood')}</option>
-                      <option value="WORN">{t('common.tireWorn')}</option>
-                      <option value="DAMAGED">{t('common.tireDamaged')}</option>
-                      <option value="MISSING">{t('common.tireMissing')}</option>
-                    </select>
-                  </FormField>
-
-                  <FormField label={t('inspections.tireRLCondition')}>
-                    <select
-                      value={tireConditionRearLeft}
-                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTireConditionRearLeft(e.target.value)}
-                      className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none"
-                    >
-                      <option value="GOOD">{t('common.tireGood')}</option>
-                      <option value="WORN">{t('common.tireWorn')}</option>
-                      <option value="DAMAGED">{t('common.tireDamaged')}</option>
-                      <option value="MISSING">{t('common.tireMissing')}</option>
-                    </select>
-                  </FormField>
-
-                  <FormField label={t('inspections.tireRRCondition')}>
-                    <select
-                      value={tireConditionRearRight}
-                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTireConditionRearRight(e.target.value)}
-                      className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none"
-                    >
-                      <option value="GOOD">{t('common.tireGood')}</option>
-                      <option value="WORN">{t('common.tireWorn')}</option>
-                      <option value="DAMAGED">{t('common.tireDamaged')}</option>
-                      <option value="MISSING">{t('common.tireMissing')}</option>
-                    </select>
-                  </FormField>
-                </div>
+                    {/* Tire damages as per-position selects */}
+                    {tireDt && (
+                      <div className="border-t border-border-surface/10 pt-3">
+                        <p className="text-xs font-bold text-fg-tertiary uppercase tracking-wider mb-2">{tireDt.name}</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          {tirePositions.map(pos => (
+                            <label key={pos} className="flex items-center gap-2 text-fg-secondary cursor-pointer text-xs">
+                              <input
+                                type="checkbox"
+                                checked={isDamageSelected(tireDt.id, pos)}
+                                onChange={() => toggleTireDamage(tireDt.id, pos)}
+                                className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
+                              />
+                              {pos.replace('_', ' ')}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <FormField label={t('inspections.comments')}>

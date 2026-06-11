@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../Infrastructure/auth.context.js';
 import { useRentalsList, useCreateRental, useRentalReturn, useRentalReturnEstimate } from '../../Infrastructure/hooks/useRentals.js';
 import { useVehicles } from '../../Infrastructure/hooks/useCatalog.js';
-import { useCustomers, useUpdateCustomer, useCustomerPaymentMethods, useDeleteCustomerPaymentMethod, useUpdateRental, useUpdateInspection, useFeeConfigs } from '../../Infrastructure/hooks/useCatalog.js';
+import { useCustomers, useUpdateCustomer, useCustomerPaymentMethods, useDeleteCustomerPaymentMethod, useUpdateRental, useUpdateInspection, useFeeConfigs, useDamageTypes } from '../../Infrastructure/hooks/useCatalog.js';
 import { useUploadImage, getImageProxyUrl } from '../../Infrastructure/hooks/useUploads.js';
 import { formatCurrency } from '@rent-car/common';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
@@ -17,9 +17,11 @@ import { stripePromise } from '../../Infrastructure/stripe.js';
 import { StripeCardForm } from '../components/ui/StripeCardForm.js';
 import { Toast } from '../components/ui/Toast.js';
 import { FileUploader } from '../components/ui/FileUploader.js';
+import { getAccessToken } from '../../Infrastructure/api-client.js';
 import { 
   Calendar, Check, User, Sparkles, Play, Camera,
-  CornerDownLeft, RefreshCw, AlertCircle, Trash2, X
+  CornerDownLeft, RefreshCw, AlertCircle, Trash2, X,
+  FileText, Receipt
 } from 'lucide-react';
 
 export const ReservationsPage: React.FC = () => {
@@ -71,6 +73,8 @@ export const ReservationsPage: React.FC = () => {
   const [walkinStart, setWalkinStart] = useState('');
   const [walkinEnd, setWalkinEnd] = useState('');
   const [walkinRate, setWalkinRate] = useState(50);
+  const [seasonalMultiplier, setSeasonalMultiplier] = useState(1);
+  const [seasonalRateName, setSeasonalRateName] = useState<string | null>(null);
   const [walkinCardToken, setWalkinCardToken] = useState<string | null>(null);
   const [walkinSignature, setWalkinSignature] = useState<string | null>(null);
   const [walkinError, setWalkinError] = useState<string | null>(null);
@@ -81,6 +85,7 @@ export const ReservationsPage: React.FC = () => {
   const [walkinPaymentMethod, setWalkinPaymentMethod] = useState<'STRIPE' | 'CASH'>('STRIPE');
   const [walkinPurchaseOrderNumber, setWalkinPurchaseOrderNumber] = useState('');
   const [walkinAcceptedTnc, setWalkinAcceptedTnc] = useState(false);
+  const [walkinCreatedRentalId, setWalkinCreatedRentalId] = useState<string | null>(null);
 
   // Walk-in driver fields (corporate employee)
   const [walkinDriverName, setWalkinDriverName] = useState('');
@@ -93,14 +98,7 @@ export const ReservationsPage: React.FC = () => {
   // Walk-in inspection state
   const [walkinOdometer, setWalkinOdometer] = useState(0);
   const [walkinFuelLevel, setWalkinFuelLevel] = useState('FULL');
-  const [walkinHasScratches, setWalkinHasScratches] = useState(false);
-  const [walkinHasBrokenGlass, setWalkinHasBrokenGlass] = useState(false);
-  const [walkinMissingSpareTire, setWalkinMissingSpareTire] = useState(false);
-  const [walkinMissingJack, setWalkinMissingJack] = useState(false);
-  const [walkinTireFL, setWalkinTireFL] = useState('GOOD');
-  const [walkinTireFR, setWalkinTireFR] = useState('GOOD');
-  const [walkinTireRL, setWalkinTireRL] = useState('GOOD');
-  const [walkinTireRR, setWalkinTireRR] = useState('GOOD');
+  const [walkinDamages, setWalkinDamages] = useState<{ damageTypeId: string; tirePosition?: string | null }[]>([]);
   const [walkinInspComments, setWalkinInspComments] = useState('');
   interface VehiclePhotoSlot { value: string; file: File | null }
   const [walkinPhotoSlots, setWalkinPhotoSlots] = useState<VehiclePhotoSlot[]>([]);
@@ -166,6 +164,34 @@ export const ReservationsPage: React.FC = () => {
     };
   }, [anyModalOpen]);
 
+  // Fetch seasonal multiplier when walk-in dates change
+  useEffect(() => {
+    if (walkinStart && walkinEnd) {
+      fetch(`/api/seasonal-rates/multiplier?startDate=${encodeURIComponent(walkinStart)}&endDate=${encodeURIComponent(walkinEnd)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(res => {
+          if (res?.success && res.data) {
+            setSeasonalMultiplier(res.data.multiplier ?? 1);
+            setSeasonalRateName(res.data.name ?? null);
+          }
+        })
+        .catch(() => {});
+    } else {
+      setSeasonalMultiplier(1);
+      setSeasonalRateName(null);
+    }
+  }, [walkinStart, walkinEnd]);
+
+  // Recalculate walkinRate when seasonal multiplier changes and a vehicle is selected
+  useEffect(() => {
+    if (walkinVehicle) {
+      const selected = availableVehicles.find((v: any) => v.id === walkinVehicle);
+      if (selected) {
+        setWalkinRate(parseFloat((selected.vehicleType.baseDailyRate * seasonalMultiplier).toFixed(2)));
+      }
+    }
+  }, [seasonalMultiplier, walkinVehicle]);
+
   // Populate helper lists
   const { data: vehiclesData } = useVehicles({});
   const { data: customersData, refetch: refetchCustomers } = useCustomers({ excludeWithActiveRentals: true });
@@ -222,7 +248,7 @@ export const ReservationsPage: React.FC = () => {
     setWalkinVehicle('');
     setWalkinStart('');
     setWalkinEnd('');
-    setWalkinRate(50);
+    setWalkinRate(0);
     setWalkinCardToken(null);
     setWalkinSignature(null);
     setPendingWalkinSignatureFile(null);
@@ -243,6 +269,9 @@ export const ReservationsPage: React.FC = () => {
     setWalkinLicPhotoUrl('');
     setWalkinPendingLicenseFile(null);
     setWalkinIsSavingProfile(false);
+    setWalkinCreatedRentalId(null);
+    setSeasonalMultiplier(1);
+    setSeasonalRateName(null);
     createRentalMutation.reset();
   };
 
@@ -269,6 +298,7 @@ export const ReservationsPage: React.FC = () => {
 
   // Fee configs
   const { data: feeConfigs } = useFeeConfigs();
+  const { data: damageTypes = [] } = useDamageTypes();
 
   const walkinOutstandingBalance = Number(selectedWalkinCustomer?.outstandingBalance || 0);
   const walkinRemainingCredit = (selectedWalkinCustomer?.creditLimit || 0) - walkinOutstandingBalance;
@@ -496,7 +526,7 @@ export const ReservationsPage: React.FC = () => {
   const handleNextWalkinStep = async () => {
     setWalkinError(null);
     if (walkinStep === 1) {
-      if (!walkinCustomer || !walkinVehicle || !walkinStart || !walkinEnd || !walkinRate) {
+      if (!walkinCustomer || !walkinVehicle || !walkinStart || !walkinEnd) {
         setWalkinError(t('common.fieldsRequired'));
         return;
       }
@@ -597,7 +627,7 @@ export const ReservationsPage: React.FC = () => {
         vehicleId: walkinVehicle,
         rentalDate: new Date(walkinStart).toISOString(),
         scheduledReturnDate: new Date(walkinEnd).toISOString(),
-        pricePerDay: Number(walkinRate),
+        pricePerDay: undefined,
         checkoutOdometer: Number(walkinOdometer),
         checkoutFuelLevel: walkinFuelLevel,
         stripePaymentMethodId: (isWalkinCorporate || walkinPaymentMethod === 'CASH') ? null : walkinCardToken,
@@ -608,18 +638,12 @@ export const ReservationsPage: React.FC = () => {
         driverLicenseCountry: walkinDriverLicenseCountry || undefined,
         driverLicenseExpDate: walkinDriverLicenseExpDate || undefined,
         driverLicensePhotoUrl: isWalkinCorporate ? undefined : (walkinDriverLicensePhotoUrl || undefined),
-        hasScratches: walkinHasScratches,
-        hasBrokenGlass: walkinHasBrokenGlass,
-        missingSpareTire: walkinMissingSpareTire,
-        missingJack: walkinMissingJack,
-        tireConditionFrontLeft: walkinTireFL,
-        tireConditionFrontRight: walkinTireFR,
-        tireConditionRearLeft: walkinTireRL,
-        tireConditionRearRight: walkinTireRR,
+        damages: walkinDamages,
         inspectionComments: walkinInspComments || null,
       });
 
       const rentalId = created.rental?.id || created.id;
+      setWalkinCreatedRentalId(rentalId);
       const inspectionId = created.inspection?.id;
 
       // 2. Upload signature with real rental ID
@@ -681,6 +705,27 @@ export const ReservationsPage: React.FC = () => {
     }
   };
 
+  const downloadPdf = async (rentalId: string, type: 'contract' | 'receipt') => {
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`/api/rentals/${rentalId}/${type}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Failed to download');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${type === 'contract' ? 'Contract' : 'Receipt'}_${rentalId.slice(0, 8)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(`Failed to download ${type} PDF:`, err);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header controls */}
@@ -695,9 +740,9 @@ export const ReservationsPage: React.FC = () => {
         </div>
 
         {canCheckout && (
-          <Button onClick={() => setIsWalkinOpen(true)} className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4" />
-            {t('reservations.walkinBooking')}
+          <Button variant="primary" size="sm" onClick={() => setIsWalkinOpen(true)} className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs">
+            <Sparkles size={13} />
+            <span>{t('reservations.walkinBooking')}</span>
           </Button>
         )}
       </div>
@@ -778,16 +823,16 @@ export const ReservationsPage: React.FC = () => {
                     </h3>
                     <StatusBadge status={r.status} />
                     {r.status === 'PENDING' && !r.inspections?.some((i: any) => i.type === 'PICKUP') && (
-                      <span className="text-[9px] font-bold text-amber-500 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded-full">Insp. Required</span>
+                      <span className="text-xs font-bold text-amber-500 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded-full">Insp. Required</span>
                     )}
                     {r.status === 'PENDING' && r.inspections?.some((i: any) => i.type === 'PICKUP') && (
-                      <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded-full">Insp. Done</span>
+                      <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded-full">Insp. Done</span>
                     )}
                     {r.status === 'ACTIVE' && !r.inspections?.some((i: any) => i.type === 'RETURN') && (
-                      <span className="text-[9px] font-bold text-amber-500 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded-full">Return Insp. Pending</span>
+                      <span className="text-xs font-bold text-amber-500 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded-full">Return Insp. Pending</span>
                     )}
                     {r.status === 'ACTIVE' && r.inspections?.some((i: any) => i.type === 'RETURN') && (
-                      <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded-full">Return Insp. Done</span>
+                      <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded-full">Return Insp. Done</span>
                     )}
                   </div>
                   <p className="text-xs text-fg-tertiary mt-1.5 flex items-center gap-1 font-semibold uppercase">
@@ -811,7 +856,7 @@ export const ReservationsPage: React.FC = () => {
                     {new Date(r.rentalDate).toLocaleDateString()} — {new Date(r.scheduledReturnDate).toLocaleDateString()}
                   </p>
                   {r.customer?.type === 'CORPORATE' && r.customer.outstandingBalance !== undefined && (
-                    <p className="text-[10px] text-accent-primary mt-1.5 flex items-center gap-1 font-bold">
+                    <p className="text-xs text-accent-primary mt-1.5 flex items-center gap-1 font-bold">
                       <span className="uppercase tracking-wider">{t('reservations.outstandingBalance', 'Outstanding')}:</span>
                       <span className="font-mono">{formatCurrency(r.customer.outstandingBalance)}</span>
                       <span className="text-fg-tertiary mx-0.5">/</span>
@@ -887,7 +932,7 @@ export const ReservationsPage: React.FC = () => {
             </button>
 
             <div>
-              <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('reservations.checkoutContract')}</span>
+              <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block">{t('reservations.checkoutContract')}</span>
               <h2 className="text-lg font-extrabold text-fg-main mt-1 uppercase">
                 {checkoutStep === 1 && t('reservations.stepVerify')}
                 {checkoutStep === 2 && (checkoutRental?.customer.type === 'CORPORATE'
@@ -1143,8 +1188,12 @@ export const ReservationsPage: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="pt-4 w-full">
-                  <Button className="w-full" onClick={closeCheckout}>
+                <div className="pt-4 w-full flex flex-col gap-2">
+                  <Button className="w-full flex items-center justify-center gap-2" onClick={() => downloadPdf(checkoutRental.id, 'contract')}>
+                    <FileText size={14} />
+                    Descargar Contrato
+                  </Button>
+                  <Button variant="secondary" className="w-full" onClick={closeCheckout}>
                     {t('reservations.dismiss')}
                   </Button>
                 </div>
@@ -1162,7 +1211,7 @@ export const ReservationsPage: React.FC = () => {
             <button onClick={closeReturn} className="absolute top-5 right-5 text-fg-tertiary hover:text-fg-main cursor-pointer z-10">✕</button>
 
             <div>
-              <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('reservations.returnDesk')}</span>
+              <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block">{t('reservations.returnDesk')}</span>
               <h2 className="text-lg font-extrabold text-fg-main mt-1 uppercase">
                 {returnStep === 1 && t('reservations.stepReturnParams')}
                 {returnStep === 2 && t('reservations.stepPenalty')}
@@ -1188,8 +1237,7 @@ export const ReservationsPage: React.FC = () => {
             {/* Step 1: Check-in Parameters (read-only from RETURN inspection) */}
             {returnStep === 1 && (() => {
               const returnInsp = returnRental.inspections?.find((i: any) => i.type === 'RETURN');
-              const tireDmg = [returnInsp?.tireConditionFrontLeft, returnInsp?.tireConditionFrontRight, returnInsp?.tireConditionRearLeft, returnInsp?.tireConditionRearRight]
-                .filter((t: string) => t === 'DAMAGED' || t === 'MISSING').length;
+              const retDamages = returnInsp?.damages || [];
               return (
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-bg-inset border border-border-surface/40 space-y-3 text-xs">
@@ -1201,20 +1249,18 @@ export const ReservationsPage: React.FC = () => {
                     <span className="text-fg-tertiary">{t('reservations.returnFuel')}</span>
                     <span className="font-bold text-fg-main">{returnInsp?.fuelGaugeLevel || '—'}</span>
                   </div>
-                  <div className="border-t border-border-surface/15 pt-2">
-                    <span className="text-fg-tertiary block mb-1.5">{t('reservations.inspectDamage')}</span>
-                    <div className="flex flex-wrap gap-3">
-                      <span className={`font-semibold ${returnInsp?.hasBrokenGlass ? 'text-accent-error' : 'text-emerald-500'}`}>
-                        {returnInsp?.hasBrokenGlass ? '⚠ ' : '✓ '}{t('reservations.brokenGlass')}
-                      </span>
-                      <span className={`font-semibold ${returnInsp?.hasScratches ? 'text-accent-error' : 'text-emerald-500'}`}>
-                        {returnInsp?.hasScratches ? '⚠ ' : '✓ '}{t('reservations.newScratches')}
-                      </span>
-                      <span className={`font-semibold ${tireDmg > 0 ? 'text-accent-error' : 'text-emerald-500'}`}>
-                        {tireDmg > 0 ? `⚠ ${tireDmg} ` : '✓ '}{t('reservations.damagedTires')}
-                      </span>
+                  {retDamages.length > 0 && (
+                    <div className="border-t border-border-surface/15 pt-2">
+                      <span className="text-fg-tertiary block mb-1.5">{t('reservations.inspectDamage')}</span>
+                      <div className="flex flex-wrap gap-2">
+                        {retDamages.map((d: any) => (
+                          <span key={d.id} className="text-xs font-bold px-2 py-0.5 rounded-full bg-accent-error/10 text-accent-error border border-accent-error/20">
+                            {d.damageType?.name ?? 'Desconocido'}{d.tirePosition ? ` (${d.tirePosition})` : ''}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                   {returnInsp?.comments && (
                     <div className="border-t border-border-surface/15 pt-2">
                       <span className="text-fg-tertiary block">{t('inspections.comments')}:</span>
@@ -1298,13 +1344,13 @@ export const ReservationsPage: React.FC = () => {
                         <span className={`font-bold block ${isRefund ? 'text-emerald-400' : 'text-accent-error'}`}>
                           {t('reservations.cashReconciliationTitle', 'Cash Reconciliation')}
                         </span>
-                        <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold">
+                        <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
                           <div>
-                            <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.initialCashPaid', 'Initial Paid (Rent+Deposit)')}</span>
+                            <span className="text-fg-tertiary block text-xs uppercase">{t('reservations.initialCashPaid', 'Initial Paid (Rent+Deposit)')}</span>
                             <span className="text-fg-main font-mono">{formatCurrency(initialPaidCash)}</span>
                           </div>
                           <div>
-                            <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.actualFinalCost', 'Actual Cost')}</span>
+                            <span className="text-fg-tertiary block text-xs uppercase">{t('reservations.actualFinalCost', 'Actual Cost')}</span>
                             <span className="text-fg-main font-mono">{formatCurrency(estimateData.totalFinalCost ?? 0)}</span>
                           </div>
                         </div>
@@ -1336,13 +1382,13 @@ export const ReservationsPage: React.FC = () => {
                       <span className={`font-bold block ${isExcess ? 'text-accent-error' : 'text-emerald-400'}`}>
                         {t('reservations.stripeBillingTitle', 'Stripe Credit Card Processing')}
                       </span>
-                      <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold">
+                      <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
                         <div>
-                          <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.preAuthAuthorized', 'Authorized Hold')}</span>
+                          <span className="text-fg-tertiary block text-xs uppercase">{t('reservations.preAuthAuthorized', 'Authorized Hold')}</span>
                           <span className="text-fg-main font-mono">{formatCurrency(authAmount)}</span>
                         </div>
                         <div>
-                          <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.actualFinalCost', 'Actual Cost')}</span>
+                          <span className="text-fg-tertiary block text-xs uppercase">{t('reservations.actualFinalCost', 'Actual Cost')}</span>
                           <span className="text-fg-main font-mono">{formatCurrency(finalCost)}</span>
                         </div>
                       </div>
@@ -1410,8 +1456,12 @@ export const ReservationsPage: React.FC = () => {
                     );
                   })()}
                 </div>
-                <div className="pt-4 w-full">
-                  <Button className="w-full" onClick={closeReturn}>
+                <div className="pt-4 w-full flex flex-col gap-2">
+                  <Button className="w-full flex items-center justify-center gap-2" onClick={() => returnRental && downloadPdf(returnRental.id, 'receipt')}>
+                    <Receipt size={14} />
+                    Descargar Recibo
+                  </Button>
+                  <Button variant="secondary" className="w-full" onClick={closeReturn}>
                     {t('reservations.dismiss')}
                   </Button>
                 </div>
@@ -1434,7 +1484,7 @@ export const ReservationsPage: React.FC = () => {
             </button>
 
             <div>
-              <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('reservations.counterDesk')}</span>
+              <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block">{t('reservations.counterDesk')}</span>
               <h2 className="text-lg font-extrabold text-fg-main mt-0.5 uppercase">
                 {walkinStep === 1 && t('reservations.stepWalkinParams')}
                 {walkinStep === 2 && (isWalkinCorporate
@@ -1497,7 +1547,7 @@ export const ReservationsPage: React.FC = () => {
                         setWalkinVehicle(e.target.value);
                         const selected = availableVehicles.find((v: any) => v.id === e.target.value);
                         if (selected) {
-                          setWalkinRate(selected.vehicleType.baseDailyRate);
+                          setWalkinRate(parseFloat((selected.vehicleType.baseDailyRate * seasonalMultiplier).toFixed(2)));
                           setWalkinOdometer(selected.odometer || 0);
                         }
                       }}
@@ -1536,14 +1586,23 @@ export const ReservationsPage: React.FC = () => {
 
                 <div>
                   <FormField label={t('reservations.dailyRate')} required>
-                    <Input
-                      type="number"
-                      value={walkinRate}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinRate(Number(e.target.value))}
-                      className="!h-9 rounded-lg"
-                      required
-                      disabled
-                    />
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          value={walkinRate}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinRate(Number(e.target.value))}
+                          className="!h-9 rounded-lg"
+                          required
+                          disabled
+                        />
+                      </div>
+                      {seasonalMultiplier > 1 && (
+                        <span className="shrink-0 text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded-full uppercase tracking-wider whitespace-nowrap">
+                          +{Math.round((seasonalMultiplier - 1) * 100)}% {seasonalRateName}
+                        </span>
+                      )}
+                    </div>
                   </FormField>
                 </div>
 
@@ -1557,11 +1616,11 @@ export const ReservationsPage: React.FC = () => {
                     </p>
                     <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-accent-primary/10 font-semibold">
                       <div>
-                        <span className="text-fg-tertiary block text-[10px] uppercase">{t('reservations.outstandingBalance', 'Outstanding')}</span>
+                        <span className="text-fg-tertiary block text-xs uppercase">{t('reservations.outstandingBalance', 'Outstanding')}</span>
                         <span className="text-fg-main text-xs">{formatCurrency(walkinOutstandingBalance)}</span>
                       </div>
                       <div>
-                        <span className="text-fg-tertiary block text-[10px] uppercase">{t('reservations.remainingCredit', 'Available')}</span>
+                        <span className="text-fg-tertiary block text-xs uppercase">{t('reservations.remainingCredit', 'Available')}</span>
                         <span className={`text-xs ${walkinRemainingCredit <= 0 ? 'text-accent-error font-extrabold' : 'text-emerald-500 font-extrabold'}`}>
                           {formatCurrency(walkinRemainingCredit)}
                         </span>
@@ -1785,60 +1844,61 @@ export const ReservationsPage: React.FC = () => {
                 </div>
 
                 <div className="border border-border-surface/30 p-3 rounded-xl bg-bg-surface/10 space-y-3">
-                  <span className="text-[10px] font-bold text-fg-secondary uppercase tracking-wider block">{t('reservations.damageChecklist')}</span>
-                  <div className="grid grid-cols-2 gap-3 text-xs font-semibold">
-                    <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
-                      <input type="checkbox" checked={walkinHasScratches} onChange={(e) => setWalkinHasScratches(e.target.checked)} className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary" />
-                      {t('reservations.bodyScratches')}
-                    </label>
-                    <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
-                      <input type="checkbox" checked={walkinHasBrokenGlass} onChange={(e) => setWalkinHasBrokenGlass(e.target.checked)} className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary" />
-                      {t('reservations.brokenGlass')}
-                    </label>
-                    <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
-                      <input type="checkbox" checked={walkinMissingSpareTire} onChange={(e) => setWalkinMissingSpareTire(e.target.checked)} className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary" />
-                      {t('reservations.missingSpareTire')}
-                    </label>
-                    <label className="flex items-center gap-2 text-fg-secondary cursor-pointer">
-                      <input type="checkbox" checked={walkinMissingJack} onChange={(e) => setWalkinMissingJack(e.target.checked)} className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary" />
-                      {t('reservations.missingJack')}
-                    </label>
-                  </div>
-
-                  <div className="border-t border-border-surface/10 pt-3 grid grid-cols-2 gap-4">
-                    <FormField label={t('reservations.tireFL')}>
-                      <select value={walkinTireFL} onChange={(e) => setWalkinTireFL(e.target.value)} className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none">
-                        <option value="GOOD">{t('common.tireGood')}</option>
-                        <option value="WORN">{t('common.tireWorn')}</option>
-                        <option value="DAMAGED">{t('common.tireDamaged')}</option>
-                        <option value="MISSING">{t('common.tireMissing')}</option>
-                      </select>
-                    </FormField>
-                    <FormField label={t('reservations.tireFR')}>
-                      <select value={walkinTireFR} onChange={(e) => setWalkinTireFR(e.target.value)} className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none">
-                        <option value="GOOD">{t('common.tireGood')}</option>
-                        <option value="WORN">{t('common.tireWorn')}</option>
-                        <option value="DAMAGED">{t('common.tireDamaged')}</option>
-                        <option value="MISSING">{t('common.tireMissing')}</option>
-                      </select>
-                    </FormField>
-                    <FormField label={t('reservations.tireRL')}>
-                      <select value={walkinTireRL} onChange={(e) => setWalkinTireRL(e.target.value)} className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none">
-                        <option value="GOOD">{t('common.tireGood')}</option>
-                        <option value="WORN">{t('common.tireWorn')}</option>
-                        <option value="DAMAGED">{t('common.tireDamaged')}</option>
-                        <option value="MISSING">{t('common.tireMissing')}</option>
-                      </select>
-                    </FormField>
-                    <FormField label={t('reservations.tireRR')}>
-                      <select value={walkinTireRR} onChange={(e) => setWalkinTireRR(e.target.value)} className="w-full h-8 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-bold px-2 text-fg-secondary outline-none">
-                        <option value="GOOD">{t('common.tireGood')}</option>
-                        <option value="WORN">{t('common.tireWorn')}</option>
-                        <option value="DAMAGED">{t('common.tireDamaged')}</option>
-                        <option value="MISSING">{t('common.tireMissing')}</option>
-                      </select>
-                    </FormField>
-                  </div>
+                  <span className="text-xs font-bold text-fg-secondary uppercase tracking-wider block">{t('reservations.damageChecklist')}</span>
+                  {damageTypes.length === 0 ? (
+                    <p className="text-xs text-fg-tertiary">No hay tipos de daño configurados</p>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3 text-xs font-semibold">
+                        {damageTypes.filter((dt: any) => dt.key !== 'TIRE').map((dt: any) => (
+                          <label key={dt.id} className="flex items-center gap-2 text-fg-secondary cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={walkinDamages.some(d => d.damageTypeId === dt.id && !d.tirePosition)}
+                              onChange={() => {
+                                setWalkinDamages(prev =>
+                                  prev.some(d => d.damageTypeId === dt.id && !d.tirePosition)
+                                    ? prev.filter(d => !(d.damageTypeId === dt.id && !d.tirePosition))
+                                    : [...prev, { damageTypeId: dt.id }]
+                                );
+                              }}
+                              className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
+                            />
+                            {dt.name}
+                          </label>
+                        ))}
+                      </div>
+                      {(() => {
+                        const tireDt = damageTypes.find((dt: any) => dt.key === 'TIRE');
+                        const tirePositions = ['FRONT_LEFT', 'FRONT_RIGHT', 'REAR_LEFT', 'REAR_RIGHT'];
+                        if (!tireDt) return null;
+                        return (
+                          <div className="border-t border-border-surface/10 pt-3">
+                            <p className="text-xs font-bold text-fg-tertiary uppercase tracking-wider mb-2">{tireDt.name}</p>
+                            <div className="grid grid-cols-2 gap-3">
+                              {tirePositions.map(pos => (
+                                <label key={pos} className="flex items-center gap-2 text-fg-secondary cursor-pointer text-xs">
+                                  <input
+                                    type="checkbox"
+                                    checked={walkinDamages.some(d => d.damageTypeId === tireDt.id && d.tirePosition === pos)}
+                                    onChange={() => {
+                                      setWalkinDamages(prev =>
+                                        prev.some(d => d.damageTypeId === tireDt.id && d.tirePosition === pos)
+                                          ? prev.filter(d => !(d.damageTypeId === tireDt.id && d.tirePosition === pos))
+                                          : [...prev, { damageTypeId: tireDt.id, tirePosition: pos }]
+                                      );
+                                    }}
+                                    className="w-3.5 h-3.5 rounded border border-border-surface/40 accent-accent-primary"
+                                  />
+                                  {pos.replace('_', ' ')}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
 
                 <FormField label={t('reservations.inspectionComments')}>
@@ -1883,7 +1943,7 @@ export const ReservationsPage: React.FC = () => {
                         className="w-full sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.33%-0.5rem)] xl:w-[calc(25%-0.5625rem)] max-w-[240px] aspect-[4/3] rounded-xl border-2 border-dashed border-border-surface/40 bg-bg-inset/50 flex flex-col items-center justify-center gap-1.5 text-fg-tertiary hover:border-accent-primary hover:text-accent-primary transition-all cursor-pointer"
                       >
                         <Camera className="w-5 h-5" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">{t('reservations.addPhoto', 'Add Photo')}</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">{t('reservations.addPhoto', 'Add Photo')}</span>
                       </button>
                     )}
                   </div>
@@ -1916,18 +1976,18 @@ export const ReservationsPage: React.FC = () => {
                       </p>
                       <div className="grid grid-cols-2 gap-2 mt-1 pt-2 border-t border-border-surface/10 font-semibold">
                         <div>
-                          <span className="text-fg-tertiary block text-[10px] uppercase">{t('reservations.outstandingBalance', 'Outstanding Balance')}</span>
+                          <span className="text-fg-tertiary block text-xs uppercase">{t('reservations.outstandingBalance', 'Outstanding Balance')}</span>
                           <span className="text-fg-main text-xs">{formatCurrency(walkinOutstandingBalance)}</span>
                         </div>
                         <div>
-                          <span className="text-fg-tertiary block text-[10px] uppercase">{t('reservations.remainingCredit', 'Remaining Credit')}</span>
+                          <span className="text-fg-tertiary block text-xs uppercase">{t('reservations.remainingCredit', 'Remaining Credit')}</span>
                           <span className={`text-xs ${walkinRemainingCredit < walkinRentCost ? 'text-accent-error font-extrabold' : 'text-emerald-500 font-extrabold'}`}>
                             {formatCurrency(walkinRemainingCredit)}
                           </span>
                         </div>
                       </div>
                       {walkinRemainingCredit < walkinRentCost && (
-                        <div className="mt-2 p-2 rounded-lg bg-accent-error/15 border border-accent-error/20 text-accent-error text-[10px] font-bold">
+                        <div className="mt-2 p-2 rounded-lg bg-accent-error/15 border border-accent-error/20 text-accent-error text-xs font-bold">
                           {t('reservations.creditLimitExceededWarning', 'WARNING: Estimated cost ({{cost}}) exceeds the available remaining credit limit.', { cost: formatCurrency(walkinRentCost) })}
                         </div>
                       )}
@@ -1986,17 +2046,17 @@ export const ReservationsPage: React.FC = () => {
                         <p className="leading-normal">
                           {t('reservations.cashPaymentUpfrontDesc', 'Collect the rental amount plus the security deposit upfront at checkout.')}
                         </p>
-                        <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-border-surface/10 font-bold text-[11px]">
+                        <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-border-surface/10 font-bold text-xs">
                           <div>
-                            <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.rentCost', 'Estimated Rent')}</span>
+                            <span className="text-fg-tertiary block text-xs uppercase">{t('reservations.rentCost', 'Estimated Rent')}</span>
                             <span className="text-fg-main font-mono text-xs">{formatCurrency(walkinRentCost)}</span>
                           </div>
                           <div>
-                            <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.securityDeposit', 'Security Deposit')}</span>
+                            <span className="text-fg-tertiary block text-xs uppercase">{t('reservations.securityDeposit', 'Security Deposit')}</span>
                             <span className="text-fg-main font-mono text-xs">{formatCurrency(securityDepositAmount)}</span>
                           </div>
                           <div>
-                            <span className="text-fg-tertiary block text-[9px] uppercase">{t('reservations.totalUpfront', 'Total Upfront')}</span>
+                            <span className="text-fg-tertiary block text-xs uppercase">{t('reservations.totalUpfront', 'Total Upfront')}</span>
                             <span className="text-emerald-400 font-mono text-xs">{formatCurrency(walkinUpfrontCash)}</span>
                           </div>
                         </div>
@@ -2005,7 +2065,7 @@ export const ReservationsPage: React.FC = () => {
                       <>
                         {walkinCustomer && walkinCardsList.length > 0 && (
                           <div className="mb-4 space-y-2">
-                            <span className="text-[10px] font-bold text-fg-secondary uppercase tracking-wider block">
+                            <span className="text-xs font-bold text-fg-secondary uppercase tracking-wider block">
                               {t('stripe.savedPaymentMethods')}
                             </span>
                             <div className="space-y-1.5">
@@ -2034,7 +2094,7 @@ export const ReservationsPage: React.FC = () => {
                                       <p className="font-bold text-fg-main uppercase">
                                         {card.card.brand} ending in {card.card.last4}
                                       </p>
-                                      <p className="text-[10px] text-fg-tertiary">
+                                      <p className="text-xs text-fg-tertiary">
                                         Expires {card.card.exp_month}/{card.card.exp_year}
                                       </p>
                                     </div>
@@ -2112,7 +2172,7 @@ export const ReservationsPage: React.FC = () => {
                       onChange={(e) => setWalkinAcceptedTnc(e.target.checked)}
                       className="mt-0.5"
                     />
-                    <span className="text-[11px] text-fg-secondary leading-relaxed">
+                    <span className="text-xs text-fg-secondary leading-relaxed">
                       {t('reservations.acceptTnc', 'He leído y acepto las')}{' '}
                       <a href="/policies" target="_blank" rel="noopener noreferrer" className="text-accent-primary underline hover:text-accent-primary/80">
                         {t('reservations.policiesAndTerms', 'Políticas de Alquiler y Términos y Condiciones')}
@@ -2169,8 +2229,12 @@ export const ReservationsPage: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="pt-4 w-full">
-                  <Button className="w-full" onClick={closeWalkin}>
+                <div className="pt-4 w-full flex flex-col gap-2">
+                  <Button className="w-full flex items-center justify-center gap-2" onClick={() => walkinCreatedRentalId && downloadPdf(walkinCreatedRentalId, 'contract')}>
+                    <FileText size={14} />
+                    Descargar Contrato
+                  </Button>
+                  <Button variant="secondary" className="w-full" onClick={closeWalkin}>
                     {t('reservations.dismiss')}
                   </Button>
                 </div>

@@ -326,7 +326,7 @@ export const CatalogPage: React.FC = () => {
             <div key={v.id} className="group rounded-2xl border border-border-surface/30 bg-bg-card/40 backdrop-blur-sm overflow-hidden flex flex-col justify-between hover:border-border-surface transition-all duration-300">
               {/* Card Photo placeholder */}
               <div className="relative h-44 bg-bg-inset flex items-center justify-center p-6 border-b border-border-surface/20 group-hover:bg-bg-inset/70 transition-all">
-                <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full border border-accent-primary/20 bg-accent-primary/10 text-[9px] font-bold text-accent-primary uppercase tracking-wider">
+                <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full border border-accent-primary/20 bg-accent-primary/10 text-xs font-bold text-accent-primary uppercase tracking-wider">
                   {v.vehicleType.name}
                 </div>
                 <img
@@ -367,6 +367,11 @@ export const CatalogPage: React.FC = () => {
                   <div>
                     <span className="text-lg font-extrabold text-fg-main font-mono">{formatCurrency(v.calculatedDailyRate ?? v.baseDailyRate ?? 0)}</span>
                     <span className="text-xs text-fg-tertiary ml-1 font-semibold">{t('catalog.perDay')}</span>
+                    {v.hasSeasonalRate && (
+                      <span className="ml-2 text-[10px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                        +{Math.round((v.seasonalMultiplier - 1) * 100)}%
+                      </span>
+                    )}
                   </div>
                   <Button size="sm" onClick={() => handleStartBooking(v)}>
                     {t('catalog.bookNow')}
@@ -389,7 +394,7 @@ export const CatalogPage: React.FC = () => {
               ✕
             </button>
             <div>
-              <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('catalog.checkoutWizard')}</span>
+              <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block">{t('catalog.checkoutWizard')}</span>
               <h2 className="text-lg font-extrabold text-fg-main mt-1 uppercase">
                 {bookingStep === 1 ? t('catalog.reviewReservation') : bookingStep === 2 ? t('catalog.paymentAuth') : t('catalog.bookingConfirmed')}
               </h2>
@@ -434,6 +439,12 @@ export const CatalogPage: React.FC = () => {
                     <span>{t('catalog.dailyRateLabel')}</span>
                     <span className="text-fg-main font-mono">{formatCurrency(selectedVehicle.calculatedDailyRate ?? selectedVehicle.baseDailyRate ?? 0)}</span>
                   </div>
+                  {selectedVehicle.hasSeasonalRate && (
+                    <div className="flex justify-between text-xs font-semibold text-fg-secondary">
+                      <span className="text-amber-500">{t('catalog.seasonalRate', 'Tarifa Estacional')}</span>
+                      <span className="text-amber-500 font-mono">+{Math.round((selectedVehicle.seasonalMultiplier - 1) * 100)}% {selectedVehicle.seasonalRateName}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm font-bold text-fg-main border-t border-border-surface/10 pt-2">
                     <span>{t('catalog.estimatedTotal')}</span>
                     <span className="font-mono">{formatCurrency(basePrice)}</span>
@@ -477,7 +488,7 @@ export const CatalogPage: React.FC = () => {
                           onChange={(e) => setAcceptedTnc(e.target.checked)}
                           className="mt-0.5"
                         />
-                        <span className="text-[11px] text-fg-secondary leading-relaxed">
+                        <span className="text-xs text-fg-secondary leading-relaxed">
                           {t('reservations.acceptTnc', 'He leído y acepto las')}{' '}
                           <a href="/policies" target="_blank" rel="noopener noreferrer" className="text-accent-primary underline hover:text-accent-primary/80">
                             {t('reservations.policiesAndTerms', 'Políticas de Alquiler y Términos y Condiciones')}
@@ -540,7 +551,7 @@ export const CatalogPage: React.FC = () => {
                                   <p className="text-xs font-bold text-fg-main uppercase">
                                     {card.card.brand} ending in {card.card.last4}
                                   </p>
-                                  <p className="text-[10px] text-fg-tertiary">
+                                  <p className="text-xs text-fg-tertiary">
                                     Expires {card.card.exp_month}/{card.card.exp_year}
                                   </p>
                                 </div>
@@ -612,7 +623,7 @@ export const CatalogPage: React.FC = () => {
                           onChange={(e) => setAcceptedTnc(e.target.checked)}
                           className="mt-0.5"
                         />
-                        <span className="text-[11px] text-fg-secondary leading-relaxed">
+                        <span className="text-xs text-fg-secondary leading-relaxed">
                           {t('reservations.acceptTnc', 'He leído y acepto las')}{' '}
                           <a href="/policies" target="_blank" rel="noopener noreferrer" className="text-accent-primary underline hover:text-accent-primary/80">
                             {t('reservations.policiesAndTerms', 'Políticas de Alquiler y Términos y Condiciones')}
@@ -668,7 +679,7 @@ export const CatalogPage: React.FC = () => {
       {quickSignupVehicle && !quickExistsEmail && (
         <FormModal isOpen={!!(quickSignupVehicle && !quickExistsEmail)} onClose={() => setQuickSignupVehicle(null)} title={t('auth.createAccount')}>
           <form onSubmit={handleQuickSignupSubmit} className="space-y-6">
-            <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('auth.quickSignup')}</span>
+            <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block">{t('auth.quickSignup')}</span>
             <p className="text-xs text-fg-secondary">{t('auth.quickSignupSubtitle')}</p>
             {quickError && (
               <div className="p-3 rounded-xl bg-accent-error/15 border border-accent-error/20 text-accent-error text-xs font-semibold flex items-center gap-2">
@@ -707,7 +718,7 @@ export const CatalogPage: React.FC = () => {
           setQuickPassword('');
           setQuickError(null);
         }} title={t('auth.welcomeBack')}>
-          <span className="text-[9px] font-bold text-accent-primary uppercase tracking-widest block">{t('auth.accountExists')}</span>
+          <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block">{t('auth.accountExists')}</span>
           <p className="text-xs text-fg-secondary mt-1 mb-4">{t('auth.magicLinkSent', { email: quickExistsEmail })}</p>
           <form onSubmit={handleQuickLoginSubmit} className="space-y-6">
 

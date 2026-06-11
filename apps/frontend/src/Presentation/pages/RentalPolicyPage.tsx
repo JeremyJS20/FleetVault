@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Plus } from 'lucide-react';
+import { Plus, Pencil } from 'lucide-react';
 import { useAuth } from '../../Infrastructure/auth.context.js';
 import { usePolicies, useUpdatePolicy, useCreatePolicy } from '../../Infrastructure/hooks/useCatalog.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
@@ -9,7 +9,10 @@ import { Button } from '../components/ui/Button.js';
 import { DataTable } from '../components/ui/DataTable.js';
 import { FormModal } from '../components/ui/FormModal.js';
 import { FormField } from '../components/ui/FormField.js';
+import { ToggleSwitch } from '../components/ui/ToggleSwitch.js';
 import { Toast } from '../components/ui/Toast.js';
+import { StatusBadge } from '../components/ui/StatusBadge.js';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog.js';
 
 export const RentalPolicyPage: React.FC = () => {
   const { t } = useTranslation();
@@ -28,6 +31,7 @@ export const RentalPolicyPage: React.FC = () => {
   const [editIsActive, setEditIsActive] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [confirmState, setConfirmState] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   const handleOpenEdit = (policy: any) => {
     setEditingPolicy(policy);
@@ -72,6 +76,18 @@ export const RentalPolicyPage: React.FC = () => {
 
   const isPending = updateMutation.isPending || createMutation.isPending;
 
+  const handleToggle = async (policy: any) => {
+    try {
+      await updateMutation.mutateAsync({
+        id: policy.id,
+        data: { title: policy.title, content: policy.content, isActive: !policy.isActive },
+      });
+      setToast({ message: t('common.statusUpdated'), type: 'success' });
+    } catch (err: any) {
+      setToast({ message: err.message || t('common.statusUpdateFailed'), type: 'error' });
+    }
+  };
+
   const columns: ColumnDef<any>[] = [
     {
       accessorKey: 'key',
@@ -94,18 +110,11 @@ export const RentalPolicyPage: React.FC = () => {
     },
     {
       accessorKey: 'isActive',
-      header: t('rentalPolicy.active'),
-      cell: (info) => (
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-            info.getValue()
-              ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/25'
-              : 'text-red-500 bg-red-500/10 border-red-500/25'
-          }`}
-        >
-          {info.getValue() ? t('common.active') : t('common.inactive')}
-        </span>
-      ),
+      header: t('common.status'),
+      cell: (info) => {
+        const policy = info.row.original;
+        return <StatusBadge status={policy.isActive ? 'ACTIVE' : 'INACTIVE'} />;
+      },
     },
   ];
 
@@ -113,16 +122,25 @@ export const RentalPolicyPage: React.FC = () => {
     columns.push({
       id: 'actions',
       header: t('common.actions'),
-      cell: (info) => (
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => handleOpenEdit(info.row.original)}
-          className="!p-2.5 rounded-xl"
-        >
-          <Pencil size={15} />
-        </Button>
-      ),
+      cell: (info) => {
+        const item = info.row.original;
+        return (
+          <div className="flex items-center gap-3">
+            <ToggleSwitch
+              checked={item.isActive}
+              onChange={() => setConfirmState({
+                title: 'Confirmar',
+                message: item.isActive ? `¿Desactivar ${item.title}?` : `¿Activar ${item.title}?`,
+                onConfirm: () => handleToggle(item),
+              })}
+              loading={updateMutation.isPending}
+            />
+            <button onClick={() => handleOpenEdit(item)} title={t('common.edit')} className="text-accent-primary hover:text-accent-primary/80 transition-colors">
+              <Pencil size={14} />
+            </button>
+          </div>
+        );
+      },
     });
   }
 
@@ -213,6 +231,17 @@ export const RentalPolicyPage: React.FC = () => {
           </div>
         </form>
       </FormModal>
+
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={true}
+          onClose={() => setConfirmState(null)}
+          onConfirm={() => { confirmState.onConfirm(); setConfirmState(null); }}
+          title={confirmState.title}
+          message={confirmState.message}
+          isLoading={updateMutation.isPending}
+        />
+      )}
 
       {toast && (
         <Toast

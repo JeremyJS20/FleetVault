@@ -37,16 +37,9 @@ export const useCreateInspection = () => {
       rentalId: string;
       type: 'PICKUP' | 'RETURN';
       employeeId?: string;
-      hasScratches: boolean;
       fuelGaugeLevel: string;
-      missingSpareTire: boolean;
-      missingJack: boolean;
-      hasBrokenGlass: boolean;
-      tireConditionFrontLeft: string;
-      tireConditionFrontRight: string;
-      tireConditionRearLeft: string;
-      tireConditionRearRight: string;
       odometer: number;
+      damages: { damageTypeId: string; tirePosition?: string | null }[];
       photoUrls: string[];
       comments?: string | null;
     }) => {

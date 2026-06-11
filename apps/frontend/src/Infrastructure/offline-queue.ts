@@ -1,21 +1,19 @@
 import { openDB, DBSchema } from 'idb';
 
+interface OfflineInspectionDamage {
+  damageTypeId: string;
+  tirePosition?: string | null;
+}
+
 interface OfflineInspection {
   id: string;
   rentalId: string;
   type: 'PICKUP' | 'RETURN';
   vehicleId?: string | null;
   customerId?: string | null;
-  hasScratches: boolean;
   fuelGaugeLevel: string;
-  missingSpareTire: boolean;
-  missingJack: boolean;
-  hasBrokenGlass: boolean;
-  tireConditionFrontLeft: string;
-  tireConditionFrontRight: string;
-  tireConditionRearLeft: string;
-  tireConditionRearRight: string;
   odometer: number;
+  damages: OfflineInspectionDamage[];
   photoUrls: string[];
   comments: string | null;
   queuedAt: number;

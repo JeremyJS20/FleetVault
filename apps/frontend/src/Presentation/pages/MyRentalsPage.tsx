@@ -229,7 +229,7 @@ export const MyRentalsPage: React.FC = () => {
                   {(booking.status === 'ACTIVE' || booking.status === 'COMPLETED') && (
                     <button
                       onClick={() => downloadPdf(booking.id, 'contract')}
-                      className="!h-8 text-[10px] font-bold uppercase tracking-widest px-2.5 rounded-lg inline-flex items-center gap-1 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all"
+                      className="!h-8 text-xs font-bold uppercase tracking-widest px-2.5 rounded-lg inline-flex items-center gap-1 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all"
                     >
                       <FileText className="w-3 h-3" />
                       {t('myRentals.contractPdf')}
@@ -238,7 +238,7 @@ export const MyRentalsPage: React.FC = () => {
                   {booking.status === 'COMPLETED' && (
                     <button
                       onClick={() => downloadPdf(booking.id, 'receipt')}
-                      className="!h-8 text-[10px] font-bold uppercase tracking-widest px-2.5 rounded-lg inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all"
+                      className="!h-8 text-xs font-bold uppercase tracking-widest px-2.5 rounded-lg inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all"
                     >
                       <FileText className="w-3 h-3" />
                       {t('myRentals.receiptPdf')}

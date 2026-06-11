@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { ColumnDef } from '@tanstack/react-table';
-import { FileText, Search as SearchIcon, Calendar, FileDown } from 'lucide-react';
+import { Search as SearchIcon, Calendar, FileDown, FileText, Receipt } from 'lucide-react';
 import { formatCurrency } from '@rent-car/common';
 import { useVehicleTypes } from '../../Infrastructure/hooks/useCatalog.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
@@ -207,25 +207,23 @@ export const RentalQueryPage: React.FC = () => {
         const isCompleted = rental.status === 'COMPLETED';
         const isActive = rental.status === 'ACTIVE';
         return (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-3">
             {(isActive || isCompleted) && (
               <button
                 onClick={() => handleDownloadContract(rental)}
-                className="h-7 text-[10px] font-bold uppercase tracking-widest px-2 rounded-lg inline-flex items-center gap-1 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all"
-                title={t('queryPage.downloadPdf')}
+                title={t('myRentals.contractPdf')}
+                className="text-accent-primary hover:text-accent-primary/80 transition-colors"
               >
-                <FileText size={11} />
-                {t('myRentals.contractPdf')}
+                <FileText size={14} />
               </button>
             )}
             {isCompleted && (
               <button
                 onClick={() => handleDownloadReceipt(rental)}
-                className="h-7 text-[10px] font-bold uppercase tracking-widest px-2 rounded-lg inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all"
-                title={t('queryPage.downloadReceipt')}
+                title={t('myRentals.receiptPdf')}
+                className="text-accent-primary hover:text-accent-primary/80 transition-colors"
               >
-                <FileText size={11} />
-                {t('myRentals.receiptPdf')}
+                <Receipt size={14} />
               </button>
             )}
           </div>

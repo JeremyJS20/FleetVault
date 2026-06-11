@@ -109,7 +109,7 @@ export const NetworkStatusProvider: React.FC<{ children: React.ReactNode }> = ({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-fg-primary leading-none">{t('network.offlineMode')}</p>
-                <p className="text-[10px] text-fg-tertiary mt-1">{t('network.offlineDesc')}</p>
+                <p className="text-xs text-fg-tertiary mt-1">{t('network.offlineDesc')}</p>
               </div>
             </div>
           )}
@@ -128,14 +128,14 @@ export const NetworkStatusProvider: React.FC<{ children: React.ReactNode }> = ({
                 <p className="text-xs font-bold text-fg-primary leading-none">
                   {syncStatusMsg || t('network.queuedCount', { count: queuedCount })}
                 </p>
-                <p className="text-[10px] text-fg-tertiary mt-1">
+                <p className="text-xs text-fg-tertiary mt-1">
                   {isSyncing ? t('network.uploading') : isOnline ? t('network.readyToSync') : t('network.waitingConnection')}
                 </p>
               </div>
               {isOnline && !isSyncing && (
                 <button
                   onClick={syncQueue}
-                  className="px-2 py-1 text-[9px] font-bold tracking-wider uppercase border border-border-surface/40 rounded bg-bg-inset text-fg-secondary hover:bg-bg-surface"
+                  className="px-2 py-1 text-xs font-bold tracking-wider uppercase border border-border-surface/40 rounded bg-bg-inset text-fg-secondary hover:bg-bg-surface"
                 >
                   {t('network.sync')}
                 </button>

@@ -209,7 +209,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
               className="flex-1 w-full object-cover scale-x-[-1]"
             />
             <div className="absolute inset-4 border-2 border-dashed border-white/20 rounded-2xl pointer-events-none flex items-center justify-center top-0 bottom-20">
-              <span className="text-[11px] text-white/50 bg-black/40 px-3 py-1.5 rounded-md font-bold uppercase tracking-wider">
+              <span className="text-xs text-white/50 bg-black/40 px-3 py-1.5 rounded-md font-bold uppercase tracking-wider">
                 {t('fileUploader.alignHere', 'Align Here')}
               </span>
             </div>
@@ -220,7 +220,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
                 className="flex flex-col items-center gap-1 text-white/60 hover:text-white transition-colors"
               >
                 <Upload className="w-5 h-5" />
-                <span className="text-[10px] font-bold uppercase">{t('fileUploader.gallery', 'Gallery')}</span>
+                <span className="text-xs font-bold uppercase">{t('fileUploader.gallery', 'Gallery')}</span>
               </button>
               <button
                 type="button"
@@ -235,7 +235,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
                 className="flex flex-col items-center gap-1 text-white/60 hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
-                <span className="text-[10px] font-bold uppercase">{t('common.cancel', 'Cancel')}</span>
+                <span className="text-xs font-bold uppercase">{t('common.cancel', 'Cancel')}</span>
               </button>
             </div>
             {isProcessing && (
@@ -256,7 +256,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
               className="w-full h-full object-cover scale-x-[-1]"
             />
             <div className="absolute inset-4 border-2 border-dashed border-white/20 rounded-xl pointer-events-none flex items-center justify-center">
-              <span className="text-[10px] text-white/50 bg-black/40 px-2 py-1 rounded-md font-bold uppercase tracking-wider">
+              <span className="text-xs text-white/50 bg-black/40 px-2 py-1 rounded-md font-bold uppercase tracking-wider">
                 {t('fileUploader.alignHere', 'Align Here')}
               </span>
             </div>
@@ -264,7 +264,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); capturePhoto(); }}
-                className={`${compact ? 'h-7 px-3 text-[10px]' : 'h-8 px-4 text-xs'} rounded-lg bg-accent-primary text-white font-bold flex items-center gap-1.5 hover:bg-accent-primary/80 transition-all`}
+                className={`${compact ? 'h-7 px-3 text-xs' : 'h-8 px-4 text-xs'} rounded-lg bg-accent-primary text-white font-bold flex items-center gap-1.5 hover:bg-accent-primary/80 transition-all`}
               >
                 <Camera className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} />
                 {compact ? t('fileUploader.capture', 'Capture') : t('fileUploader.capture', 'Capture')}
@@ -272,7 +272,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); stopCamera(); }}
-                className={`${compact ? 'h-7 px-3 text-[10px]' : 'h-8 px-4 text-xs'} rounded-lg bg-white/10 text-white font-bold flex items-center gap-1.5 hover:bg-white/20 transition-all`}
+                className={`${compact ? 'h-7 px-3 text-xs' : 'h-8 px-4 text-xs'} rounded-lg bg-white/10 text-white font-bold flex items-center gap-1.5 hover:bg-white/20 transition-all`}
               >
                 <X className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} />
                 {t('common.cancel', 'Cancel')}
@@ -281,7 +281,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); stopCamera(); fileInputRef.current?.click(); }}
-                  className="h-7 px-3 rounded-lg bg-white/10 text-white text-[10px] font-bold flex items-center gap-1.5 hover:bg-white/20 transition-all"
+                  className="h-7 px-3 rounded-lg bg-white/10 text-white text-xs font-bold flex items-center gap-1.5 hover:bg-white/20 transition-all"
                 >
                   <Upload className="w-3 h-3" />
                   {t('fileUploader.gallery', 'Gallery')}
@@ -299,7 +299,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
             />
             <div className={`absolute bottom-0 inset-x-0 flex items-center justify-between gap-2 ${compact ? 'p-0.5' : 'p-2'} bg-gradient-to-t from-black/60 to-transparent`}>
               {!compact && (
-                <span className="text-[10px] text-white font-bold flex items-center gap-1 px-1">
+                <span className="text-xs text-white font-bold flex items-center gap-1 px-1">
                   <Check className="w-3 h-3 text-emerald-400" />
                   {t('fileUploader.attached', 'Attached')}
                 </span>
@@ -307,7 +307,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); clearFile(); }}
-                className={`${compact ? 'h-5 w-5 p-0 flex items-center justify-center ml-auto' : 'h-7 px-3'} rounded-lg bg-white/10 text-white text-[10px] font-bold flex items-center gap-1 hover:bg-white/20 transition-all`}
+                className={`${compact ? 'h-5 w-5 p-0 flex items-center justify-center ml-auto' : 'h-7 px-3'} rounded-lg bg-white/10 text-white text-xs font-bold flex items-center gap-1 hover:bg-white/20 transition-all`}
               >
                 <X className="w-2.5 h-2.5" />
                 {!compact && t('common.remove', 'Remove')}
@@ -317,11 +317,11 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
         ) : value && !isImage ? (
           <div className="flex flex-col items-center gap-2 p-4" onClick={(e) => e.stopPropagation()}>
             <FileIcon className="w-10 h-10 text-fg-tertiary" />
-            <span className="text-[10px] text-fg-secondary font-mono truncate max-w-full">{value.split('/').pop() || 'file'}</span>
+            <span className="text-xs text-fg-secondary font-mono truncate max-w-full">{value.split('/').pop() || 'file'}</span>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); clearFile(); }}
-              className="h-7 px-3 rounded-lg bg-accent-error/10 text-accent-error text-[10px] font-bold flex items-center gap-1 hover:bg-accent-error/20 transition-all"
+              className="h-7 px-3 rounded-lg bg-accent-error/10 text-accent-error text-xs font-bold flex items-center gap-1 hover:bg-accent-error/20 transition-all"
             >
               <X className="w-3 h-3" />
               {t('common.remove', 'Remove')}
@@ -352,15 +352,15 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
               <Upload className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[11px] font-bold text-fg-secondary">{t('fileUploader.dropHere', 'Drop file here')}</p>
-              <p className="text-[10px] text-fg-tertiary mt-0.5">{t('fileUploader.orClickToBrowse', 'or click to browse')}</p>
+              <p className="text-xs font-bold text-fg-secondary">{t('fileUploader.dropHere', 'Drop file here')}</p>
+              <p className="text-xs text-fg-tertiary mt-0.5">{t('fileUploader.orClickToBrowse', 'or click to browse')}</p>
             </div>
             <div className="flex items-center gap-2">
               {isImage && showCamera && (
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); startCamera(); }}
-                  className="h-8 px-4 rounded-lg bg-bg-surface border border-border-surface/40 text-fg-secondary text-[10px] font-bold flex items-center gap-1.5 hover:bg-bg-inset transition-all"
+                  className="h-8 px-4 rounded-lg bg-bg-surface border border-border-surface/40 text-fg-secondary text-xs font-bold flex items-center gap-1.5 hover:bg-bg-inset transition-all"
                 >
                   <Camera className="w-3.5 h-3.5" />
                   {t('fileUploader.camera', 'Camera')}
@@ -369,7 +369,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                className="h-8 px-4 rounded-lg bg-accent-primary text-white text-[10px] font-bold flex items-center gap-1.5 hover:bg-accent-primary/80 transition-all"
+                className="h-8 px-4 rounded-lg bg-accent-primary text-white text-xs font-bold flex items-center gap-1.5 hover:bg-accent-primary/80 transition-all"
               >
                 <Upload className="w-3.5 h-3.5" />
                 {accept.startsWith('image/') ? t('fileUploader.uploadPhoto', 'Upload Photo') : t('fileUploader.uploadFile', 'Upload File')}
@@ -382,7 +382,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
         {isProcessing && (
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-2 text-white">
             <RefreshCw className="w-6 h-6 animate-spin text-accent-primary" />
-            <span className="text-[10px] font-bold uppercase tracking-widest animate-pulse">
+            <span className="text-xs font-bold uppercase tracking-widest animate-pulse">
               {t('fileUploader.processing', 'Processing...')}
             </span>
           </div>

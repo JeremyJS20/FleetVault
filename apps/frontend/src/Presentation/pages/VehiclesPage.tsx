@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Power, Sparkles, Check } from 'lucide-react';
 import { useAuth } from '../../Infrastructure/auth.context.js';
 import {
   useVehicles,
@@ -24,10 +23,12 @@ import { FormModal } from '../components/ui/FormModal.js';
 import { FormField } from '../components/ui/FormField.js';
 import { Input } from '../components/ui/Input.js';
 import { SelectField } from '../components/ui/SelectField.js';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog.js';
+import { ToggleSwitch } from '../components/ui/ToggleSwitch.js';
 import { Toast } from '../components/ui/Toast.js';
 import { FileUploader } from '../components/ui/FileUploader.js';
 import { useUploadImage, getImageProxyUrl } from '../../Infrastructure/hooks/useUploads.js';
+import { Plus, Pencil, ClipboardCheck, Sparkles } from 'lucide-react';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog.js';
 
 export const VehiclesPage: React.FC = () => {
   const { t } = useTranslation();
@@ -67,12 +68,6 @@ export const VehiclesPage: React.FC = () => {
   // Dialog/Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [confirmItem, setConfirmItem] = useState<any>(null);
-  const [isPassConfirmOpen, setIsPassConfirmOpen] = useState(false);
-  const [passConfirmItem, setPassConfirmItem] = useState<any>(null);
-  const [isCleanConfirmOpen, setIsCleanConfirmOpen] = useState(false);
-  const [cleanConfirmItem, setCleanConfirmItem] = useState<any>(null);
 
   // Form states
   const [description, setDescription] = useState('');
@@ -85,6 +80,7 @@ export const VehiclesPage: React.FC = () => {
   const [fuelTypeId, setFuelTypeId] = useState('');
   const [odometer, setOdometer] = useState(0);
   const [imageUrl, setImageUrl] = useState('');
+  const [confirmState, setConfirmState] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
@@ -98,8 +94,10 @@ export const VehiclesPage: React.FC = () => {
     setEngineNumber('');
     setPlateNumber('');
     setVehicleTypeId(typesData?.items?.[0]?.id || '');
-    setBrandId(brandsData?.items?.[0]?.id || '');
-    setModelId('');
+    const firstBrandId = brandsData?.items?.[0]?.id || '';
+    setBrandId(firstBrandId);
+    const firstBrandModels = (modelsData?.items || []).filter((m: any) => m.brandId === firstBrandId);
+    setModelId(firstBrandModels[0]?.id || '');
     setFuelTypeId(fuelTypesData?.items?.[0]?.id || '');
     setOdometer(0);
     setImageUrl('');
@@ -107,16 +105,6 @@ export const VehiclesPage: React.FC = () => {
     setIsUploadingPhoto(false);
     setFormError(null);
   };
-
-  // Watch brand changes to filter model list & reset selected model
-  const filteredModels = (modelsData?.items || []).filter((m: any) => m.brandId === brandId);
-
-  useEffect(() => {
-    if (!editingItem && filteredModels.length > 0) {
-      // Auto-select first matching model
-      setModelId(filteredModels[0].id);
-    }
-  }, [brandId, modelsData]);
 
   const handleOpenCreate = () => {
     resetForm();
@@ -229,53 +217,32 @@ export const VehiclesPage: React.FC = () => {
     }
   };
 
-  const handleOpenToggle = (item: any) => {
-    setConfirmItem(item);
-    setIsConfirmOpen(true);
-  };
-
-  const handleConfirmToggle = async () => {
-    if (!confirmItem) return;
+  const handleToggle = async (item: any) => {
     try {
-      await toggleStatusMutation.mutateAsync({ id: confirmItem.id });
+      await toggleStatusMutation.mutateAsync({ id: item.id });
       setToast({ message: t('common.statusUpdated'), type: 'success' });
-      setIsConfirmOpen(false);
     } catch (err: any) {
       setToast({ message: err.message || t('common.statusUpdateFailed'), type: 'error' });
     }
   };
 
   const handleToggleCleaning = async (item: any) => {
-    setCleanConfirmItem(item);
-    setIsCleanConfirmOpen(true);
-  };
-
-  const handleConfirmCleaning = async () => {
-    if (!cleanConfirmItem) return;
-    const nextCleaning = cleanConfirmItem.cleaningStatus === 'CLEAN' ? 'DIRTY' : 'CLEAN';
+    const nextCleaning = item.cleaningStatus === 'CLEAN' ? 'DIRTY' : 'CLEAN';
     try {
       await updateCleaningMutation.mutateAsync({
-        id: cleanConfirmItem.id,
+        id: item.id,
         data: { cleaningStatus: nextCleaning },
       });
       setToast({ message: t('common.cleaningUpdated'), type: 'success' });
-      setIsCleanConfirmOpen(false);
     } catch (err: any) {
       setToast({ message: err.message || t('common.cleaningUpdateFailed'), type: 'error' });
     }
   };
 
-  const handleOpenPassInspection = (item: any) => {
-    setPassConfirmItem(item);
-    setIsPassConfirmOpen(true);
-  };
-
-  const handleConfirmPassInspection = async () => {
-    if (!passConfirmItem) return;
+  const handlePassInspection = async (item: any) => {
     try {
-      await passInspectionMutation.mutateAsync({ id: passConfirmItem.id });
+      await passInspectionMutation.mutateAsync({ id: item.id });
       setToast({ message: t('vehicles.inspectionPassed'), type: 'success' });
-      setIsPassConfirmOpen(false);
     } catch (err: any) {
       setToast({ message: err.message || t('common.operationFailed'), type: 'error' });
     }
@@ -336,56 +303,40 @@ export const VehiclesPage: React.FC = () => {
       cell: (info) => {
         const item = info.row.original;
         return (
-          <div className="flex items-center gap-2">
-            {isAdmin && (
+          <div className="flex items-center gap-3">
+            {isAdmin && (item.status === 'AVAILABLE' || item.status === 'RETIRED') && (
               <>
-                {(item.status === 'AVAILABLE' || item.status === 'RETIRED') && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleOpenEdit(item)}
-                    title={t('common.edit')}
-                    className="!p-2.5 rounded-xl"
-                  >
-                    <Pencil size={15} />
-                  </Button>
-                )}
-                {(item.status === 'AVAILABLE' || item.status === 'RETIRED') && (
-                  <Button
-                    variant={item.status === 'AVAILABLE' ? 'danger' : 'primary'}
-                    size="sm"
-                    onClick={() => handleOpenToggle(item)}
-                    title={t('common.toggleStatus')}
-                    className="!p-2.5 rounded-xl"
-                  >
-                    <Power size={15} />
-                  </Button>
-                )}
+                <ToggleSwitch
+                  checked={item.status === 'AVAILABLE'}
+                  onChange={() => setConfirmState({
+                    title: 'Confirmar',
+                    message: item.status === 'AVAILABLE' ? `¿Retirar ${item.plateNumber}?` : `¿Disponibilizar ${item.plateNumber}?`,
+                    onConfirm: () => handleToggle(item),
+                  })}
+                  loading={toggleStatusMutation.isPending}
+                />
+                <button onClick={() => handleOpenEdit(item)} title={t('common.edit')} className="text-accent-primary hover:text-accent-primary/80 transition-colors">
+                  <Pencil size={14} />
+                </button>
               </>
             )}
+            {canClean && (item.status === 'UNDER_INSPECTION' || item.status === 'MAINTENANCE') && (
+              <button onClick={() => setConfirmState({
+                title: 'Confirmar',
+                message: `¿Pasar inspección de ${item.plateNumber}?`,
+                onConfirm: () => handlePassInspection(item),
+              })} title={t('vehicles.passInspection')} className="text-accent-primary hover:text-accent-primary/80 transition-colors">
+                <ClipboardCheck size={14} />
+              </button>
+            )}
             {canClean && (
-              <>
-                {(item.status === 'UNDER_INSPECTION' || item.status === 'MAINTENANCE') && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="!text-emerald-500 hover:!bg-emerald-500/10 !p-2.5 rounded-xl"
-                    onClick={() => handleOpenPassInspection(item)}
-                    title={t('vehicles.passInspection')}
-                  >
-                    <Check size={15} />
-                  </Button>
-                )}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="!text-teal-500 hover:!bg-teal-500/10 !p-2.5 rounded-xl"
-                  onClick={() => handleToggleCleaning(item)}
-                  title={item.cleaningStatus === 'CLEAN' ? t('vehicles.markDirty') : t('vehicles.markClean')}
-                >
-                  <Sparkles size={15} />
-                </Button>
-              </>
+              <button onClick={() => setConfirmState({
+                title: 'Confirmar',
+                message: item.cleaningStatus === 'CLEAN' ? `¿Marcar como sucio ${item.plateNumber}?` : `¿Marcar como limpio ${item.plateNumber}?`,
+                onConfirm: () => handleToggleCleaning(item),
+              })} title={item.cleaningStatus === 'CLEAN' ? t('vehicles.markDirty') : t('vehicles.markClean')} className="text-accent-primary hover:text-accent-primary/80 transition-colors">
+                <Sparkles size={14} />
+              </button>
             )}
           </div>
         );
@@ -395,6 +346,7 @@ export const VehiclesPage: React.FC = () => {
 
   const typeOptions = (typesData?.items || []).map((t: any) => ({ value: t.id, label: t.name }));
   const brandOptions = (brandsData?.items || []).map((b: any) => ({ value: b.id, label: b.name }));
+  const filteredModels = (modelsData?.items || []).filter((m: any) => m.brandId === brandId);
   const modelOptions = filteredModels.map((m: any) => ({ value: m.id, label: m.name }));
   const fuelTypeOptions = (fuelTypesData?.items || []).map((f: any) => ({ value: f.id, label: f.name }));
 
@@ -405,8 +357,9 @@ export const VehiclesPage: React.FC = () => {
         description={t('vehicles.subtitle')}
       >
         {isAdmin && (
-          <Button variant="primary" onClick={handleOpenCreate}>
-            {t('common.create')}
+          <Button variant="primary" size="sm" onClick={handleOpenCreate} className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs">
+            <Plus size={13} />
+            <span>{t('common.create')}</span>
           </Button>
         )}
       </PageHeader>
@@ -503,7 +456,11 @@ export const VehiclesPage: React.FC = () => {
               label={t('vehicles.brand')}
               required
               value={brandId}
-              onChange={(e) => setBrandId(e.target.value)}
+              onChange={(e) => {
+                setBrandId(e.target.value);
+                const brandModels = (modelsData?.items || []).filter((m: any) => m.brandId === e.target.value);
+                setModelId(brandModels[0]?.id || '');
+              }}
               options={brandOptions}
             />
             <SelectField
@@ -567,35 +524,17 @@ export const VehiclesPage: React.FC = () => {
         </form>
       </FormModal>
 
-      {/* Confirm Status Change Modal */}
-      <ConfirmDialog
-        isOpen={isConfirmOpen}
-        onClose={() => setIsConfirmOpen(false)}
-        onConfirm={handleConfirmToggle}
-        title={t('vehicles.retireActivateTitle')}
-        message={t('common.confirmStatusChangeMsg', { name: confirmItem?.plateNumber })}
-        isLoading={toggleStatusMutation.isPending}
-      />
-
-      {/* Confirm Pass Inspection Modal */}
-      <ConfirmDialog
-        isOpen={isPassConfirmOpen}
-        onClose={() => setIsPassConfirmOpen(false)}
-        onConfirm={handleConfirmPassInspection}
-        title={t('vehicles.passInspection')}
-        message={t('vehicles.passInspectionConfirmMsg', { plate: passConfirmItem?.plateNumber })}
-        isLoading={passInspectionMutation.isPending}
-      />
-
-      {/* Confirm Cleaning Toggle Modal */}
-      <ConfirmDialog
-        isOpen={isCleanConfirmOpen}
-        onClose={() => setIsCleanConfirmOpen(false)}
-        onConfirm={handleConfirmCleaning}
-        title={t('vehicles.cleaningStatus')}
-        message={t('vehicles.cleaningConfirmMsg', { plate: cleanConfirmItem?.plateNumber, action: cleanConfirmItem?.cleaningStatus === 'CLEAN' ? t('vehicles.markDirty') : t('vehicles.markClean') })}
-        isLoading={updateCleaningMutation.isPending}
-      />
+      {/* Confirm Dialog */}
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={true}
+          onClose={() => setConfirmState(null)}
+          onConfirm={() => { confirmState.onConfirm(); setConfirmState(null); }}
+          title={confirmState.title}
+          message={confirmState.message}
+          isLoading={toggleStatusMutation.isPending || updateCleaningMutation.isPending || passInspectionMutation.isPending}
+        />
+      )}
 
       {/* Toast Alert */}
       {toast && (

@@ -68,10 +68,12 @@ export interface VehicleType {
 
 export interface FeeConfig {
   id: string;
-  key: string;
+  key: string | null;
   label: string;
   amount: number;
-  description?: string | null;
+  isActive: boolean;
+  description: string | null;
+  damageTypeId: string | null;
   updatedAt: Date;
 }
 
@@ -109,26 +111,36 @@ export interface FuelType {
   updatedAt: Date;
 }
 
+export interface InspectionDamage {
+  id: string;
+  inspectionId: string;
+  damageTypeId: string;
+  tirePosition?: string | null;
+}
+
 export interface Inspection {
   id: string;
   rentalId?: string | null;
   vehicleId: string;
   customerId: string;
   employeeId: string;
-  hasScratches: boolean;
   fuelGaugeLevel: string;
-  missingSpareTire: boolean;
-  missingJack: boolean;
-  hasBrokenGlass: boolean;
-  tireConditionFrontLeft: string;
-  tireConditionFrontRight: string;
-  tireConditionRearLeft: string;
-  tireConditionRearRight: string;
   odometer: number;
   status: string;
   photoUrlsJson: string;
   comments?: string | null;
   inspectionDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  damages?: InspectionDamage[];
+}
+
+export interface DamageType {
+  id: string;
+  name: string;
+  key: string;
+  description?: string | null;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

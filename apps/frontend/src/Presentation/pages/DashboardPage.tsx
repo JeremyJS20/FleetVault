@@ -88,7 +88,7 @@ export const DashboardPage: React.FC = () => {
         return (
           <div className="flex flex-col">
             <span className="font-semibold text-fg-main">{info.getValue() as string}</span>
-            <span className="text-[10px] text-fg-tertiary font-mono">{rental.plate}</span>
+            <span className="text-xs text-fg-tertiary font-mono">{rental.plate}</span>
           </div>
         );
       },
@@ -165,7 +165,7 @@ export const DashboardPage: React.FC = () => {
           <Clock size={16} className="text-accent-primary animate-pulse" />
           <div className="text-left">
             <span className="block text-xs font-mono font-bold text-fg-main">{formattedTime}</span>
-            <span className="block text-[10px] font-semibold text-fg-tertiary capitalize">{formattedDate}</span>
+            <span className="block text-xs font-semibold text-fg-tertiary capitalize">{formattedDate}</span>
           </div>
         </div>
       </div>

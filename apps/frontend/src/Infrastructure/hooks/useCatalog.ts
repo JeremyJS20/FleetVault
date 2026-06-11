@@ -120,6 +120,30 @@ export const useFeeConfigs = () => {
 
 export const useUpdateFeeConfig = createMutationHook<any, any>('PUT', (id) => `/api/fee-config/${id}`, ['fee-config']);
 
+// Active damage types (for inspection forms)
+export const useDamageTypes = () => {
+  return useQuery({
+    queryKey: ['damage-types'],
+    queryFn: async () => {
+      const res = await apiClient('/api/damage-types/active');
+      return res.data as any[];
+    },
+  });
+};
+
+export const useAllDamageTypes = () => {
+  return useQuery({
+    queryKey: ['damage-types-all'],
+    queryFn: async () => {
+      const res = await apiClient('/api/damage-types');
+      return res.data as any[];
+    },
+  });
+};
+
+export const useCreateDamageType = createMutationHook<any, any>('POST', () => '/api/damage-types', ['damage-types', 'damage-types-all', 'fee-config']);
+export const useToggleDamageTypeStatus = createMutationHook<void, any>('PATCH', (id) => `/api/damage-types/${id}/status`, ['damage-types', 'damage-types-all', 'fee-config']);
+
 // 10. Rental Policy Hooks
 export const usePolicies = () => {
   return useQuery({

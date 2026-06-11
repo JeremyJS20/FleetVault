@@ -11,3 +11,4 @@ scratch/
 debug-*.js
 debug-*.cjs
 *.tmp
+*.timestamp-*.mjs

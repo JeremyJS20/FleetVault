@@ -44,16 +44,30 @@ async function main() {
     },
   });
 
+  console.log('Seeding Damage Types...');
+  const glassDt = await prisma.damageType.create({ data: { name: 'Vidrios rotos', key: 'GLASS', description: 'Parabrisas o vidrios rotos' } });
+  const scratchesDt = await prisma.damageType.create({ data: { name: 'Rayones', key: 'SCRATCH', description: 'Rayones en la carrocería' } });
+  const tireDt = await prisma.damageType.create({ data: { name: 'Llantas', key: 'TIRE', description: 'Neumáticos dañados o perdidos (por posición)' } });
+  const spareTireDt = await prisma.damageType.create({ data: { name: 'Neumático de repuesto', key: 'SPARE_TIRE', description: 'Neumático de repuesto faltante' } });
+  const jackDt = await prisma.damageType.create({ data: { name: 'Gato hidráulico', key: 'JACK', description: 'Gato hidráulico faltante' } });
+
   console.log('Seeding Fee Config...');
   await prisma.feeConfig.createMany({
     data: [
       { key: 'LATE_FEE_PER_HOUR', label: 'Devolución tardía (por hora)', amount: 1500, description: 'Cargo por hora después de la hora de devolución (1h de gracia)' },
       { key: 'FUEL_FLAT_FEE', label: 'Cargo por servicio de combustible', amount: 2000, description: 'Cargo fijo por reabastecimiento cuando no se devuelve lleno' },
       { key: 'FUEL_PER_STEP', label: 'Combustible por nivel faltante', amount: 1000, description: 'Cargo adicional por cada nivel de combustible debajo del nivel de salida' },
-      { key: 'GLASS_DAMAGE', label: 'Daño de vidrios rotos', amount: 12000, description: 'Cargo por parabrisas o vidrios rotos' },
-      { key: 'SCRATCHES', label: 'Daño por rayones', amount: 8000, description: 'Cargo por rayones nuevos encontrados en la devolución' },
-      { key: 'TIRE_DAMAGE', label: 'Daño por neumático', amount: 5000, description: 'Cargo por neumático dañado o perdido' },
       { key: 'SECURITY_DEPOSIT', label: 'Depósito de seguridad', amount: 15000, description: 'Monto de retención de depósito por alquiler' },
+    ],
+  });
+  // Tarifas de daños vinculadas a DamageType (sin key, se resuelven dinámicamente)
+  await prisma.feeConfig.createMany({
+    data: [
+      { key: null, label: 'Vidrios rotos', amount: 12000, damageTypeId: glassDt.id, description: 'Cargo por parabrisas o vidrios rotos' },
+      { key: null, label: 'Rayones', amount: 8000, damageTypeId: scratchesDt.id, description: 'Cargo por rayones nuevos en la devolución' },
+      { key: null, label: 'Llantas (c/u)', amount: 5000, damageTypeId: tireDt.id, description: 'Cargo por neumático dañado o perdido (por posición)' },
+      { key: null, label: 'Neumático de repuesto', amount: 3000, damageTypeId: spareTireDt.id, description: 'Cargo por neumático de repuesto faltante' },
+      { key: null, label: 'Gato hidráulico', amount: 2000, damageTypeId: jackDt.id, description: 'Cargo por gato hidráulico faltante' },
     ],
   });
 

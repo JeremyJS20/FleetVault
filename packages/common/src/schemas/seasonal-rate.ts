@@ -6,7 +6,7 @@ export const SeasonalRateSchema = z.object({
   name: z.string(),
   startDate: z.string(),
   endDate: z.string(),
-  multiplier: z.number().positive(),
+  multiplier: z.number().min(1.01, 'El multiplicador de temporada debe ser mayor a 1.0'),
   status: z.enum(EntityStatus),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -16,7 +16,7 @@ export const CreateSeasonalRateSchema = z.object({
   name: z.string().min(1, 'Rate name is required'),
   startDate: z.string().refine((d) => !isNaN(Date.parse(d)), 'Invalid start date'),
   endDate: z.string().refine((d) => !isNaN(Date.parse(d)), 'Invalid end date'),
-  multiplier: z.number().positive('Multiplier must be greater than zero'),
+  multiplier: z.number().min(1.01, 'El multiplicador de temporada debe ser mayor a 1.0'),
 });
 
 export const UpdateSeasonalRateSchema = CreateSeasonalRateSchema.partial().extend({

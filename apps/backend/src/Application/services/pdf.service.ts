@@ -22,19 +22,24 @@ export class PdfService {
         return Buffer.from(matches[2], 'base64');
       }
       if (url.includes('.blob.vercel-storage.com')) {
-        const result = await get(url, {
-          access: 'private',
-          token: process.env.BLOB_READ_WRITE_TOKEN,
-        });
-        if (!result || result.statusCode !== 200) return null;
-        const reader = result.stream.getReader();
-        const chunks: Uint8Array[] = [];
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
+        try {
+          const result = await get(url, {
+            access: 'private',
+            token: process.env.BLOB_READ_WRITE_TOKEN,
+          });
+          if (result && result.statusCode === 200) {
+            const reader = result.stream.getReader();
+            const chunks: Uint8Array[] = [];
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              chunks.push(value);
+            }
+            return Buffer.concat(chunks);
+          }
+        } catch {
+          // fallback to direct fetch below
         }
-        return Buffer.concat(chunks);
       }
       const response = await fetch(url);
       if (!response.ok) return null;
@@ -291,10 +296,17 @@ export class PdfService {
       orderBy: { key: 'asc' }
     }).catch(() => []);
 
-    const fees = await prisma.feeConfig.findMany().catch(() => []);
+    const fees = await prisma.feeConfig.findMany({
+      where: {
+        OR: [
+          { damageType: { isActive: true } },
+          { AND: [{ damageTypeId: null }, { isActive: true }] },
+        ],
+      },
+    }).catch(() => []);
     const feeMap: Record<string, number> = {};
     for (const fee of fees) {
-      feeMap[fee.key] = fee.amount;
+      if (fee.key) feeMap[fee.key] = fee.amount;
     }
 
     return new Promise((resolve, reject) => {
@@ -337,7 +349,7 @@ export class PdfService {
           { label: 'FACTURAR A', value: rental.customer?.name || 'N/A' },
           { label: 'Dirección', value: rental.customer?.address || 'N/A' },
           { label: 'Cédula / RNC', value: rental.customer?.nationalId || 'N/A' },
-          { label: 'Correo', value: rental.customer?.email || 'N/A' },
+          { label: 'Correo', value: rental.customer?.user?.email || rental.customer?.email || 'N/A' },
           { label: 'Teléfono', value: rental.customer?.phone || 'N/A' }
         ]);
 
@@ -368,28 +380,20 @@ export class PdfService {
         let checkoutItems: { label: string; value: string }[];
 
         if (pickupInsp) {
-          const tFL = this.translateTireCondition(pickupInsp.tireConditionFrontLeft);
-          const tFR = this.translateTireCondition(pickupInsp.tireConditionFrontRight);
-          const tRL = this.translateTireCondition(pickupInsp.tireConditionRearLeft);
-          const tRR = this.translateTireCondition(pickupInsp.tireConditionRearRight);
-          const tires = [tFL, tFR, tRL, tRR];
-          const allSame = tires.every(c => c === tires[0]);
-          const tireValue = allSame ? `${tires[0]} x4` : `${tires.filter(c => c === 'Bueno').length} Buenas · ${tires.filter(c => c !== 'Bueno').length} No Buenas`;
-
-          const bodyParts: string[] = [];
-          bodyParts.push(pickupInsp.hasScratches ? 'Con rayones' : 'Sin rayones');
-          bodyParts.push(pickupInsp.hasBrokenGlass ? 'Cristales rotos' : 'Cristales intactos');
-
-          const equipParts: string[] = [];
-          equipParts.push(pickupInsp.missingSpareTire ? 'Repuesto faltante' : 'Repuesto OK');
-          equipParts.push(pickupInsp.missingJack ? 'Gato faltante' : 'Gato OK');
+          const pickupDamages = pickupInsp.damages || [];
+          const tireDamages = pickupDamages.filter((d: any) => d.damageType?.key === 'TIRE');
+          const bodyEquipDamages = pickupDamages.filter((d: any) => d.damageType?.key !== 'TIRE');
+          const tireValue = tireDamages.length > 0
+            ? `${tireDamages.filter((d: any) => d.tirePosition === 'FRONT_LEFT' || d.tirePosition === 'FRONT_RIGHT' || d.tirePosition === 'REAR_LEFT' || d.tirePosition === 'REAR_RIGHT').length} Dañadas`
+            : 'Buenas x4';
+          const bodyParts = bodyEquipDamages.map((d: any) => d.damageType?.name ?? 'Desconocido');
+          const hasIssues = bodyParts.length > 0 || tireDamages.length > 0;
 
           checkoutItems = [
             { label: 'Odómetro (Salida)', value: `${pickupInsp.odometer} km` },
             { label: 'Combustible (Salida)', value: this.translateFuelLevel(pickupInsp.fuelGaugeLevel) },
             { label: 'Neumáticos', value: tireValue },
-            { label: 'Carrocería', value: bodyParts.join(', ') },
-            { label: 'Equipo', value: equipParts.join(', ') },
+            { label: 'Daños', value: bodyParts.length > 0 ? bodyParts.join(', ') : 'Sin novedad' },
             { label: 'Estado', value: pickupInsp.status === 'PASSED' ? 'Aprobado ✓' : (pickupInsp.comments || 'Fallado') },
           ];
         } else {
@@ -552,6 +556,7 @@ export class PdfService {
             const blob = await put(filename, buffer, {
               access: 'private',
               contentType: 'application/pdf',
+              addRandomSuffix: true,
               token: process.env.BLOB_READ_WRITE_TOKEN,
             });
             resolve(blob.url);
@@ -662,6 +667,7 @@ export class PdfService {
             const blob = await put(filename, buffer, {
               access: 'private',
               contentType: 'application/pdf',
+              addRandomSuffix: true,
               token: process.env.BLOB_READ_WRITE_TOKEN,
             });
             resolve(blob.url);
@@ -813,6 +819,7 @@ export class PdfService {
             const blob = await put(filename, buffer, {
               access: 'private',
               contentType: 'application/pdf',
+              addRandomSuffix: true,
               token: process.env.BLOB_READ_WRITE_TOKEN,
             });
             resolve(blob.url);
@@ -938,12 +945,21 @@ export class PdfService {
     const company = await this.loadCompanyInfo();
     const returnSigBuf = await this.fetchImageBuffer(rental.returnSignatureUrl);
 
-    // Load fee config outside the promise to prevent await inside the executor
-    const fees = await prisma.feeConfig.findMany().catch(() => []);
+    // Load fee config and damage fees outside the promise to prevent await inside the executor
+    const fees = await prisma.feeConfig.findMany({
+      where: {
+        OR: [
+          { damageType: { isActive: true } },
+          { AND: [{ damageTypeId: null }, { isActive: true }] },
+        ],
+      },
+      include: { damageType: true },
+    }).catch(() => []);
     const feeMap: Record<string, number> = {};
     for (const fee of fees) {
-      feeMap[fee.key] = fee.amount;
+      if (fee.key) feeMap[fee.key] = fee.amount;
     }
+    const damageFees = fees.filter(f => f.damageTypeId && f.damageType);
 
     return new Promise((resolve, reject) => {
       try {
@@ -985,7 +1001,7 @@ export class PdfService {
           { label: 'FACTURAR A', value: rental.customer?.name || 'N/A' },
           { label: 'Dirección', value: rental.customer?.address || 'N/A' },
           { label: 'Cédula / RNC', value: rental.customer?.nationalId || 'N/A' },
-          { label: 'Correo', value: rental.customer?.email || 'N/A' },
+          { label: 'Correo', value: rental.customer?.user?.email || rental.customer?.email || 'N/A' },
           { label: 'Teléfono', value: rental.customer?.phone || 'N/A' }
         ]);
 
@@ -1047,22 +1063,29 @@ export class PdfService {
           }
         }
         
-        // Damage Fee calculation
+        // Damage Fee calculation — dynamic using FeeConfig (pre-loaded outside promise)
+        const damageItems: { label: string; amount: number; count: number }[] = [];
         if (returnInsp && pickupInsp) {
-          const glassFeeAmount = feeMap['GLASS_DAMAGE'] ?? 12000;
-          const scratchesFeeAmount = feeMap['SCRATCHES'] ?? 8000;
-          const tireFeeAmount = feeMap['TIRE_DAMAGE'] ?? 5000;
-          
-          const glassFee = returnInsp.hasBrokenGlass && !pickupInsp.hasBrokenGlass ? glassFeeAmount : 0;
-          const scratchesFee = returnInsp.hasScratches && !pickupInsp.hasScratches ? scratchesFeeAmount : 0;
-          
-          const tirePositions = ['tireConditionFrontLeft', 'tireConditionFrontRight', 'tireConditionRearLeft', 'tireConditionRearRight'] as const;
-          const isDamaged = (cond: string) => cond === 'DAMAGED' || cond === 'MISSING';
-          const newTiresCount = tirePositions.filter(p =>
-            isDamaged(returnInsp[p]) && !isDamaged(pickupInsp[p] ?? 'GOOD')
-          ).length;
-          const tiresFee = newTiresCount * tireFeeAmount;
-          damageFee = glassFee + scratchesFee + tiresFee;
+          const retDamages = returnInsp.damages || [];
+          const pickDamages = pickupInsp.damages || [];
+
+          for (const fee of damageFees) {
+            const retDmg = retDamages.filter((d: any) => d.damageTypeId === fee.damageTypeId);
+            const pickDmg = pickDamages.filter((d: any) => d.damageTypeId === fee.damageTypeId);
+
+            if (fee.damageType?.key === 'TIRE') {
+              const newTiresCount = retDmg.filter((rd: any) =>
+                !pickDmg.some((pd: any) => pd.tirePosition === rd.tirePosition)
+              ).length;
+              if (newTiresCount > 0) {
+                damageFee += newTiresCount * fee.amount;
+                damageItems.push({ label: fee.label, amount: fee.amount, count: newTiresCount });
+              }
+            } else if (retDmg.length > 0 && pickDmg.length === 0) {
+              damageFee += fee.amount;
+              damageItems.push({ label: fee.label, amount: fee.amount, count: 1 });
+            }
+          }
         }
 
         const totalCost = rental.totalCost || 0;
@@ -1096,13 +1119,16 @@ export class PdfService {
           });
         }
         
-        if (damageFee > 0) {
-          tableRows.push({
-            desc: 'Cargos por Daños al Vehículo',
-            rate: 'Daño Inspeccionado',
-            qty: 'Daño Registrado',
-            subtotal: `$ ${damageFee.toFixed(2)}`
-          });
+        if (damageItems.length > 0) {
+          for (const item of damageItems) {
+            const qty = item.count > 1 ? `${item.count} und.` : '1 und.';
+            tableRows.push({
+              desc: item.label,
+              rate: `$ ${item.amount.toFixed(2)}`,
+              qty,
+              subtotal: `$ ${(item.amount * item.count).toFixed(2)}`
+            });
+          }
         }
 
         const endTableY = this.drawInvoiceTable(doc, 45, 330, 505.28, tableRows, baseCost, 0, totalCost);
@@ -1184,6 +1210,7 @@ export class PdfService {
             const blob = await put(filename, buffer, {
               access: 'private',
               contentType: 'application/pdf',
+              addRandomSuffix: true,
               token: process.env.BLOB_READ_WRITE_TOKEN,
             });
             resolve(blob.url);

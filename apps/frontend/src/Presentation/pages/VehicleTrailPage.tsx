@@ -155,7 +155,7 @@ export const VehicleTrailPage: React.FC = () => {
                       <span className="font-bold text-accent-primary">Point #{idx + 1}</span>
                       <span>Speed: {log.speedKmH} km/h</span>
                       <span>Heading: {log.heading}°</span>
-                      <span className="text-[10px] text-fg-tertiary">
+                      <span className="text-xs text-fg-tertiary">
                         {new Date(log.timestamp).toLocaleString()}
                       </span>
                     </div>
@@ -170,7 +170,7 @@ export const VehicleTrailPage: React.FC = () => {
             {/* Vehicle Card Summary */}
             {selectedVehicle && (
               <div className="p-5 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-2 shrink-0">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-accent-primary flex items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-accent-primary flex items-center gap-1.5">
                   <Navigation size={12} className="rotate-45" /> {t('trailPage.activeDetails')}
                 </span>
                 <h3 className="text-sm font-extrabold text-fg-main uppercase">
@@ -178,19 +178,19 @@ export const VehicleTrailPage: React.FC = () => {
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-2 font-mono text-xs text-fg-secondary">
                   <div>
-                    <span className="text-fg-tertiary block text-[10px] uppercase">{t('trailPage.plate')}</span>
+                    <span className="text-fg-tertiary block text-xs uppercase">{t('trailPage.plate')}</span>
                     {selectedVehicle.plateNumber}
                   </div>
                   <div>
-                    <span className="text-fg-tertiary block text-[10px] uppercase">{t('trailPage.chassis')}</span>
+                    <span className="text-fg-tertiary block text-xs uppercase">{t('trailPage.chassis')}</span>
                     {selectedVehicle.chassisNumber}
                   </div>
                   <div>
-                    <span className="text-fg-tertiary block text-[10px] uppercase">{t('trailPage.odometer')}</span>
+                    <span className="text-fg-tertiary block text-xs uppercase">{t('trailPage.odometer')}</span>
                     {selectedVehicle.odometer} km
                   </div>
                   <div>
-                    <span className="text-fg-tertiary block text-[10px] uppercase">{t('trailPage.pointsCount')}</span>
+                    <span className="text-fg-tertiary block text-xs uppercase">{t('trailPage.pointsCount')}</span>
                     {trailLogs.length} points
                   </div>
                 </div>

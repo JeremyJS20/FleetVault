@@ -14,17 +14,22 @@ const FUEL_VALUES: Record<string, number> = {
   'FULL': 4
 };
 
+export interface DamageFeeBreakdown {
+  damageTypeId: string | null;
+  label: string;
+  amount: number;
+  key: string | null;
+}
+
 export interface ReturnCalculations {
   baseCost: number;
   lateHours: number;
   lateFee: number;
   fuelDifference: number;
   fuelFee: number;
-  glassFee: number;
-  scratchesFee: number;
-  tiresFee: number;
   totalDamageFee: number;
   totalFinalCost: number;
+  damageFees: DamageFeeBreakdown[];
 }
 
 export class RentalService {
@@ -32,7 +37,7 @@ export class RentalService {
     const fees = await prisma.feeConfig.findMany();
     const map: Record<string, number> = {};
     for (const fee of fees) {
-      map[fee.key] = fee.amount;
+      if (fee.key) map[fee.key] = fee.amount;
     }
     return map;
   }
@@ -168,9 +173,9 @@ export class RentalService {
         where: { id: rentalId },
         include: {
           vehicle: { include: { brand: true, model: true, vehicleType: true } },
-          customer: true,
+          customer: { include: { user: { select: { email: true } } } },
           checkoutEmployee: true,
-          inspections: { include: { employee: true } },
+          inspections: { include: { employee: true, damages: { include: { damageType: true } } } },
           transactions: true
         }
       });
@@ -198,7 +203,7 @@ export class RentalService {
     vehicleId: string;
     rentalDate: string;
     scheduledReturnDate: string;
-    pricePerDay: number;
+    pricePerDay?: number;
     checkoutOdometer?: number;
     checkoutFuelLevel?: string;
     signatureUrl: string;
@@ -211,14 +216,7 @@ export class RentalService {
     driverLicenseCountry?: string | null;
     driverLicenseExpDate?: string | null;
     driverLicensePhotoUrl?: string | null;
-    hasScratches?: boolean;
-    hasBrokenGlass?: boolean;
-    missingSpareTire?: boolean;
-    missingJack?: boolean;
-    tireConditionFrontLeft?: string;
-    tireConditionFrontRight?: string;
-    tireConditionRearLeft?: string;
-    tireConditionRearRight?: string;
+    damages?: { damageTypeId: string; tirePosition?: string | null }[];
     photoUrls?: string[];
     inspectionComments?: string | null;
   }) {
@@ -240,7 +238,24 @@ export class RentalService {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     const days = diffDays || 1;
 
-    const pricePerDay = input.pricePerDay;
+    // Get vehicle with type for base rate and seasonal multiplier
+    const vehicleForRate = await prisma.vehicle.findUnique({
+      where: { id: input.vehicleId },
+      include: { vehicleType: true }
+    });
+    if (!vehicleForRate) throw new NotFoundError('Vehicle not found');
+
+    const baseDailyRate = vehicleForRate.vehicleType?.baseDailyRate || 0;
+    const activeRate = await prisma.seasonalRate.findFirst({
+      where: {
+        status: 'ACTIVE',
+        startDate: { lte: end },
+        endDate: { gte: start }
+      },
+      orderBy: { multiplier: 'desc' }
+    });
+    const multiplier = activeRate ? activeRate.multiplier : 1.0;
+    const pricePerDay = parseFloat((baseDailyRate * multiplier).toFixed(2));
     const totalCost = parseFloat((pricePerDay * days).toFixed(2));
     const feeMap = await this.loadFeeMap();
     const depositAmount = feeMap['SECURITY_DEPOSIT'] ?? 15000;
@@ -358,17 +373,8 @@ export class RentalService {
         }
       });
 
-      const isTireDamaged = (cond: string) => cond === 'DAMAGED' || cond === 'MISSING';
-      const hasTireIssue = isTireDamaged(input.tireConditionFrontLeft || 'GOOD') ||
-                           isTireDamaged(input.tireConditionFrontRight || 'GOOD') ||
-                           isTireDamaged(input.tireConditionRearLeft || 'GOOD') ||
-                           isTireDamaged(input.tireConditionRearRight || 'GOOD');
-
-      const isFlagged = input.hasBrokenGlass ||
-                        input.missingSpareTire ||
-                        input.missingJack ||
-                        hasTireIssue ||
-                        input.hasScratches;
+      const damages = input.damages ?? [];
+      const isFlagged = damages.length > 0;
 
       const inspection = await tx.inspection.create({
         data: {
@@ -377,19 +383,17 @@ export class RentalService {
           vehicleId: input.vehicleId,
           customerId: input.customerId,
           employeeId: input.checkoutEmployeeId,
-          hasScratches: input.hasScratches ?? false,
           fuelGaugeLevel: result.checkoutFuelLevel,
-          missingSpareTire: input.missingSpareTire ?? false,
-          missingJack: input.missingJack ?? false,
-          hasBrokenGlass: input.hasBrokenGlass ?? false,
-          tireConditionFrontLeft: input.tireConditionFrontLeft ?? 'GOOD',
-          tireConditionFrontRight: input.tireConditionFrontRight ?? 'GOOD',
-          tireConditionRearLeft: input.tireConditionRearLeft ?? 'GOOD',
-          tireConditionRearRight: input.tireConditionRearRight ?? 'GOOD',
           odometer: result.checkoutOdometer,
           photoUrlsJson: JSON.stringify(input.photoUrls || []),
           status: isFlagged ? 'FLAGGED' : 'PASSED',
-          comments: input.inspectionComments || null
+          comments: input.inspectionComments || null,
+          damages: {
+            create: damages.map(d => ({
+              damageTypeId: d.damageTypeId,
+              tirePosition: d.tirePosition ?? null,
+            })),
+          },
         }
       });
 
@@ -427,9 +431,9 @@ export class RentalService {
         where: { id: newRental.id },
         include: {
           vehicle: { include: { brand: true, model: true, vehicleType: true } },
-          customer: true,
+          customer: { include: { user: { select: { email: true } } } },
           checkoutEmployee: true,
-          inspections: { include: { employee: true } },
+          inspections: { include: { employee: true, damages: { include: { damageType: true } } } },
           transactions: true
         }
       });
@@ -482,9 +486,6 @@ export class RentalService {
       where: { rentalId, type: 'PICKUP' }
     });
 
-    const tirePositions = ['tireConditionFrontLeft', 'tireConditionFrontRight', 'tireConditionRearLeft', 'tireConditionRearRight'] as const;
-    const isDamaged = (cond: string) => cond === 'DAMAGED' || cond === 'MISSING';
-
     const actualReturn = new Date(returnInput.actualReturnDate);
     const feeMap = await this.loadFeeMap();
 
@@ -514,17 +515,35 @@ export class RentalService {
       fuelFee = fuelFlatFee + (fuelDifference * fuelPerStep);
     }
 
-    // 4. Damage Fees — only charge for NEW damage (not pre-existing at checkout)
-    const glassFeeAmount = feeMap['GLASS_DAMAGE'] ?? 12000;
-    const scratchesFeeAmount = feeMap['SCRATCHES'] ?? 8000;
-    const tireFeeAmount = feeMap['TIRE_DAMAGE'] ?? 5000;
-    const glassFee = returnInsp.hasBrokenGlass && !pickupInsp?.hasBrokenGlass ? glassFeeAmount : 0.0;
-    const scratchesFee = returnInsp.hasScratches && !pickupInsp?.hasScratches ? scratchesFeeAmount : 0.0;
-    const newTiresCount = tirePositions.filter(p =>
-      isDamaged(returnInsp[p]) && !isDamaged(pickupInsp?.[p] ?? 'GOOD')
-    ).length;
-    const tiresFee = newTiresCount * tireFeeAmount;
-    const totalDamageFee = glassFee + scratchesFee + tiresFee;
+    // 4. Damage Fees — dynamically iterate all active FeeConfig with damageTypeId
+    const damageFees = await prisma.feeConfig.findMany({
+      where: { damageTypeId: { not: null }, damageType: { isActive: true } },
+      include: { damageType: true }
+    });
+
+    // Fetch damages for return and pickup inspections
+    const returnDamages = await prisma.inspectionDamage.findMany({
+      where: { inspectionId: returnInsp.id }
+    });
+    const pickupDamages = pickupInsp
+      ? await prisma.inspectionDamage.findMany({ where: { inspectionId: pickupInsp.id } })
+      : [];
+
+    let totalDamageFee = 0;
+    for (const fee of damageFees) {
+      if (!fee.damageType) continue;
+      const retDmg = returnDamages.filter(d => d.damageTypeId === fee.damageTypeId);
+      const pickDmg = pickupDamages.filter(d => d.damageTypeId === fee.damageTypeId);
+
+      if (fee.damageType.key === 'TIRE') {
+        const newTiresCount = retDmg.filter(rd =>
+          !pickDmg.some(pd => pd.tirePosition === rd.tirePosition)
+        ).length;
+        totalDamageFee += newTiresCount * fee.amount;
+      } else if (retDmg.length > 0 && pickDmg.length === 0) {
+        totalDamageFee += fee.amount;
+      }
+    }
 
     const totalFinalCost = parseFloat((baseCost + lateFee + fuelFee + totalDamageFee).toFixed(2));
 
@@ -534,11 +553,14 @@ export class RentalService {
       lateFee,
       fuelDifference,
       fuelFee,
-      glassFee,
-      scratchesFee,
-      tiresFee,
       totalDamageFee,
-      totalFinalCost
+      totalFinalCost,
+      damageFees: damageFees.map(f => ({
+        damageTypeId: f.damageTypeId,
+        label: f.label,
+        amount: f.amount,
+        key: f.damageType?.key ?? null,
+      })),
     };
   }
 
@@ -580,12 +602,6 @@ export class RentalService {
     const pickupInsp = await prisma.inspection.findFirst({
       where: { rentalId, type: 'PICKUP' }
     });
-
-    const tirePositions = ['tireConditionFrontLeft', 'tireConditionFrontRight', 'tireConditionRearLeft', 'tireConditionRearRight'] as const;
-    const isDamaged = (cond: string) => cond === 'DAMAGED' || cond === 'MISSING';
-    const newTiresCount = tirePositions.filter(p =>
-      isDamaged(returnInspection[p]) && !isDamaged(pickupInsp?.[p] ?? 'GOOD')
-    ).length;
 
     // 1. Calculate final costs and fees
     const calcs = await this.calculatePenalties(rentalId, input);
@@ -656,9 +672,18 @@ export class RentalService {
 
       // Update vehicle status
       // Only flag MAINTENANCE for NEW damage (not pre-existing at checkout)
-      const hasNewDamage = returnInspection.hasBrokenGlass && !pickupInsp?.hasBrokenGlass ||
-                           returnInspection.hasScratches && !pickupInsp?.hasScratches ||
-                           newTiresCount > 0;
+      const returnDmgList = await prisma.inspectionDamage.findMany({
+        where: { inspectionId: returnInspection.id }
+      });
+      const pickupDmgList = pickupInsp
+        ? await prisma.inspectionDamage.findMany({ where: { inspectionId: pickupInsp.id } })
+        : [];
+      const hasNewDamage = returnDmgList.some(rd =>
+        !pickupDmgList.some(pd =>
+          pd.damageTypeId === rd.damageTypeId &&
+          (pd.tirePosition ?? null) === (rd.tirePosition ?? null)
+        )
+      );
       const vehicleStatus = hasNewDamage ? 'MAINTENANCE' : 'UNDER_INSPECTION';
 
       await tx.vehicle.update({
@@ -695,12 +720,13 @@ export class RentalService {
               vehicleType: true
             }
           },
-          customer: true,
+          customer: { include: { user: { select: { email: true } } } },
           checkoutEmployee: true,
           returnEmployee: true,
           inspections: {
             include: {
-              employee: true
+              employee: true,
+              damages: { include: { damageType: true } }
             }
           },
           transactions: true
@@ -724,12 +750,13 @@ export class RentalService {
               vehicleType: true
             }
           },
-          customer: true,
+          customer: { include: { user: { select: { email: true } } } },
           checkoutEmployee: true,
           returnEmployee: true,
           inspections: {
             include: {
-              employee: true
+              employee: true,
+              damages: { include: { damageType: true } }
             }
           },
           transactions: true
@@ -770,19 +797,10 @@ export class RentalService {
           returnEmployee: true,
           transactions: true,
           inspections: {
-            select: {
-              type: true,
-              odometer: true,
-              fuelGaugeLevel: true,
-              hasBrokenGlass: true,
-              hasScratches: true,
-              tireConditionFrontLeft: true,
-              tireConditionFrontRight: true,
-              tireConditionRearLeft: true,
-              tireConditionRearRight: true,
-              missingSpareTire: true,
-              missingJack: true,
-              comments: true
+            include: {
+              damages: {
+                include: { damageType: true }
+              }
             }
           }
         },

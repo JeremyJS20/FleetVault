@@ -158,7 +158,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ value, onChange, onF
           </div>
 
           <div className="flex items-center justify-between min-h-[36px]">
-            <div className={`flex items-center gap-1.5 text-[11px] font-bold text-emerald-500 uppercase tracking-wider transition-opacity duration-150 ${isEmpty ? 'opacity-0' : 'opacity-100'}`}>
+            <div className={`flex items-center gap-1.5 text-xs font-bold text-emerald-500 uppercase tracking-wider transition-opacity duration-150 ${isEmpty ? 'opacity-0' : 'opacity-100'}`}>
               <Check className="w-3.5 h-3.5" />
               {t('signaturePad.signed', 'Signature captured')}
             </div>
@@ -167,7 +167,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ value, onChange, onF
               <button
                 type="button"
                 onClick={clearSignature}
-                className={`h-8 px-3.5 rounded-lg border border-border-surface/40 bg-bg-surface/30 hover:bg-bg-surface text-fg-secondary text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all duration-150 ${isEmpty ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}`}
+                className={`h-8 px-3.5 rounded-lg border border-border-surface/40 bg-bg-surface/30 hover:bg-bg-surface text-fg-secondary text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all duration-150 ${isEmpty ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}`}
               >
                 <Eraser className="w-3.5 h-3.5" />
                 {t('signaturePad.clear', 'Clear & Redraw')}

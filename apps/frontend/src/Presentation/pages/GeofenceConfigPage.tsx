@@ -193,10 +193,10 @@ export const GeofenceConfigPage: React.FC = () => {
 
             {drawnCoords.length > 0 && (
               <div className="p-3 rounded-xl bg-bg-inset border border-border-surface/30">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary">
+                <span className="text-xs font-bold uppercase tracking-wider text-fg-secondary">
                   {t('geofencePage.vertices')} ({drawnCoords.length})
                 </span>
-                <div className="max-h-24 overflow-y-auto mt-1 flex flex-col gap-1 font-mono text-[10px] text-fg-tertiary">
+                <div className="max-h-24 overflow-y-auto mt-1 flex flex-col gap-1 font-mono text-xs text-fg-tertiary">
                   {drawnCoords.map((pt, i) => (
                     <div key={i} className="flex justify-between">
                       <span>Point {i + 1}:</span>
@@ -245,7 +245,7 @@ export const GeofenceConfigPage: React.FC = () => {
                       <span>{gf.name}</span>
                       <span className={`w-2 h-2 rounded-full ${gf.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
                     </div>
-                    <div className="text-[10px] text-fg-secondary font-mono mt-1">
+                    <div className="text-xs text-fg-secondary font-mono mt-1">
                       Email: {gf.alertEmail}
                     </div>
                   </div>

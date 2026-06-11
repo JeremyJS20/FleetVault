@@ -76,7 +76,7 @@ export const RevenueReportPage: React.FC = () => {
           <div className="lg:col-span-1 flex flex-col gap-6">
             <div className="p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-2 relative overflow-hidden">
               <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-accent-primary/5 rounded-full blur-xl pointer-events-none" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-accent-primary flex items-center gap-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-accent-primary flex items-center gap-1">
                 <Landmark size={12} /> {t('revenuePage.financialSummary')}
               </span>
               <h4 className="text-sm font-bold text-fg-secondary uppercase tracking-tight mt-1">
@@ -93,7 +93,7 @@ export const RevenueReportPage: React.FC = () => {
             </div>
 
             <div className="p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-accent-primary flex items-center gap-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-accent-primary flex items-center gap-1">
                 <TrendingUp size={12} /> {t('revenuePage.latestMonth')}
               </span>
               <h4 className="text-sm font-bold text-fg-secondary uppercase tracking-tight mt-1">
@@ -105,7 +105,7 @@ export const RevenueReportPage: React.FC = () => {
                 </span>
               </div>
               <div className="mt-4 pt-4 border-t border-border-surface/20 flex flex-col gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-tertiary">
+                <span className="text-xs font-bold uppercase tracking-wider text-fg-tertiary">
                   {t('revenuePage.categoryBreakdown', { month: latestMonthData?.month })}
                 </span>
                 <div className="flex flex-col gap-1.5 font-mono text-xs">

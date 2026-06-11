@@ -8,6 +8,17 @@ import { CreateSeasonalRateSchema, UpdateSeasonalRateSchema } from '@rent-car/co
 const router = Router();
 const service = new CatalogService();
 
+// GET /api/seasonal-rates/multiplier — lightweight seasonal multiplier for date range (public)
+router.get('/multiplier', async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const result = await service.getSeasonalMultiplier(startDate as string, endDate as string);
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /api/seasonal-rates
 router.get('/', authMiddleware, async (req, res, next) => {
   try {

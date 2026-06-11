@@ -2,12 +2,11 @@ import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { ColumnDef } from '@tanstack/react-table';
-import { Search as SearchIcon, Calendar, ExternalLink } from 'lucide-react';
+import { Search as SearchIcon, Calendar, Eye } from 'lucide-react';
 import { formatCurrency } from '@rent-car/common';
 import { PageHeader } from '../components/ui/PageHeader.js';
 import { DataTable } from '../components/ui/DataTable.js';
 import { Input } from '../components/ui/Input.js';
-import { Button } from '../components/ui/Button.js';
 import { apiClient } from '../../Infrastructure/api-client.js';
 import { useQuery } from '@tanstack/react-query';
 
@@ -94,11 +93,11 @@ export const TransactionsPage: React.FC = () => {
         const ctx = getTransactionContext(val, info.row.original.comments, lang);
         return (
           <div className="flex items-center gap-1.5">
-            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${colors[val] || 'text-fg-secondary bg-bg-surface/30'}`}>
+            <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md ${colors[val] || 'text-fg-secondary bg-bg-surface/30'}`}>
               {label}
             </span>
             {ctx && (
-              <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-1 rounded-md ${ctxColors[ctx] || 'text-purple-400 bg-purple-500/10'}`}>
+              <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-1 rounded-md ${ctxColors[ctx] || 'text-purple-400 bg-purple-500/10'}`}>
                 {ctx}
               </span>
             )}
@@ -123,7 +122,7 @@ export const TransactionsPage: React.FC = () => {
         return (
           <div className="flex flex-col">
             <span className="font-semibold text-fg-main text-xs">{rental?.customer?.name || '—'}</span>
-            <span className="text-[10px] text-fg-tertiary font-mono">{rental?.customer?.nationalId || ''}</span>
+            <span className="text-xs text-fg-tertiary font-mono">{rental?.customer?.nationalId || ''}</span>
           </div>
         );
       },
@@ -145,9 +144,9 @@ export const TransactionsPage: React.FC = () => {
       header: t('transactionsPage.paymentMethod'),
       cell: (info) => {
         const txn = info.row.original as any;
-        if (txn.type === 'CASH') return <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md text-green-400 bg-green-500/10">{lang === 'es' ? 'Efectivo' : 'Cash'}</span>;
-        if (txn.type === 'PO_INVOICE') return <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md text-purple-400 bg-purple-500/10">{lang === 'es' ? 'Orden de Compra' : 'Purchase Order'}</span>;
-        if (txn.stripePaymentIntentId) return <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md text-blue-400 bg-blue-500/10">{lang === 'es' ? 'Tarjeta' : 'Card'}</span>;
+        if (txn.type === 'CASH') return <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md text-green-400 bg-green-500/10">{lang === 'es' ? 'Efectivo' : 'Cash'}</span>;
+        if (txn.type === 'PO_INVOICE') return <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md text-purple-400 bg-purple-500/10">{lang === 'es' ? 'Orden de Compra' : 'Purchase Order'}</span>;
+        if (txn.stripePaymentIntentId) return <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md text-blue-400 bg-blue-500/10">{lang === 'es' ? 'Tarjeta' : 'Card'}</span>;
         return <span className="text-xs text-fg-tertiary">—</span>;
       },
     },
@@ -166,15 +165,13 @@ export const TransactionsPage: React.FC = () => {
       cell: (info) => {
         const rentalId = info.row.original.rentalId;
         return rentalId ? (
-          <Button
-            variant="secondary"
-            size="sm"
+          <button
             onClick={() => navigate(`/admin/query?rentalId=${rentalId}`)}
-            className="flex items-center gap-1 py-1 px-2.5 rounded-lg text-xs"
             title={t('transactionsPage.viewRental')}
+            className="text-accent-primary hover:text-accent-primary/80 transition-colors"
           >
-            <ExternalLink size={13} />
-          </Button>
+            <Eye size={14} />
+          </button>
         ) : null;
       },
     },

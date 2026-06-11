@@ -1243,7 +1243,7 @@ export class CatalogService {
     };
   }
 
-  private async getSeasonalMultiplier(dateFromStr?: string, dateToStr?: string) {
+  async getSeasonalMultiplier(dateFromStr?: string, dateToStr?: string) {
     if (!dateFromStr || !dateToStr) {
       return { multiplier: 1.0, hasSeasonalRate: false, name: null };
     }

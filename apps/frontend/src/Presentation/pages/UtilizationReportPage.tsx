@@ -60,7 +60,7 @@ export const UtilizationReportPage: React.FC = () => {
           <div className="lg:col-span-1 flex flex-col gap-6">
             <div className="p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-2 relative overflow-hidden">
               <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-accent-primary/5 rounded-full blur-xl pointer-events-none" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-accent-primary flex items-center gap-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-accent-primary flex items-center gap-1">
                 <BarChart3 size={12} /> {t('utilizationPage.liveMetrics')}
               </span>
               <h4 className="text-sm font-bold text-fg-secondary uppercase tracking-tight mt-1">
@@ -80,7 +80,7 @@ export const UtilizationReportPage: React.FC = () => {
             </div>
 
             <div className="p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md flex flex-col gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-fg-secondary flex items-center gap-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-fg-secondary flex items-center gap-1">
                 <HelpCircle size={12} /> {t('utilizationPage.insightsTitle')}
               </span>
               <ul className="text-xs text-fg-secondary mt-2 flex flex-col gap-3 list-inside list-disc">

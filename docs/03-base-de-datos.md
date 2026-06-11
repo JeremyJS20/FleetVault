@@ -1,3 +1,268 @@
+# Diseño de Base de Datos y Modelo de Entidades
+
+La persistencia de datos de **FleetVault Enterprise** se gestiona mediante un motor relacional (**SQLite** en entornos de desarrollo y pruebas, y **PostgreSQL** mediante **Supabase** en producción). El acceso y las migraciones se controlan a través de **Prisma ORM**.
+
+---
+
+## 1. Diagrama Entidad-Relación (ERD)
+
+A continuación se presenta el modelo conceptual de base de datos con las relaciones y jerarquías lógicas reales del proyecto:
+
+```mermaid
+erDiagram
+    USER ||--o| CUSTOMER : "pertenece a"
+    USER ||--o| EMPLOYEE : "pertenece a"
+    VEHICLE_TYPE ||--o{ VEHICLE : "clasifica"
+    BRAND ||--o{ MODEL : "agrupa"
+    MODEL ||--o{ VEHICLE : "define"
+    FUEL_TYPE ||--o{ VEHICLE : "alimenta"
+    VEHICLE ||--o{ INSPECTION : "recibe"
+    CUSTOMER ||--o{ INSPECTION : "es inspeccionado por"
+    EMPLOYEE ||--o{ INSPECTION : "realiza"
+    VEHICLE ||--o{ RENTAL : "es alquilado en"
+    CUSTOMER ||--o{ RENTAL : "arrienda"
+    EMPLOYEE ||--o{ RENTAL : "despacha / recibe"
+    RENTAL ||--o{ INSPECTION : "asocia"
+    RENTAL ||--o{ TRANSACTION_LEDGER : "genera"
+    VEHICLE ||--o{ GPS_LOG : "transmite"
+    INSPECTION ||--o{ INSPECTION_DAMAGE : "detalla"
+    DAMAGE_TYPE ||--o{ INSPECTION_DAMAGE : "clasifica"
+    DAMAGE_TYPE ||--o| FEE_CONFIG : "tiene"
+    RENTAL_POLICY ||--o| RENTAL_POLICY : "independiente"
+    COMPANY_INFO ||--o| COMPANY_INFO : "independiente"
+
+    USER {
+        string id PK
+        string email UK
+        string passwordHash
+        string role
+        datetime createdAt
+        datetime updatedAt
+    }
+    VEHICLE_TYPE {
+        string id PK
+        string name UK
+        string description
+        float baseDailyRate
+        string status
+        datetime createdAt
+        datetime updatedAt
+    }
+    BRAND {
+        string id PK
+        string name UK
+        string status
+        datetime createdAt
+        datetime updatedAt
+    }
+    MODEL {
+        string id PK
+        string name
+        string brandId FK
+        string status
+        datetime createdAt
+        datetime updatedAt
+    }
+    FUEL_TYPE {
+        string id PK
+        string name UK
+        string status
+        datetime createdAt
+        datetime updatedAt
+    }
+    VEHICLE {
+        string id PK
+        string description
+        string chassisNumber UK
+        string engineNumber UK
+        string plateNumber UK
+        string vehicleTypeId FK
+        string brandId FK
+        string modelId FK
+        string fuelTypeId FK
+        float odometer
+        float lastMaintenanceOdometer
+        string status
+        string cleaningStatus
+        string imageUrl
+        datetime createdAt
+        datetime updatedAt
+    }
+    CUSTOMER {
+        string id PK
+        string name
+        string email
+        string phone
+        string address
+        string nationalId UK
+        string creditCardNumber
+        float creditLimit
+        string type
+        string status
+        string licenseNumber
+        string licenseCountry
+        datetime licenseExpDate
+        string licensePhotoUrl
+        string userId FK
+        string stripeCustomerId
+        datetime createdAt
+        datetime updatedAt
+    }
+    EMPLOYEE {
+        string id PK
+        string name
+        string nationalId UK
+        string phone
+        string signatureUrl
+        float commissionPercentage
+        datetime hireDate
+        string shift
+        string status
+        string userId FK
+        datetime createdAt
+        datetime updatedAt
+    }
+    DAMAGE_TYPE {
+        string id PK
+        string name
+        string key UK
+        string description
+        boolean isActive
+        datetime createdAt
+        datetime updatedAt
+    }
+    INSPECTION_DAMAGE {
+        string id PK
+        string inspectionId FK
+        string damageTypeId FK
+        string tirePosition
+    }
+    INSPECTION {
+        string id PK
+        string rentalId FK
+        string type
+        string vehicleId FK
+        string customerId FK
+        string employeeId FK
+        string fuelGaugeLevel
+        float odometer
+        string status
+        string photoUrlsJson
+        string comments
+        datetime inspectionDate
+        datetime createdAt
+        datetime updatedAt
+    }
+    RENTAL {
+        string id PK
+        string checkoutEmployeeId FK
+        string returnEmployeeId FK
+        string customerId FK
+        string vehicleId FK
+        datetime rentalDate
+        datetime scheduledReturnDate
+        datetime actualReturnDate
+        float pricePerDay
+        float checkoutOdometer
+        float returnOdometer
+        string checkoutFuelLevel
+        string returnFuelLevel
+        string status
+        string comments
+        string signatureUrl
+        string returnSignatureUrl
+        string purchaseOrderNumber
+        string stripePaymentIntentId
+        string contractPdfUrl
+        string returnReceiptUrl
+        string driverName
+        string driverLicenseNumber
+        string driverLicenseCountry
+        datetime driverLicenseExpDate
+        string driverLicensePhotoUrl
+        float totalCost
+        float commissionAmount
+        datetime createdAt
+        datetime updatedAt
+    }
+    TRANSACTION_LEDGER {
+        string id PK
+        string rentalId FK
+        float amount
+        string type
+        string stripePaymentIntentId
+        string purchaseOrderNumber
+        float stripeFee
+        string comments
+        datetime createdAt
+    }
+    GPS_LOG {
+        string id PK
+        string vehicleId FK
+        float latitude
+        float longitude
+        float speedKmH
+        float heading
+        datetime timestamp
+    }
+    GEOFENCE {
+        string id PK
+        string name
+        string coordinatesJson
+        string alertEmail
+        boolean isActive
+        datetime createdAt
+        datetime updatedAt
+    }
+    SEASONAL_RATE {
+        string id PK
+        string name
+        datetime startDate
+        datetime endDate
+        float multiplier
+        string status
+        datetime createdAt
+        datetime updatedAt
+    }
+    FEE_CONFIG {
+        string id PK
+        string key UK
+        string label
+        float amount
+        boolean isActive
+        string description
+        string damageTypeId FK
+        datetime updatedAt
+    }
+    RENTAL_POLICY {
+        string id PK
+        string key UK
+        string title
+        string content
+        boolean isActive
+        datetime updatedAt
+    }
+    COMPANY_INFO {
+        string id PK
+        string companyName
+        string rnc
+        string address
+        string phone
+        string email
+        string website
+        string city
+        string logoUrl
+        datetime updatedAt
+    }
+```
+
+---
+
+## 2. Esquema Oficial de Prisma (`schema.prisma`)
+
+El modelo físico de la base de datos se describe exactamente en el archivo [schema.prisma](file:///c:/Users/jsjer/OneDrive/Bureaublad/New%20folder/OpenSource%20II/rent-car/apps/backend/prisma/schema.prisma):
+
+```prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -297,3 +562,4 @@ model CompanyInfo {
   logoUrl      String?
   updatedAt    DateTime @updatedAt
 }
+```
