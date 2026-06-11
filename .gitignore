@@ -12,3 +12,7 @@ debug-*.js
 debug-*.cjs
 *.tmp
 *.timestamp-*.mjs
+
+# documentation to omit
+docs/implementation_plan.md
+docs/rent_car_business_requirements_analysis.md
