@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { WorkingShift, EntityStatus, EmployeeRole } from '../enums.js';
+import { validateCedula } from '../validators/dominican-id.js';
 
 export const EmployeeSchema = z.object({
   id: z.string(),
@@ -19,7 +20,10 @@ export const EmployeeSchema = z.object({
 export const CreateEmployeeSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Valid email is required'),
-  nationalId: z.string().min(1, 'National ID is required'),
+  nationalId: z.string().min(1, 'National ID is required').refine(
+    (val) => validateCedula(val),
+    'Invalid Dominican cédula (must be 11 digits with valid check digit)',
+  ),
   phone: z.string().optional().nullable(),
   signatureUrl: z.string().url('Invalid URL').optional().nullable(),
   commissionPercentage: z.number().min(0, 'Commission must be at least 0').max(100, 'Commission cannot exceed 100'),

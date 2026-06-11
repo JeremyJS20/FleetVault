@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCompanyInfo, useUpdateCompanyInfo } from '../../Infrastructure/hooks/useCatalog.js';
+import { NationalIdInput } from '../components/ui/NationalIdInput.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
 import { Button } from '../components/ui/Button.js';
 import { FormField } from '../components/ui/FormField.js';
@@ -72,15 +73,12 @@ export const CompanySettingsPage: React.FC = () => {
           />
         </FormField>
 
-        <FormField label={t('companySettings.rnc')} required>
-          <input
-            type="text"
-            value={rnc}
-            onChange={(e) => setRnc(e.target.value)}
-            className="w-full text-xs min-h-[44px] px-3 rounded-xl bg-bg-inset border border-border-surface/45 text-fg-main focus:outline-none focus:border-accent-primary transition-all"
-            required
-          />
-        </FormField>
+        <NationalIdInput
+          value={rnc}
+          onChange={setRnc}
+          type="CORPORATE"
+          required
+        />
 
         <FormField label={t('companySettings.address')} required>
           <input

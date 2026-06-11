@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CustomerStatus, CustomerType } from '../enums.js';
+import { validateCedula, validateRNC, stripIdFormatting } from '../validators/dominican-id.js';
 
 export const CustomerSchema = z.object({
   id: z.string(),
@@ -39,7 +40,30 @@ export const CustomerInputSchema = z.object({
   stripeCustomerId: z.string().optional().nullable(),
 });
 
+function validateNationalId(data: { nationalId?: string; type?: 'INDIVIDUAL' | 'CORPORATE' }, ctx: z.RefinementCtx) {
+  if (!data.nationalId || !data.type) return;
+  const cleaned = stripIdFormatting(data.nationalId);
+  if (data.type === 'INDIVIDUAL') {
+    if (cleaned.length !== 11 || !validateCedula(cleaned)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Invalid Dominican cédula (must be 11 digits with valid check digit)',
+        path: ['nationalId'],
+      });
+    }
+  } else if (data.type === 'CORPORATE') {
+    if (cleaned.length !== 9 || !validateRNC(cleaned)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Invalid Dominican RNC (must be 9 digits with valid check digit)',
+        path: ['nationalId'],
+      });
+    }
+  }
+}
+
 export const CreateCustomerSchema = CustomerInputSchema.superRefine((data, ctx) => {
+  validateNationalId(data, ctx);
   if (data.type === 'INDIVIDUAL') {
     if (!data.licenseNumber || data.licenseNumber.trim().length === 0) {
       ctx.addIssue({
@@ -79,6 +103,7 @@ export const CreateCustomerSchema = CustomerInputSchema.superRefine((data, ctx) 
 export const UpdateCustomerSchema = CustomerInputSchema.partial().extend({
   status: z.enum(CustomerStatus).optional(),
 }).superRefine((data, ctx) => {
+  validateNationalId(data, ctx);
   if (data.type === 'INDIVIDUAL') {
     if (data.licenseNumber !== undefined && (!data.licenseNumber || data.licenseNumber.trim().length === 0)) {
       ctx.addIssue({

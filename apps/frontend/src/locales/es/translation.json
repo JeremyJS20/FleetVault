@@ -239,7 +239,11 @@
     "validationLicenseNumberRequired": "El número de licencia es requerido",
     "validationLicenseCountryRequired": "El país de la licencia es requerido",
     "validationLicenseExpDateRequired": "La fecha de vencimiento de la licencia es requerida",
-    "validationLicenseExpired": "La licencia de conducir está vencida"
+    "validationLicenseExpired": "La licencia de conducir está vencida",
+    "cedula": "Cédula",
+    "rnc": "RNC",
+    "invalidCedula": "Cédula inválida (debe tener 11 dígitos con dígito verificador correcto)",
+    "invalidRnc": "RNC inválido (debe tener 9 dígitos con dígito verificador correcto)"
   },
   "employees": {
     "title": "Empleados",

@@ -15,6 +15,7 @@ import { SearchBar } from '../components/ui/SearchBar.js';
 import { DataTable } from '../components/ui/DataTable.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { FormModal } from '../components/ui/FormModal.js';
+import { NationalIdInput } from '../components/ui/NationalIdInput.js';
 import { FormField } from '../components/ui/FormField.js';
 import { Input } from '../components/ui/Input.js';
 import { SelectField } from '../components/ui/SelectField.js';
@@ -270,13 +271,12 @@ export const EmployeesPage: React.FC = () => {
           </FormField>
 
           <div className="grid grid-cols-2 gap-4">
-            <FormField label={t('employees.nationalId')} required>
-              <Input
-                value={nationalId}
-                onChange={(e) => setNationalId(e.target.value)}
-                placeholder="National Cedula/ID number"
-              />
-            </FormField>
+            <NationalIdInput
+              value={nationalId}
+              onChange={setNationalId}
+              type="INDIVIDUAL"
+              required
+            />
             <SelectField
               label={t('employees.role')}
               value={role}

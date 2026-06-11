@@ -239,7 +239,11 @@
     "validationLicenseNumberRequired": "License number is required",
     "validationLicenseCountryRequired": "License country is required",
     "validationLicenseExpDateRequired": "License expiration date is required",
-    "validationLicenseExpired": "Driver's license is expired"
+    "validationLicenseExpired": "Driver's license is expired",
+    "cedula": "ID Card (Cédula)",
+    "rnc": "Tax ID (RNC)",
+    "invalidCedula": "Invalid cédula (must be 11 digits with valid check digit)",
+    "invalidRnc": "Invalid RNC (must be 9 digits with valid check digit)"
   },
   "employees": {
     "title": "Employees",

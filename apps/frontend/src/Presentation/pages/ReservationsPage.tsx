@@ -16,6 +16,7 @@ import { Elements } from '@stripe/react-stripe-js';
 import { stripePromise } from '../../Infrastructure/stripe.js';
 import { StripeCardForm } from '../components/ui/StripeCardForm.js';
 import { Toast } from '../components/ui/Toast.js';
+import { NationalIdInput } from '../components/ui/NationalIdInput.js';
 import { FileUploader } from '../components/ui/FileUploader.js';
 import { getAccessToken } from '../../Infrastructure/api-client.js';
 import { 
@@ -1054,15 +1055,13 @@ export const ReservationsPage: React.FC = () => {
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <FormField label={t('reservations.nationalId')} required>
-                          <Input
-                            type="text"
-                            placeholder={t('customers.placeholderId')}
-                            value={counterNationalId}
-                            onChange={(e) => setCounterNationalId(e.target.value)}
-                            className="!h-9 rounded-lg"
-                          />
-                        </FormField>
+                        <NationalIdInput
+                          value={counterNationalId}
+                          onChange={setCounterNationalId}
+                          type={checkoutRental?.customer.type === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL'}
+                          required
+                          className="!h-9 rounded-lg"
+                        />
 
                         <FormField label={t('reservations.driversLicense')} required>
                           <Input
@@ -1710,15 +1709,13 @@ export const ReservationsPage: React.FC = () => {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <FormField label={t('reservations.nationalId')} required>
-                          <Input
-                            type="text"
-                            placeholder={t('customers.placeholderId')}
-                            value={walkinLicNationalId}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWalkinLicNationalId(e.target.value)}
-                            className="!h-9 rounded-lg"
-                          />
-                        </FormField>
+                        <NationalIdInput
+                          value={walkinLicNationalId}
+                          onChange={setWalkinLicNationalId}
+                          type={selectedWalkinCustomer?.type === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL'}
+                          required
+                          className="!h-9 rounded-lg"
+                        />
                         <FormField label={t('reservations.driversLicense')} required>
                           <Input
                             type="text"

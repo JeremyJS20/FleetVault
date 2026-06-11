@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { UserRole } from '../enums.js';
+import { validateCedula } from '../validators/dominican-id.js';
 
 export const LoginSchema = z.object({
   email: z.string().email('Invalid email'),
@@ -18,7 +19,10 @@ export const CustomerRegisterSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   phone: z.string().optional(),
-  nationalId: z.string().min(1, 'National ID is required'),
+  nationalId: z.string().min(1, 'National ID is required').refine(
+    (val) => validateCedula(val),
+    'Invalid Dominican cédula (must be 11 digits with valid check digit)',
+  ),
   licenseNumber: z.string().min(1, 'License number is required'),
   licenseCountry: z.string().min(1, 'License country is required'),
   licenseExpDate: z.string().refine((d) => new Date(d) > new Date(), 'License must not be expired'),

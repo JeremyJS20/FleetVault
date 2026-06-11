@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button.js';
 import { Input } from '../components/ui/Input.js';
 import { FormField } from '../components/ui/FormField.js';
 import { LicensePhotoCapture } from '../components/ui/LicensePhotoCapture.js';
+import { NationalIdInput } from '../components/ui/NationalIdInput.js';
 import { useUploadImage } from '../../Infrastructure/hooks/useUploads.js';
 import { useMyPaymentMethods, useDeleteMyPaymentMethod } from '../../Infrastructure/hooks/useCatalog.js';
 import { formatCurrency } from '@rent-car/common';
@@ -209,17 +210,13 @@ export const MyProfilePage: React.FC = () => {
             />
           </FormField>
 
-          <FormField label={t('profile.nationalId')} required>
-            <Input
-              id="nationalId-input"
-              type="text"
-              value={nationalId}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNationalId(e.target.value)}
-              placeholder={t('customers.placeholderId')}
-              className="!h-9 rounded-lg"
-              required
-            />
-          </FormField>
+          <NationalIdInput
+            value={nationalId}
+            onChange={setNationalId}
+            type="INDIVIDUAL"
+            required
+            className="!h-9 rounded-lg"
+          />
 
           <FormField label={t('customers.email')}>
             <Input

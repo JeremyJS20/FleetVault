@@ -24,6 +24,7 @@ import { SelectField } from '../components/ui/SelectField.js';
 import { ToggleSwitch } from '../components/ui/ToggleSwitch.js';
 import { Toast } from '../components/ui/Toast.js';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.js';
+import { NationalIdInput } from '../components/ui/NationalIdInput.js';
 import { Plus, Pencil } from 'lucide-react';
 
 export const CustomersPage: React.FC = () => {
@@ -440,14 +441,13 @@ export const CustomersPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <FormField label={t('customers.nationalId')} required>
-                  <Input
-                    value={nationalId}
-                    onChange={(e) => setNationalId(e.target.value)}
-                    placeholder={t('customers.placeholderId')}
-                    className="!h-9 rounded-lg"
-                  />
-                </FormField>
+                <NationalIdInput
+                  value={nationalId}
+                  onChange={setNationalId}
+                  type={type as 'INDIVIDUAL' | 'CORPORATE'}
+                  required
+                  className="!h-9 rounded-lg"
+                />
                 <SelectField
                   label={t('customers.type')}
                   value={type}

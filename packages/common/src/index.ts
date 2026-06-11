@@ -20,4 +20,10 @@ export * from './schemas/fee-config.js';
 export * from './schemas/rental-policy.js';
 export * from './schemas/company-info.js';
 export { formatCurrency } from './formatCurrency.js';
+export {
+  validateCedula,
+  validateRNC,
+  validateDominicanNationalId,
+  stripIdFormatting,
+} from './validators/dominican-id.js';
 
