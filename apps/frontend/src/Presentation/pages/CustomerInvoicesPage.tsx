@@ -6,14 +6,6 @@ import { formatCurrency } from '@rent-car/common';
 import { Pagination } from '../components/ui/Pagination.js';
 import { FileText, Receipt, AlertCircle, ArrowRight } from 'lucide-react';
 
-const TYPE_LABELS: Record<string, { es: string; en: string }> = {
-  PRE_AUTH_HOLD: { es: 'Pre-Autorización', en: 'Pre-Auth Hold' },
-  CHARGE: { es: 'Cobro', en: 'Charge' },
-  REFUND: { es: 'Reembolso', en: 'Refund' },
-  PO_INVOICE: { es: 'Factura OC', en: 'PO Invoice' },
-  CASH: { es: 'Efectivo', en: 'Cash' },
-};
-
 const TYPE_COLORS: Record<string, string> = {
   PRE_AUTH_HOLD: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
   CHARGE: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -22,18 +14,35 @@ const TYPE_COLORS: Record<string, string> = {
   CASH: 'text-green-400 bg-green-500/10 border-green-500/20',
 };
 
-function getTransactionContext(type: string, comments: string | null, lang: string): string | null {
+function getTransactionContext(type: string, comments: string | null): string | null {
   if (!comments) return null;
   const c = comments.toLowerCase();
-  if (c.includes('cancel') || c.includes('inasistencia')) return lang === 'es' ? 'Cancelación' : 'Cancellation';
-  if (c.includes('devolución') || c.includes('return check-in') || c.includes('check-in completed')) return lang === 'es' ? 'Devolución' : 'Return';
-  if (type === 'CASH' && (c.includes('efectivo recibido') || c.includes('mostrador') || c.includes('upfront cash'))) return lang === 'es' ? 'Salida' : 'Checkout';
-  if (c.includes('emitida') || c.includes('bajo oc') || c.includes('invoice under') || c.includes('booked under') || c.includes('invoice for')) return lang === 'es' ? 'Salida' : 'Checkout';
+  if (c.includes('cancel') || c.includes('inasistencia')) return 'cancellation';
+  if (c.includes('devolución') || c.includes('return check-in') || c.includes('check-in completed')) return 'return';
+  if (type === 'CASH' && (c.includes('efectivo recibido') || c.includes('mostrador') || c.includes('upfront cash'))) return 'checkout';
+  if (c.includes('emitida') || c.includes('bajo oc') || c.includes('invoice under') || c.includes('booked under') || c.includes('invoice for')) return 'checkout';
   return null;
 }
 
 export const CustomerInvoicesPage: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const typeLabels: Record<string, string> = {
+    PRE_AUTH_HOLD: t('customerInvoicesPage.typePreAuthHold'),
+    CHARGE: t('customerInvoicesPage.typeCharge'),
+    REFUND: t('customerInvoicesPage.typeRefund'),
+    PO_INVOICE: t('customerInvoicesPage.typePoInvoice'),
+    CASH: t('customerInvoicesPage.typeCash'),
+  };
+  const contextLabels: Record<string, string> = {
+    cancellation: t('customerInvoicesPage.contextCancellation'),
+    return: t('customerInvoicesPage.contextReturn'),
+    checkout: t('customerInvoicesPage.contextCheckout'),
+  };
+  const contextColors: Record<string, string> = {
+    cancellation: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+    return: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+    checkout: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+  };
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,8 +50,6 @@ export const CustomerInvoicesPage: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const limit = 10;
-
-  const lang = i18n.language?.startsWith('es') ? 'es' : 'en';
 
   useEffect(() => {
     const fetch = async () => {
@@ -74,12 +81,10 @@ export const CustomerInvoicesPage: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h2 className="text-2xl font-extrabold tracking-tight text-fg-main uppercase">
-          {lang === 'es' ? 'Historial de Facturación' : 'Billing History'}
+          {t('customerInvoicesPage.title')}
         </h2>
         <p className="text-xs text-fg-secondary mt-1">
-          {lang === 'es'
-            ? 'Consulte todas sus transacciones, facturas y recibos.'
-            : 'View all your transactions, invoices, and receipts.'}
+          {t('customerInvoicesPage.subtitle')}
         </p>
       </div>
 
@@ -93,12 +98,10 @@ export const CustomerInvoicesPage: React.FC = () => {
       {!isLoading && transactions.length === 0 && (
         <div className="text-center py-20 p-6 rounded-2xl border border-dashed border-border-surface/40 bg-bg-surface/10">
           <p className="text-sm font-bold text-fg-secondary">
-            {lang === 'es' ? 'No hay transacciones registradas' : 'No transactions recorded'}
+            {t('customerInvoicesPage.empty')}
           </p>
           <p className="text-xs text-fg-tertiary mt-1">
-            {lang === 'es'
-              ? 'Las transacciones aparecerán cuando realice una reserva.'
-              : 'Transactions will appear once you make a reservation.'}
+            {t('customerInvoicesPage.emptyHint')}
           </p>
         </div>
       )}
@@ -117,21 +120,13 @@ export const CustomerInvoicesPage: React.FC = () => {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${TYPE_COLORS[txn.type] || 'text-fg-secondary bg-bg-surface/30'}`}>
-                    {TYPE_LABELS[txn.type]?.[lang] || txn.type}
+                    {typeLabels[txn.type] || txn.type}
                   </span>
                   {(txn.type === 'PO_INVOICE' || txn.type === 'CASH') && (() => {
-                    const ctx = getTransactionContext(txn.type, txn.comments, lang);
-                    const ctxColors: Record<string, string> = {
-                      Salida: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-                      Checkout: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-                      Devolución: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-                      Return: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-                      Cancelación: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-                      Cancellation: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-                    };
+                    const ctx = getTransactionContext(txn.type, txn.comments);
                     return ctx ? (
-                      <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${ctxColors[ctx] || 'text-purple-300/70'}`}>
-                        {ctx}
+                      <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${contextColors[ctx] || 'text-purple-300/70'}`}>
+                        {contextLabels[ctx] || ctx}
                       </span>
                     ) : null;
                   })()}
@@ -168,7 +163,7 @@ export const CustomerInvoicesPage: React.FC = () => {
                   to={`/customer/reservations?rentalId=${txn.rental.id}`}
                   className="text-xs font-bold uppercase tracking-wider text-accent-primary hover:text-accent-primary/80 transition-colors flex items-center gap-1"
                 >
-                  {lang === 'es' ? 'Ver Reserva' : 'View Rental'}
+                  {t('customerInvoicesPage.viewRental')}
                   <ArrowRight className="w-3 h-3" />
                 </Link>
               )}

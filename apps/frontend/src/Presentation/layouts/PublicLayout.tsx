@@ -71,11 +71,11 @@ export const PublicLayout: React.FC = () => {
   });
 
   const DEFAULT_ACCOUNTS = [
-    { email: 'admin@fleetvault.com', role: 'ADMINISTRATOR', label: 'Admin' },
-    { email: 'agent@fleetvault.com', role: 'AGENT', label: 'Agente' },
-    { email: 'inspector@fleetvault.com', role: 'INSPECTOR', label: 'Inspector' },
-    { email: 'juan@fleetvault.com', role: 'CUSTOMER', label: 'Cliente Individual' },
-    { email: 'empresa@fleetvault.com', role: 'CUSTOMER', label: 'Cliente Corporativo' },
+    { email: 'admin@fleetvault.com', role: 'ADMINISTRATOR', labelKey: 'auth.defaultAccountAdmin' },
+    { email: 'agent@fleetvault.com', role: 'AGENT', labelKey: 'auth.defaultAccountAgent' },
+    { email: 'inspector@fleetvault.com', role: 'INSPECTOR', labelKey: 'auth.defaultAccountInspector' },
+    { email: 'juan@fleetvault.com', role: 'CUSTOMER', labelKey: 'auth.defaultAccountIndividual' },
+    { email: 'empresa@fleetvault.com', role: 'CUSTOMER', labelKey: 'auth.defaultAccountCorporate' },
   ];
 
   const onLogin = async (data: LoginInput) => {
@@ -176,7 +176,7 @@ export const PublicLayout: React.FC = () => {
             <button
               onClick={toggleLanguage}
               className="p-2 rounded-xl hover:bg-bg-inset border border-transparent hover:border-border-surface/20 text-fg-secondary hover:text-fg-main transition-all cursor-pointer"
-              title={i18n.language === 'en' ? 'Cambiar a Español' : 'Switch to English'}
+              title={t('common.switchLanguage')}
             >
               <Languages size={16} />
             </button>
@@ -229,7 +229,7 @@ export const PublicLayout: React.FC = () => {
 
       {/* Footer */}
       <footer className="w-full py-6 border-t border-border-surface/40 text-center text-xs font-mono tracking-widest text-fg-tertiary uppercase">
-        FleetVault Enterprise · Neo-Minimalist Liquid Glass System
+        {t('common.footer')}
       </footer>
 
       {/* Login / Register Modal */}
@@ -312,7 +312,7 @@ export const PublicLayout: React.FC = () => {
                       }}
                       className="px-2.5 py-1 rounded-lg border border-border-surface/30 bg-bg-inset/50 text-[11px] text-fg-secondary hover:bg-bg-inset hover:text-fg-main transition-all active:scale-95"
                     >
-                      {acc.label}
+                      {t(acc.labelKey)}
                     </button>
                   ))}
                 </div>

@@ -88,7 +88,12 @@
     "tireDamaged": "DAMAGED",
     "tireMissing": "MISSING",
     "fieldsRequired": "All fields are required",
-    "clear": "Clear"
+    "clear": "Clear",
+    "toggleStatusConfirm": "Are you sure you want to {{action}} {{name}}?",
+    "deactivate": "deactivate",
+    "activate": "activate",
+    "accountSettings": "Account Settings",
+    "footer": "FleetVault Enterprise · Neo-Minimalist Liquid Glass System"
   },
   "vehicleTypes": {
     "title": "Vehicle Types",
@@ -179,6 +184,7 @@
     "inspectionPassed": "Vehicle inspection passed, now available",
     "passInspectionConfirmMsg": "Are you sure you want to mark {{plate}} as AVAILABLE?",
     "cleaningConfirmMsg": "Are you sure you want to {{action}} {{plate}}?",
+    "retireActivateConfirmMsg": "Are you sure you want to {{action}} {{plate}}?",
     "noPic": "NO PIC",
     "validationChassisRequired": "Chassis number is required",
     "validationEngineRequired": "Engine number is required",
@@ -357,7 +363,12 @@
     "magicLinkFailed": "Failed to sign in with magic link. Please try again.",
     "defaultAccounts": "Test Accounts",
     "defaultAccountsHint": "Tap an account to autofill",
-    "passwordDefault": "Password: password123"
+    "passwordDefault": "Password: password123",
+    "defaultAccountAdmin": "Admin",
+    "defaultAccountAgent": "Agent",
+    "defaultAccountInspector": "Inspector",
+    "defaultAccountIndividual": "Individual Customer",
+    "defaultAccountCorporate": "Corporate Customer"
   },
   "dashboard": {
     "welcome": "Welcome back",
@@ -426,7 +437,8 @@
     "newReservation": "New Reservation",
     "viewInvoices": "View Invoices",
     "extendRental": "Extend Rental",
-    "poNumber": "PO #"
+    "poNumber": "PO #",
+    "guest": "Guest"
   },
   "stripe": {
     "securePayment": "Secure Payment Details",
@@ -823,7 +835,8 @@
     "pendingPayouts": "Pending Payouts",
     "activeAgents": "Active Agents Logged",
     "rateLabel": "Commission Rate",
-    "settled": "Settled"
+    "settled": "Settled",
+    "markPaidConfirmMsg": "Mark {{name}} as paid?"
   },
   "trailPage": {
     "title": "Vehicle Historical Trail",
@@ -869,6 +882,32 @@
     "allTypes": "All Types",
     "dateFrom": "Date From",
     "dateTo": "Date To",
-    "viewRental": "View Rental"
+    "viewRental": "View Rental",
+    "typePreAuthHold": "Pre-Auth Hold",
+    "typeCharge": "Charge",
+    "typeRefund": "Refund",
+    "typePoInvoice": "PO Invoice",
+    "typeCash": "Cash",
+    "paymentMethodCash": "Cash",
+    "paymentMethodPO": "Purchase Order",
+    "paymentMethodCard": "Card",
+    "contextCancellation": "Cancellation",
+    "contextReturn": "Return",
+    "contextCheckout": "Checkout"
+  },
+  "customerInvoicesPage": {
+    "title": "Billing History",
+    "subtitle": "View all your transactions, invoices, and receipts.",
+    "empty": "No transactions recorded",
+    "emptyHint": "Transactions will appear once you make a reservation.",
+    "viewRental": "View Rental",
+    "typePreAuthHold": "Pre-Auth Hold",
+    "typeCharge": "Charge",
+    "typeRefund": "Refund",
+    "typePoInvoice": "PO Invoice",
+    "typeCash": "Cash",
+    "contextCancellation": "Cancellation",
+    "contextReturn": "Return",
+    "contextCheckout": "Checkout"
   }
 }

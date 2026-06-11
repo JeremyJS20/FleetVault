@@ -129,8 +129,8 @@ export const RentalPolicyPage: React.FC = () => {
             <ToggleSwitch
               checked={item.isActive}
               onChange={() => setConfirmState({
-                title: 'Confirmar',
-                message: item.isActive ? `¿Desactivar ${item.title}?` : `¿Activar ${item.title}?`,
+                title: t('common.confirm'),
+                message: t('common.toggleStatusConfirm', { action: t(item.isActive ? 'common.deactivate' : 'common.activate'), name: item.title }),
                 onConfirm: () => handleToggle(item),
               })}
               loading={updateMutation.isPending}

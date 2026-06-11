@@ -105,28 +105,28 @@ export const FeeConfigPage: React.FC = () => {
         description={t('feeConfig.subtitle')}
       />
 
-      {/* Tarifas por daños */}
+      {/* Damage Fees section */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-extrabold text-fg-main uppercase tracking-wider">
-            Tarifas por daños
+            {t('feeConfig.damageFeesTitle')}
           </h3>
-          <Button variant="primary" size="sm" onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs"><Plus size={13} /><span>Crear</span></Button>
+          <Button variant="primary" size="sm" onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs"><Plus size={13} /><span>{t('common.create')}</span></Button>
         </div>
         <div className="overflow-x-auto rounded-2xl border border-border-surface/30 bg-bg-card/45 backdrop-blur-md">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border-surface bg-bg-inset/40">
-                <th className="text-left p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">Daño</th>
-                <th className="text-right p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">Monto (RD$)</th>
-                <th className="text-left p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">Descripción</th>
-                <th className="text-center p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">Estado</th>
-                <th className="text-center p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary w-20">Acciones</th>
+                <th className="text-left p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('feeConfig.damageFeesTitle')}</th>
+                <th className="text-right p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('feeConfig.amount')}</th>
+                <th className="text-left p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('feeConfig.description')}</th>
+                <th className="text-center p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('common.status')}</th>
+                <th className="text-center p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary w-20">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {damageFees.length === 0 ? (
-                <tr><td colSpan={5} className="p-6 text-center text-fg-tertiary">No hay tarifas de daños configuradas</td></tr>
+                <tr><td colSpan={5} className="p-6 text-center text-fg-tertiary">{t('feeConfig.noDamageFees')}</td></tr>
               ) : (
                 damageFees.map((fee: any) => {
                   const isActive = fee.damageType?.isActive ?? true;
@@ -143,13 +143,13 @@ export const FeeConfigPage: React.FC = () => {
                           <ToggleSwitch
                             checked={isActive}
                             onChange={() => setConfirmState({
-                              title: 'Confirmar',
-                              message: isActive ? `¿Desactivar daño ${fee.label}?` : `¿Activar daño ${fee.label}?`,
+                              title: t('common.confirm'),
+                              message: t('feeConfig.confirmToggleMessage', { action: t(isActive ? 'feeConfig.deactivate' : 'feeConfig.activate'), label: fee.label }),
                               onConfirm: () => handleDamageToggle(fee),
                             })}
                             loading={toggleDamageTypeStatus.isPending}
                           />
-                          <button onClick={() => openEdit(fee)} title="Editar" className="text-accent-primary hover:text-accent-primary/80 transition-colors">
+                          <button onClick={() => openEdit(fee)} title={t('common.edit')} className="text-accent-primary hover:text-accent-primary/80 transition-colors">
                             <Pencil size={14} />
                           </button>
                         </div>
@@ -166,23 +166,23 @@ export const FeeConfigPage: React.FC = () => {
       {/* Otras tarifas */}
       <section className="space-y-3">
         <h3 className="text-sm font-extrabold text-fg-main uppercase tracking-wider">
-          Otras tarifas
+          {t('feeConfig.otherFeesTitle')}
         </h3>
         <div className="overflow-x-auto rounded-2xl border border-border-surface/30 bg-bg-card/45 backdrop-blur-md">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border-surface bg-bg-inset/40">
-                <th className="text-left p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">Tarifa</th>
-                <th className="text-left p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">Clave</th>
-                <th className="text-right p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">Monto (RD$)</th>
-                <th className="text-left p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">Descripción</th>
-                <th className="text-center p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">Estado</th>
-                <th className="text-center p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary w-20">Acciones</th>
+                <th className="text-left p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('feeConfig.fee')}</th>
+                <th className="text-left p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('feeConfig.key')}</th>
+                <th className="text-right p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('feeConfig.amount')}</th>
+                <th className="text-left p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('feeConfig.description')}</th>
+                <th className="text-center p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary">{t('common.status')}</th>
+                <th className="text-center p-4 text-sm font-bold uppercase tracking-wider text-fg-secondary w-20">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {otherFees.length === 0 ? (
-                <tr><td colSpan={6} className="p-6 text-center text-fg-tertiary">No hay otras tarifas configuradas</td></tr>
+                <tr><td colSpan={6} className="p-6 text-center text-fg-tertiary">{t('feeConfig.noOtherFees')}</td></tr>
               ) : (
                 otherFees.map((fee: any) => {
                   const isActive = fee.isActive ?? true;
@@ -200,13 +200,13 @@ export const FeeConfigPage: React.FC = () => {
                           <ToggleSwitch
                             checked={isActive}
                             onChange={() => setConfirmState({
-                              title: 'Confirmar',
-                              message: isActive ? `¿Desactivar ${fee.label}?` : `¿Activar ${fee.label}?`,
+                              title: t('common.confirm'),
+                              message: t('feeConfig.confirmToggleMessage', { action: t(isActive ? 'feeConfig.deactivate' : 'feeConfig.activate'), label: fee.label }),
                               onConfirm: () => handleOtherToggle(fee),
                             })}
                             loading={updateFeeConfig.isPending}
                           />
-                          <button onClick={() => openEdit(fee)} title="Editar" className="text-accent-primary hover:text-accent-primary/80 transition-colors">
+                          <button onClick={() => openEdit(fee)} title={t('common.edit')} className="text-accent-primary hover:text-accent-primary/80 transition-colors">
                             <Pencil size={14} />
                           </button>
                         </div>
@@ -221,14 +221,14 @@ export const FeeConfigPage: React.FC = () => {
       </section>
 
       {/* Edit Modal */}
-      <FormModal isOpen={!!editFee} onClose={closeEdit} title="Editar tarifa">
+      <FormModal isOpen={!!editFee} onClose={closeEdit} title={t('feeConfig.editFeeTitle')}>
         <div className="space-y-5">
           <div>
-            <label className="block text-xs font-bold text-fg-secondary mb-1.5">Tarifa</label>
+            <label className="block text-xs font-bold text-fg-secondary mb-1.5">{t('feeConfig.fee')}</label>
             <p className="text-sm font-bold text-fg-main">{editFee?.label}</p>
           </div>
           <div>
-            <label className="block text-xs font-bold text-fg-secondary mb-1.5">Monto (RD$)</label>
+            <label className="block text-xs font-bold text-fg-secondary mb-1.5">{t('feeConfig.amountLabel')}</label>
             <Input
               type="number"
               min="0"
@@ -238,39 +238,39 @@ export const FeeConfigPage: React.FC = () => {
             />
           </div>
           <div className="flex gap-3 justify-end pt-2">
-            <Button variant="ghost" onClick={closeEdit}>Cancelar</Button>
+            <Button variant="ghost" onClick={closeEdit}>{t('common.cancel')}</Button>
             <Button onClick={handleSave} disabled={updateFeeConfig.isPending}>
-              {updateFeeConfig.isPending ? 'Guardando...' : 'Guardar'}
+              {updateFeeConfig.isPending ? t('feeConfig.saving') : t('common.save')}
             </Button>
           </div>
         </div>
       </FormModal>
 
-      <FormModal isOpen={showCreate} onClose={resetCreate} title="Nueva tarifa por daño">
+      <FormModal isOpen={showCreate} onClose={resetCreate} title={t('feeConfig.createTitle')}>
         <div className="space-y-5">
           <div>
-            <label className="block text-xs font-bold text-fg-secondary mb-1.5">Nombre del daño</label>
-            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ej: Abolladura" />
+            <label className="block text-xs font-bold text-fg-secondary mb-1.5">{t('feeConfig.damageName')}</label>
+            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={t('feeConfig.damageNamePlaceholder')} />
           </div>
           <div>
-            <label className="block text-xs font-bold text-fg-secondary mb-1.5">Descripción</label>
-            <Input value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Opcional" />
+            <label className="block text-xs font-bold text-fg-secondary mb-1.5">{t('feeConfig.description')}</label>
+            <Input value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder={t('feeConfig.descriptionPlaceholder')} />
           </div>
           <div>
-            <label className="block text-xs font-bold text-fg-secondary mb-1.5">Monto (RD$)</label>
+            <label className="block text-xs font-bold text-fg-secondary mb-1.5">{t('feeConfig.amountLabel')}</label>
             <Input
               type="number"
               min="0"
               step="0.01"
               value={newAmount}
               onChange={(e) => setNewAmount(e.target.value)}
-              placeholder="0.00"
+              placeholder={t('feeConfig.amountPlaceholder')}
             />
           </div>
           <div className="flex gap-3 justify-end pt-2">
-            <Button variant="ghost" onClick={resetCreate}>Cancelar</Button>
+            <Button variant="ghost" onClick={resetCreate}>{t('common.cancel')}</Button>
             <Button onClick={handleCreate} disabled={createDamageType.isPending}>
-              {createDamageType.isPending ? 'Creando...' : 'Crear'}
+              {createDamageType.isPending ? t('feeConfig.creating') : t('common.create')}
             </Button>
           </div>
         </div>

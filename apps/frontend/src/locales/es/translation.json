@@ -88,7 +88,12 @@
     "tireDamaged": "DAÑADO",
     "tireMissing": "FALTANTE",
     "fieldsRequired": "Todos los campos son obligatorios",
-    "clear": "Limpiar"
+    "clear": "Limpiar",
+    "toggleStatusConfirm": "¿Está seguro de {{action}} {{name}}?",
+    "deactivate": "desactivar",
+    "activate": "activar",
+    "accountSettings": "Configuración de la Cuenta",
+    "footer": "FleetVault Enterprise · Sistema Neo-Minimalista Liquid Glass"
   },
   "vehicleTypes": {
     "title": "Tipos de Vehículo",
@@ -179,6 +184,7 @@
     "inspectionPassed": "Inspección aprobada, vehículo disponible",
     "passInspectionConfirmMsg": "¿Está seguro de marcar {{plate}} como DISPONIBLE?",
     "cleaningConfirmMsg": "¿Está seguro de {{action}} {{plate}}?",
+    "retireActivateConfirmMsg": "¿Está seguro de {{action}} {{plate}}?",
     "noPic": "SIN FOTO",
     "validationChassisRequired": "El número de chasis es requerido",
     "validationEngineRequired": "El número de motor es requerido",
@@ -255,6 +261,11 @@
     "nationalId": "Identificación Nacional",
     "phone": "Teléfono",
     "placeholderPhone": "(809) 555-1234",
+    "signatureUrl": "URL de Firma",
+    "uploadSignature": "Subir Imagen de Firma",
+    "fileSelected": "Archivo seleccionado",
+    "signatureSaved": "Firma guardada",
+    "uploadingSignature": "Subiendo firma...",
     "commissionPercentage": "Comisión (%)",
     "hireDate": "Fecha de Contratación",
     "shift": "Turno",
@@ -352,7 +363,12 @@
     "magicLinkFailed": "No se pudo iniciar sesión con el enlace mágico. Intente de nuevo.",
     "defaultAccounts": "Cuentas de Prueba",
     "defaultAccountsHint": "Toque una cuenta para autocompletar",
-    "passwordDefault": "Contraseña: password123"
+    "passwordDefault": "Contraseña: password123",
+    "defaultAccountAdmin": "Admin",
+    "defaultAccountAgent": "Agente",
+    "defaultAccountInspector": "Inspector",
+    "defaultAccountIndividual": "Cliente Individual",
+    "defaultAccountCorporate": "Cliente Corporativo"
   },
   "dashboard": {
     "welcome": "Bienvenido",
@@ -406,7 +422,7 @@
     "ofCredit": "{{used}} usado de {{total}}",
     "pendingInvoices": "Facturas PO Pendientes",
     "pendingInvoicesCount": "{{count}} factura(s) — {{amount}}",
-    "creditUsed": "{{amount}} usado de {{total}}",
+    "creditUsed": "{{used}} usado de {{total}}",
     "creditUtilization": "{{pct}}% utilizado",
     "completedRentals": "{{count}} alquiler(es) completado(s)",
     "monthlySpending": "Mis Gastos Mensuales",
@@ -421,7 +437,8 @@
     "newReservation": "Nueva Reserva",
     "viewInvoices": "Ver Facturas",
     "extendRental": "Extender Alquiler",
-    "poNumber": "OC #"
+    "poNumber": "OC #",
+    "guest": "Invitado"
   },
   "stripe": {
     "securePayment": "Detalles de Pago Seguro",
@@ -818,7 +835,8 @@
     "pendingPayouts": "Pagos Pendientes",
     "activeAgents": "Agentes Activos Registrados",
     "rateLabel": "Tasa de Comisión",
-    "settled": "Liquidado"
+    "settled": "Liquidado",
+    "markPaidConfirmMsg": "¿Marcar como pagado a {{name}}?"
   },
   "trailPage": {
     "title": "Recorrido del Vehículo",
@@ -864,6 +882,32 @@
     "allTypes": "Todos los Tipos",
     "dateFrom": "Fecha Desde",
     "dateTo": "Fecha Hasta",
-    "viewRental": "Ver Alquiler"
+    "viewRental": "Ver Alquiler",
+    "typePreAuthHold": "Pre-Autorización",
+    "typeCharge": "Cobro",
+    "typeRefund": "Reembolso",
+    "typePoInvoice": "Factura OC",
+    "typeCash": "Efectivo",
+    "paymentMethodCash": "Efectivo",
+    "paymentMethodPO": "Orden de Compra",
+    "paymentMethodCard": "Tarjeta",
+    "contextCancellation": "Cancelación",
+    "contextReturn": "Devolución",
+    "contextCheckout": "Salida"
+  },
+  "customerInvoicesPage": {
+    "title": "Historial de Facturación",
+    "subtitle": "Consulte todas sus transacciones, facturas y recibos.",
+    "empty": "No hay transacciones registradas",
+    "emptyHint": "Las transacciones aparecerán cuando realice una reserva.",
+    "viewRental": "Ver Reserva",
+    "typePreAuthHold": "Pre-Autorización",
+    "typeCharge": "Cobro",
+    "typeRefund": "Reembolso",
+    "typePoInvoice": "Factura OC",
+    "typeCash": "Efectivo",
+    "contextCancellation": "Cancelación",
+    "contextReturn": "Devolución",
+    "contextCheckout": "Salida"
   }
 }

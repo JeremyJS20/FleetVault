@@ -171,8 +171,8 @@ export const SeasonalRatesPage: React.FC = () => {
             <ToggleSwitch
               checked={item.status === 'ACTIVE'}
               onChange={() => setConfirmState({
-                title: 'Confirmar',
-                message: item.status === 'ACTIVE' ? `¿Desactivar ${item.name}?` : `¿Activar ${item.name}?`,
+                title: t('common.confirm'),
+                message: t('common.toggleStatusConfirm', { action: t(item.status === 'ACTIVE' ? 'common.deactivate' : 'common.activate'), name: item.name }),
                 onConfirm: () => handleToggle(item),
               })}
               loading={toggleStatusMutation.isPending}

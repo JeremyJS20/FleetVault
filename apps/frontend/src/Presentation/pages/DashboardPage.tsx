@@ -155,7 +155,7 @@ export const DashboardPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md">
         <div>
           <h2 className="text-2xl font-extrabold tracking-tight text-fg-main">
-            {getGreeting()}, {user?.name?.split(' ')[0] || 'User'}!
+            {getGreeting()}, {user?.name?.split(' ')[0] || t('dashboard.guest')}!
           </h2>
           <p className="text-xs text-fg-secondary mt-1">
             {isAdmin ? t('dashboard.overviewAdmin') : t('dashboard.overviewCustomer')}

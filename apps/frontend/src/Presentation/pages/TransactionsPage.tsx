@@ -10,26 +10,18 @@ import { Input } from '../components/ui/Input.js';
 import { apiClient } from '../../Infrastructure/api-client.js';
 import { useQuery } from '@tanstack/react-query';
 
-const TYPE_LABELS: Record<string, { es: string; en: string }> = {
-  PRE_AUTH_HOLD: { es: 'Pre-Autorización', en: 'Pre-Auth Hold' },
-  CHARGE: { es: 'Cobro', en: 'Charge' },
-  REFUND: { es: 'Reembolso', en: 'Refund' },
-  PO_INVOICE: { es: 'Factura OC', en: 'PO Invoice' },
-  CASH: { es: 'Efectivo', en: 'Cash' },
-};
-
-function getTransactionContext(type: string, comments: string | null, lang: string): string | null {
+function getTransactionContext(type: string, comments: string | null): string | null {
   if (!comments) return null;
   const c = comments.toLowerCase();
-  if (c.includes('cancel') || c.includes('inasistencia')) return lang === 'es' ? 'Cancelación' : 'Cancellation';
-  if (c.includes('devolución') || c.includes('return check-in') || c.includes('check-in completed')) return lang === 'es' ? 'Devolución' : 'Return';
-  if (type === 'CASH' && (c.includes('efectivo recibido') || c.includes('mostrador') || c.includes('upfront cash'))) return lang === 'es' ? 'Salida' : 'Checkout';
-  if (c.includes('emitida') || c.includes('bajo oc') || c.includes('invoice under') || c.includes('booked under') || c.includes('invoice for')) return lang === 'es' ? 'Salida' : 'Checkout';
+  if (c.includes('cancel') || c.includes('inasistencia')) return 'cancellation';
+  if (c.includes('devolución') || c.includes('return check-in') || c.includes('check-in completed')) return 'return';
+  if (type === 'CASH' && (c.includes('efectivo recibido') || c.includes('mostrador') || c.includes('upfront cash'))) return 'checkout';
+  if (c.includes('emitida') || c.includes('bajo oc') || c.includes('invoice under') || c.includes('booked under') || c.includes('invoice for')) return 'checkout';
   return null;
 }
 
 export const TransactionsPage: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -37,7 +29,13 @@ export const TransactionsPage: React.FC = () => {
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
 
-  const lang = i18n.language?.startsWith('es') ? 'es' : 'en';
+  const typeLabels: Record<string, string> = {
+    PRE_AUTH_HOLD: t('transactionsPage.typePreAuthHold'),
+    CHARGE: t('transactionsPage.typeCharge'),
+    REFUND: t('transactionsPage.typeRefund'),
+    PO_INVOICE: t('transactionsPage.typePoInvoice'),
+    CASH: t('transactionsPage.typeCash'),
+  };
 
   const buildParams = useCallback(() => {
     const params: Record<string, string> = { page: String(page), limit: '20' };
@@ -74,7 +72,7 @@ export const TransactionsPage: React.FC = () => {
       header: t('transactionsPage.type'),
       cell: (info) => {
         const val = info.getValue() as string;
-        const label = TYPE_LABELS[val]?.[lang] || val;
+        const label = typeLabels[val] || val;
         const colors: Record<string, string> = {
           PRE_AUTH_HOLD: 'text-blue-400 bg-blue-500/10',
           CHARGE: 'text-emerald-400 bg-emerald-500/10',
@@ -83,21 +81,19 @@ export const TransactionsPage: React.FC = () => {
           CASH: 'text-green-400 bg-green-500/10',
         };
         const ctxColors: Record<string, string> = {
-          Salida: 'text-blue-400 bg-blue-500/10',
-          Checkout: 'text-blue-400 bg-blue-500/10',
-          Devolución: 'text-emerald-400 bg-emerald-500/10',
-          Return: 'text-emerald-400 bg-emerald-500/10',
-          Cancelación: 'text-amber-400 bg-amber-500/10',
-          Cancellation: 'text-amber-400 bg-amber-500/10',
+          checkout: 'text-blue-400 bg-blue-500/10',
+          return: 'text-emerald-400 bg-emerald-500/10',
+          cancellation: 'text-amber-400 bg-amber-500/10',
         };
-        const ctx = getTransactionContext(val, info.row.original.comments, lang);
+        const ctxKey = getTransactionContext(val, info.row.original.comments);
+        const ctx = ctxKey ? t(`transactionsPage.context${ctxKey.charAt(0).toUpperCase() + ctxKey.slice(1)}`) : null;
         return (
           <div className="flex items-center gap-1.5">
             <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md ${colors[val] || 'text-fg-secondary bg-bg-surface/30'}`}>
               {label}
             </span>
             {ctx && (
-              <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-1 rounded-md ${ctxColors[ctx] || 'text-purple-400 bg-purple-500/10'}`}>
+              <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-1 rounded-md ${ctxColors[ctxKey!] || 'text-purple-400 bg-purple-500/10'}`}>
                 {ctx}
               </span>
             )}
@@ -144,9 +140,9 @@ export const TransactionsPage: React.FC = () => {
       header: t('transactionsPage.paymentMethod'),
       cell: (info) => {
         const txn = info.row.original as any;
-        if (txn.type === 'CASH') return <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md text-green-400 bg-green-500/10">{lang === 'es' ? 'Efectivo' : 'Cash'}</span>;
-        if (txn.type === 'PO_INVOICE') return <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md text-purple-400 bg-purple-500/10">{lang === 'es' ? 'Orden de Compra' : 'Purchase Order'}</span>;
-        if (txn.stripePaymentIntentId) return <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md text-blue-400 bg-blue-500/10">{lang === 'es' ? 'Tarjeta' : 'Card'}</span>;
+        if (txn.type === 'CASH') return <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md text-green-400 bg-green-500/10">{t('transactionsPage.paymentMethodCash')}</span>;
+        if (txn.type === 'PO_INVOICE') return <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md text-purple-400 bg-purple-500/10">{t('transactionsPage.paymentMethodPO')}</span>;
+        if (txn.stripePaymentIntentId) return <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md text-blue-400 bg-blue-500/10">{t('transactionsPage.paymentMethodCard')}</span>;
         return <span className="text-xs text-fg-tertiary">—</span>;
       },
     },
@@ -213,8 +209,8 @@ export const TransactionsPage: React.FC = () => {
             className="w-full text-xs min-h-[44px] px-3 rounded-xl bg-bg-inset border border-border-surface/45 text-fg-main focus:outline-none focus:border-accent-primary transition-all"
           >
             <option value="">{t('transactionsPage.allTypes')}</option>
-            {Object.entries(TYPE_LABELS).map(([key, labels]) => (
-              <option key={key} value={key}>{labels[lang]}</option>
+            {Object.entries(typeLabels).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
             ))}
           </select>
         </div>

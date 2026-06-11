@@ -11,11 +11,11 @@ import { FormField } from '../components/ui/FormField.js';
 import { ShieldAlert, Users } from 'lucide-react';
 
 const DEFAULT_ACCOUNTS = [
-  { email: 'admin@fleetvault.com', role: 'ADMINISTRATOR', label: 'Admin' },
-  { email: 'agent@fleetvault.com', role: 'AGENT', label: 'Agente' },
-  { email: 'inspector@fleetvault.com', role: 'INSPECTOR', label: 'Inspector' },
-  { email: 'juan@fleetvault.com', role: 'CUSTOMER', label: 'Cliente Individual' },
-  { email: 'empresa@fleetvault.com', role: 'CUSTOMER', label: 'Cliente Corporativo' },
+  { email: 'admin@fleetvault.com', role: 'ADMINISTRATOR', labelKey: 'auth.defaultAccountAdmin' },
+  { email: 'agent@fleetvault.com', role: 'AGENT', labelKey: 'auth.defaultAccountAgent' },
+  { email: 'inspector@fleetvault.com', role: 'INSPECTOR', labelKey: 'auth.defaultAccountInspector' },
+  { email: 'juan@fleetvault.com', role: 'CUSTOMER', labelKey: 'auth.defaultAccountIndividual' },
+  { email: 'empresa@fleetvault.com', role: 'CUSTOMER', labelKey: 'auth.defaultAccountCorporate' },
 ];
 
 export const LoginPage: React.FC = () => {
@@ -119,7 +119,7 @@ export const LoginPage: React.FC = () => {
               }}
               className="px-2.5 py-1 rounded-lg border border-border-surface/30 bg-bg-inset/50 text-[11px] text-fg-secondary hover:bg-bg-inset hover:text-fg-main transition-all active:scale-95"
             >
-              {acc.label}
+              {t(acc.labelKey)}
             </button>
           ))}
         </div>

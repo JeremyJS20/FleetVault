@@ -187,8 +187,8 @@ export const CommissionsReportPage: React.FC = () => {
                     {c.payoutStatus === 'UNPAID' ? (
                       <button
                         onClick={() => setConfirmState({
-                          title: 'Confirmar',
-                          message: `¿Marcar como pagado a ${c.name}?`,
+                          title: t('common.confirm'),
+                          message: t('commissionsPage.markPaidConfirmMsg', { name: c.name }),
                           onConfirm: () => handleMarkPaid(c.employeeId, c.name),
                         })}
                         title={t('commissionsPage.markPaid')}

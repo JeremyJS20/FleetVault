@@ -309,8 +309,8 @@ export const VehiclesPage: React.FC = () => {
                 <ToggleSwitch
                   checked={item.status === 'AVAILABLE'}
                   onChange={() => setConfirmState({
-                    title: 'Confirmar',
-                    message: item.status === 'AVAILABLE' ? `¿Retirar ${item.plateNumber}?` : `¿Disponibilizar ${item.plateNumber}?`,
+                    title: t('common.confirm'),
+                    message: t('vehicles.retireActivateConfirmMsg', { action: t(item.status === 'AVAILABLE' ? 'common.deactivate' : 'common.activate'), plate: item.plateNumber }),
                     onConfirm: () => handleToggle(item),
                   })}
                   loading={toggleStatusMutation.isPending}
@@ -322,8 +322,8 @@ export const VehiclesPage: React.FC = () => {
             )}
             {canClean && (item.status === 'UNDER_INSPECTION' || item.status === 'MAINTENANCE') && (
               <button onClick={() => setConfirmState({
-                title: 'Confirmar',
-                message: `¿Pasar inspección de ${item.plateNumber}?`,
+                title: t('common.confirm'),
+                message: t('vehicles.passInspectionConfirmMsg', { plate: item.plateNumber }),
                 onConfirm: () => handlePassInspection(item),
               })} title={t('vehicles.passInspection')} className="text-accent-primary hover:text-accent-primary/80 transition-colors">
                 <ClipboardCheck size={14} />
@@ -331,8 +331,8 @@ export const VehiclesPage: React.FC = () => {
             )}
             {canClean && (
               <button onClick={() => setConfirmState({
-                title: 'Confirmar',
-                message: item.cleaningStatus === 'CLEAN' ? `¿Marcar como sucio ${item.plateNumber}?` : `¿Marcar como limpio ${item.plateNumber}?`,
+                title: t('common.confirm'),
+                message: t('vehicles.cleaningConfirmMsg', { action: t(item.cleaningStatus === 'CLEAN' ? 'vehicles.markDirty' : 'vehicles.markClean'), plate: item.plateNumber }),
                 onConfirm: () => handleToggleCleaning(item),
               })} title={item.cleaningStatus === 'CLEAN' ? t('vehicles.markDirty') : t('vehicles.markClean')} className="text-accent-primary hover:text-accent-primary/80 transition-colors">
                 <Sparkles size={14} />
