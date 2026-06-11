@@ -228,8 +228,8 @@ export const PublicLayout: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="w-full py-6 border-t border-border-surface/40 text-center text-xs font-mono tracking-widest text-fg-tertiary uppercase">
-        {t('common.footer')}
+      <footer className="w-full mt-auto py-6 border-t border-border-surface/40 text-center text-xs font-mono tracking-widest text-fg-tertiary uppercase">
+        &copy; {new Date().getFullYear()} FleetVault. All rights reserved.
       </footer>
 
       {/* Login / Register Modal */}
