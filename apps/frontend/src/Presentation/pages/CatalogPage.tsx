@@ -17,6 +17,7 @@ import { StripeCardForm } from '../components/ui/StripeCardForm.js';
 import { Toast } from '../components/ui/Toast.js';
 import { getImageProxyUrl } from '../../Infrastructure/hooks/useUploads.js';
 import { Search, Calendar, Shield, CreditCard, Check, Sparkles, AlertCircle, Trash2 } from 'lucide-react';
+import { HeroSection } from '../components/landing/HeroSection.js';
 
 export const CatalogPage: React.FC = () => {
   const { t } = useTranslation();
@@ -239,11 +240,14 @@ export const CatalogPage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Page Header */}
-      <div>
-        <h2 className="text-2xl font-extrabold tracking-tight text-fg-main">
-          {t('catalog.title')}
-        </h2>
+      <HeroSection />
+
+      <section id="vehicle-catalog" className="scroll-mt-24 space-y-8">
+        {/* Page Header */}
+        <div>
+          <h2 className="text-2xl font-extrabold tracking-tight text-fg-main">
+            {t('catalog.title')}
+          </h2>
         <p className="text-xs text-fg-secondary mt-1">
           {t('catalog.subtitle')}
         </p>
@@ -778,6 +782,7 @@ export const CatalogPage: React.FC = () => {
         />
       )}
 
+      </section>
     </div>
   );
 };

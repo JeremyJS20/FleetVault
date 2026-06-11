@@ -561,6 +561,20 @@
     "passed": "Passed",
     "flagged": "Flagged"
   },
+  "landing": {
+    "badge": "Premium Fleet Rental",
+    "headline": "Drive Excellence,",
+    "headlineSub": "Pay Transparency.",
+    "subtitle": "Explore FleetVault's curated collection of premium vehicles. Transparent daily rates, no hidden fees, and 24/7 roadside assistance included with every rental.",
+    "ctaPrimary": "Browse Our Fleet",
+    "ctaSecondary": "Rental Policies",
+    "statSecure": "Secure & Insured",
+    "statSecureDesc": "Full coverage included",
+    "stat247": "24/7 Support",
+    "stat247Desc": "Always here to help",
+    "statPricing": "Transparent Pricing",
+    "statPricingDesc": "No hidden fees"
+  },
   "catalog": {
     "title": "FIND YOUR PERFECT VEHICLE",
     "subtitle": "Explore and rent from our premium fleet of vehicles with transparent pricing.",
