@@ -121,7 +121,7 @@ export const PublicLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-bg-base text-fg-main overflow-x-hidden relative">
+    <div className="min-h-screen grid grid-rows-[auto_1fr_auto] bg-bg-base text-fg-main overflow-x-hidden relative">
       {/* Auroral background glows */}
       <div className="absolute top-[-10%] left-[20%] w-[50%] h-[30%] rounded-full bg-accent-primary opacity-5 filter blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[10%] w-[40%] h-[30%] rounded-full bg-accent-primary-end opacity-5 filter blur-[120px] pointer-events-none"></div>
@@ -223,12 +223,12 @@ export const PublicLayout: React.FC = () => {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-6 md:px-8 py-8">
+      <main className="max-w-7xl w-full mx-auto px-6 md:px-8 py-8">
         <Outlet />
       </main>
 
       {/* Footer */}
-      <footer className="w-full mt-auto py-6 border-t border-border-surface/40 text-center text-xs font-mono tracking-widest text-fg-tertiary uppercase">
+      <footer className="w-full py-6 border-t border-border-surface/40 text-center text-xs font-mono tracking-widest text-fg-tertiary uppercase">
         &copy; {new Date().getFullYear()} FleetVault. All rights reserved.
       </footer>
 
