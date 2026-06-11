@@ -15,6 +15,7 @@
   --color-fg-main: var(--text-primary);
   --color-fg-secondary: var(--text-secondary);
   --color-fg-tertiary: var(--text-tertiary);
+  --color-fg-on-accent: var(--text-on-accent);
   
   --font-sans: "Satoshi", "DM Sans", "system-ui", "-apple-system", "sans-serif";
   --font-mono: "JetBrains Mono", "Fira Code", "monospace";
