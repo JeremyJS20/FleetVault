@@ -14,9 +14,8 @@ export const HeroSection: React.FC = () => {
   };
 
   return (
-    <section className="relative -mx-6 md:-mx-8 px-6 md:px-8 py-8 md:py-16">
-
-      <div className="relative z-10 max-w-7xl mx-auto">
+    <section className="relative py-8 md:py-16">
+      <div className="relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           {/* Left column — text */}
           <div className="flex flex-col gap-5 animate-slide-up">

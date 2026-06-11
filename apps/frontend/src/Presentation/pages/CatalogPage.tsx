@@ -242,7 +242,7 @@ export const CatalogPage: React.FC = () => {
     <div className="animate-fade-in">
       <HeroSection />
 
-      <section id="vehicle-catalog" className="scroll-mt-24 space-y-8 px-6 md:px-8 pb-12">
+      <section id="vehicle-catalog" className="scroll-mt-24 space-y-8 pb-12">
         {/* Page Header */}
         <div>
           <h2 className="text-2xl font-extrabold tracking-tight text-fg-main">
