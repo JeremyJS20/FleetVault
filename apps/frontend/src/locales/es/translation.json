@@ -568,12 +568,12 @@
     "subtitle": "Explore la colección curada de vehículos premium de FleetVault. Tarifas diarias transparentes, sin cargos ocultos y asistencia en carretera 24/7 incluida en cada alquiler.",
     "ctaPrimary": "Explorar Flota",
     "ctaSecondary": "Políticas de Alquiler",
-    "statSecure": "Seguro e Inspeccionado",
-    "statSecureDesc": "Cobertura completa incluida",
-    "stat247": "Soporte 24/7",
-    "stat247Desc": "Siempre aquí para ayudar",
-    "statPricing": "Precios Transparentes",
-    "statPricingDesc": "Sin cargos ocultos"
+    "trustVehicles": "500+ Vehículos",
+    "trustSupport": "Soporte 24/7",
+    "trustRating": "\u2605 4.9 Puntuación",
+    "trustPricing": "Sin Cargos Ocultos",
+    "scrollHint": "Explorar vehículos",
+    "fromPrice": "Desde $X/día"
   },
   "catalog": {
     "title": "ENCUENTRE SU VEHÍCULO PERFECTO",

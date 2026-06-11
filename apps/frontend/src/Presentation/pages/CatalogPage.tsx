@@ -239,10 +239,22 @@ export const CatalogPage: React.FC = () => {
   const totalHold = basePrice + securityDeposit;
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <HeroSection />
+    <div className="animate-fade-in">
+      <HeroSection
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        typeId={typeId}
+        brandId={brandId}
+        vehicleTypes={vehicleTypes}
+        brands={brands}
+        onDateFromChange={setDateFrom}
+        onDateToChange={setDateTo}
+        onTypeIdChange={setTypeId}
+        onBrandIdChange={setBrandId}
+        onSearch={handleSearch}
+      />
 
-      <section id="vehicle-catalog" className="scroll-mt-24 space-y-8">
+      <section id="vehicle-catalog" className="scroll-mt-24 space-y-8 px-6 md:px-8 pb-12">
         {/* Page Header */}
         <div>
           <h2 className="text-2xl font-extrabold tracking-tight text-fg-main">
