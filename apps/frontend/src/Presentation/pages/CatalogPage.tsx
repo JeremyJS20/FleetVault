@@ -16,7 +16,7 @@ import { stripePromise } from '../../Infrastructure/stripe.js';
 import { StripeCardForm } from '../components/ui/StripeCardForm.js';
 import { Toast } from '../components/ui/Toast.js';
 import { getImageProxyUrl } from '../../Infrastructure/hooks/useUploads.js';
-import { Shield, CreditCard, Check, Sparkles, AlertCircle, Trash2 } from 'lucide-react';
+import { Shield, CreditCard, Check, Sparkles, AlertCircle, Trash2, Search, Calendar } from 'lucide-react';
 import { HeroSection } from '../components/landing/HeroSection.js';
 
 export const CatalogPage: React.FC = () => {
@@ -240,19 +240,7 @@ export const CatalogPage: React.FC = () => {
 
   return (
     <div className="animate-fade-in">
-      <HeroSection
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        typeId={typeId}
-        brandId={brandId}
-        vehicleTypes={vehicleTypes}
-        brands={brands}
-        onDateFromChange={setDateFrom}
-        onDateToChange={setDateTo}
-        onTypeIdChange={setTypeId}
-        onBrandIdChange={setBrandId}
-        onSearch={handleSearch}
-      />
+      <HeroSection />
 
       <section id="vehicle-catalog" className="scroll-mt-24 space-y-8 px-6 md:px-8 pb-12">
         {/* Page Header */}
@@ -264,6 +252,66 @@ export const CatalogPage: React.FC = () => {
           {t('catalog.subtitle')}
         </p>
       </div>
+
+      {/* Advanced Filter Panel */}
+      <form onSubmit={handleSearch} className="p-6 rounded-2xl bg-bg-card border border-border-surface/40 backdrop-blur-md grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+        <FormField label={t('catalog.pickupDate')}>
+          <div className="relative">
+            <Input
+              type="date"
+              min={new Date().toISOString().split('T')[0]}
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="!h-9 rounded-lg pl-9"
+            />
+            <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-fg-tertiary" />
+          </div>
+        </FormField>
+
+        <FormField label={t('catalog.dropoffDate')}>
+          <div className="relative">
+            <Input
+              type="date"
+              min={dateFrom}
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="!h-9 rounded-lg pl-9"
+            />
+            <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-fg-tertiary" />
+          </div>
+        </FormField>
+
+        <FormField label={t('catalog.vehicleCategory')}>
+          <select
+            value={typeId}
+            onChange={(e) => setTypeId(e.target.value)}
+            className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
+          >
+            <option value="">{t('catalog.allCategories')}</option>
+            {vehicleTypes.map((t: any) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        </FormField>
+
+        <FormField label={t('catalog.brand')}>
+          <select
+            value={brandId}
+            onChange={(e) => setBrandId(e.target.value)}
+            className="w-full h-9 rounded-lg border border-border-surface/40 bg-bg-inset text-xs font-semibold px-3 text-fg-secondary outline-none focus:border-accent-primary"
+          >
+            <option value="">{t('catalog.allBrands')}</option>
+            {brands.map((b: any) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </FormField>
+
+        <Button type="submit" className="w-full h-9 flex items-center justify-center gap-2">
+          <Search size={14} />
+          {t('catalog.search')}
+        </Button>
+      </form>
 
       {/* Vehicle Grid List */}
       {isVehiclesLoading ? (
