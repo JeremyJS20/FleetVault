@@ -14,13 +14,7 @@ export const HeroSection: React.FC = () => {
   };
 
   return (
-    <section className="relative overflow-hidden -mx-6 md:-mx-8 px-6 md:px-8 py-8 md:py-16">
-      {/* Auroral glows */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-[5%] left-[10%] w-[700px] h-[700px] rounded-full bg-accent-primary/10 blur-[140px]" />
-        <div className="absolute bottom-[10%] right-[5%] w-[600px] h-[600px] rounded-full bg-accent-primary-end/8 blur-[120px]" />
-        <div className="absolute top-[40%] right-[30%] w-[400px] h-[400px] rounded-full bg-purple-500/5 blur-[100px]" />
-      </div>
+    <section className="relative -mx-6 md:-mx-8 px-6 md:px-8 py-8 md:py-16">
 
       <div className="relative z-10 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
