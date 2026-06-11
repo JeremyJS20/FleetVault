@@ -1,35 +1,35 @@
-# Diseño de Base de Datos y Modelo de Entidades
+# Database Design and Entity Model
 
-La persistencia de datos de **FleetVault Enterprise** se gestiona mediante un motor relacional (**SQLite** en entornos de desarrollo y pruebas, y **PostgreSQL** mediante **Supabase** en producción). El acceso y las migraciones se controlan a través de **Prisma ORM**.
+**FleetVault Enterprise** data persistence is managed through a relational engine (**SQLite** in development and testing environments, and **PostgreSQL** via **Supabase** in production). Access and migrations are controlled through **Prisma ORM**.
 
 ---
 
-## 1. Diagrama Entidad-Relación (ERD)
+## 1. Entity-Relationship Diagram (ERD)
 
-A continuación se presenta el modelo conceptual de base de datos con las relaciones y jerarquías lógicas reales del proyecto:
+Below is the conceptual database model with the actual logical relationships and hierarchies of the project:
 
 ```mermaid
 erDiagram
-    USER ||--o| CUSTOMER : "pertenece a"
-    USER ||--o| EMPLOYEE : "pertenece a"
-    VEHICLE_TYPE ||--o{ VEHICLE : "clasifica"
-    BRAND ||--o{ MODEL : "agrupa"
-    MODEL ||--o{ VEHICLE : "define"
-    FUEL_TYPE ||--o{ VEHICLE : "alimenta"
-    VEHICLE ||--o{ INSPECTION : "recibe"
-    CUSTOMER ||--o{ INSPECTION : "es inspeccionado por"
-    EMPLOYEE ||--o{ INSPECTION : "realiza"
-    VEHICLE ||--o{ RENTAL : "es alquilado en"
-    CUSTOMER ||--o{ RENTAL : "arrienda"
-    EMPLOYEE ||--o{ RENTAL : "despacha / recibe"
-    RENTAL ||--o{ INSPECTION : "asocia"
-    RENTAL ||--o{ TRANSACTION_LEDGER : "genera"
-    VEHICLE ||--o{ GPS_LOG : "transmite"
-    INSPECTION ||--o{ INSPECTION_DAMAGE : "detalla"
-    DAMAGE_TYPE ||--o{ INSPECTION_DAMAGE : "clasifica"
-    DAMAGE_TYPE ||--o| FEE_CONFIG : "tiene"
-    RENTAL_POLICY ||--o| RENTAL_POLICY : "independiente"
-    COMPANY_INFO ||--o| COMPANY_INFO : "independiente"
+    USER ||--o| CUSTOMER : "belongs to"
+    USER ||--o| EMPLOYEE : "belongs to"
+    VEHICLE_TYPE ||--o{ VEHICLE : "classifies"
+    BRAND ||--o{ MODEL : "groups"
+    MODEL ||--o{ VEHICLE : "defines"
+    FUEL_TYPE ||--o{ VEHICLE : "powers"
+    VEHICLE ||--o{ INSPECTION : "receives"
+    CUSTOMER ||--o{ INSPECTION : "is inspected by"
+    EMPLOYEE ||--o{ INSPECTION : "performs"
+    VEHICLE ||--o{ RENTAL : "is rented in"
+    CUSTOMER ||--o{ RENTAL : "rents"
+    EMPLOYEE ||--o{ RENTAL : "dispatches / receives"
+    RENTAL ||--o{ INSPECTION : "associates"
+    RENTAL ||--o{ TRANSACTION_LEDGER : "generates"
+    VEHICLE ||--o{ GPS_LOG : "transmits"
+    INSPECTION ||--o{ INSPECTION_DAMAGE : "details"
+    DAMAGE_TYPE ||--o{ INSPECTION_DAMAGE : "classifies"
+    DAMAGE_TYPE ||--o| FEE_CONFIG : "has"
+    RENTAL_POLICY ||--o| RENTAL_POLICY : "independent"
+    COMPANY_INFO ||--o| COMPANY_INFO : "independent"
 
     USER {
         string id PK
@@ -258,9 +258,9 @@ erDiagram
 
 ---
 
-## 2. Esquema Oficial de Prisma (`schema.prisma`)
+## 2. Official Prisma Schema (`schema.prisma`)
 
-El modelo físico de la base de datos se describe exactamente en el archivo [schema.prisma](file:///c:/Users/jsjer/OneDrive/Bureaublad/New%20folder/OpenSource%20II/rent-car/apps/backend/prisma/schema.prisma):
+The physical database model is exactly described in the [schema.prisma](file:///c:/Users/jsjer/OneDrive/Bureaublad/New%20folder/OpenSource%20II/rent-car/apps/backend/prisma/schema.prisma) file:
 
 ```prisma
 generator client {
