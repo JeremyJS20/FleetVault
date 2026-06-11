@@ -354,7 +354,10 @@
     "signingIn": "Signing you in...",
     "signInFailed": "Sign In Failed",
     "magicLinkInvalid": "Invalid or missing magic link. Please try signing in with your password.",
-    "magicLinkFailed": "Failed to sign in with magic link. Please try again."
+    "magicLinkFailed": "Failed to sign in with magic link. Please try again.",
+    "defaultAccounts": "Test Accounts",
+    "defaultAccountsHint": "Tap an account to autofill",
+    "passwordDefault": "Password: password123"
   },
   "dashboard": {
     "welcome": "Welcome back",

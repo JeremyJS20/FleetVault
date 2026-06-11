@@ -18,31 +18,108 @@ async function main() {
   await prisma.brand.deleteMany({});
   await prisma.vehicleType.deleteMany({});
   await prisma.fuelType.deleteMany({});
-  await prisma.geofence.deleteMany({});
   await prisma.feeConfig.deleteMany({});
+  await prisma.inspectionDamage.deleteMany({});
+  await prisma.damageType.deleteMany({});
   await prisma.rentalPolicy.deleteMany({});
   await prisma.seasonalRate.deleteMany({});
   await prisma.companyInfo.deleteMany({});
+  await prisma.geofence.deleteMany({});
+
+  const passwordHash = await bcrypt.hash('password123', 10);
+
+  const logins: { email: string; role: string }[] = [];
 
   console.log('Seeding Admin user...');
-  const passwordHash = await bcrypt.hash('password123', 10);
   const adminUser = await prisma.user.create({
-    data: {
-      email: 'admin@fleetvault.com',
-      passwordHash,
-      role: 'ADMINISTRATOR',
-    },
+    data: { email: 'admin@fleetvault.com', passwordHash, role: 'ADMINISTRATOR' },
   });
   await prisma.employee.create({
     data: {
-      name: 'Admin',
-      nationalId: 'EMP-00000',
+      name: 'Admin Principal',
+      nationalId: 'EMP-00001',
       commissionPercentage: 0,
       hireDate: new Date('2024-01-01'),
       shift: 'MORNING',
       userId: adminUser.id,
     },
   });
+  logins.push({ email: 'admin@fleetvault.com', role: 'ADMINISTRATOR' });
+
+  console.log('Seeding default users...');
+
+  // --- AGENT ---
+    const agentUser = await prisma.user.create({
+      data: { email: 'agent@fleetvault.com', passwordHash, role: 'AGENT' },
+    });
+    await prisma.employee.create({
+      data: {
+        name: 'Ana Martínez',
+        nationalId: '00100000017',
+        phone: '(809) 555-1001',
+        commissionPercentage: 5,
+        hireDate: new Date('2024-06-15'),
+        shift: 'MORNING',
+        userId: agentUser.id,
+      },
+    });
+    logins.push({ email: 'agent@fleetvault.com', role: 'AGENT' });
+
+    // --- INSPECTOR ---
+    const inspectorUser = await prisma.user.create({
+      data: { email: 'inspector@fleetvault.com', passwordHash, role: 'INSPECTOR' },
+    });
+    await prisma.employee.create({
+      data: {
+        name: 'Carlos Peña',
+        nationalId: '00200000024',
+        phone: '(809) 555-1002',
+        commissionPercentage: 3,
+        hireDate: new Date('2024-08-01'),
+        shift: 'AFTERNOON',
+        userId: inspectorUser.id,
+      },
+    });
+    logins.push({ email: 'inspector@fleetvault.com', role: 'INSPECTOR' });
+
+    // --- CUSTOMER INDIVIDUAL ---
+    const individualUser = await prisma.user.create({
+      data: { email: 'juan@fleetvault.com', passwordHash, role: 'CUSTOMER' },
+    });
+    await prisma.customer.create({
+      data: {
+        name: 'Juan Pérez',
+        email: 'juan@fleetvault.com',
+        phone: '(809) 555-2001',
+        address: 'Calle Las Palmas #42, Ensanche Ozama',
+        nationalId: '00300000032',
+        creditLimit: 50000,
+        type: 'INDIVIDUAL',
+        licenseNumber: 'L-12345',
+        licenseCountry: 'República Dominicana',
+        licenseExpDate: new Date('2028-12-31'),
+        userId: individualUser.id,
+      },
+    });
+    logins.push({ email: 'juan@fleetvault.com', role: 'CUSTOMER (Individual)' });
+
+    // --- CUSTOMER CORPORATE ---
+    const corporateUser = await prisma.user.create({
+      data: { email: 'empresa@fleetvault.com', passwordHash, role: 'CUSTOMER' },
+    });
+    await prisma.customer.create({
+      data: {
+        name: 'Comercial del Este SRL',
+        email: 'empresa@fleetvault.com',
+        phone: '(809) 555-3001',
+        address: 'Av. Churchill #250, Piantini',
+        nationalId: '101000007',
+        creditLimit: 200000,
+        type: 'CORPORATE',
+        userId: corporateUser.id,
+      },
+    });
+    logins.push({ email: 'empresa@fleetvault.com', role: 'CUSTOMER (Corporate)' });
 
   console.log('Seeding Damage Types...');
   const glassDt = await prisma.damageType.create({ data: { name: 'Vidrios rotos', key: 'GLASS', description: 'Parabrisas o vidrios rotos' } });
@@ -60,7 +137,6 @@ async function main() {
       { key: 'SECURITY_DEPOSIT', label: 'Depósito de seguridad', amount: 15000, description: 'Monto de retención de depósito por alquiler' },
     ],
   });
-  // Tarifas de daños vinculadas a DamageType (sin key, se resuelven dinámicamente)
   await prisma.feeConfig.createMany({
     data: [
       { key: null, label: 'Vidrios rotos', amount: 12000, damageTypeId: glassDt.id, description: 'Cargo por parabrisas o vidrios rotos' },
@@ -87,9 +163,17 @@ async function main() {
   console.log('Seeding Rental Policies...');
   await seedPolicies();
 
-  console.log('Seeding completed successfully!');
   console.log('');
-  console.log('  Admin login: admin@fleetvault.com / password123');
+  console.log('══════════════════════════════════════════');
+  console.log('  Seed completed successfully!');
+  console.log('══════════════════════════════════════════');
+  console.log('');
+  console.log('  Default accounts (password123 for all):');
+  console.log('  ─────────────────────────────────────');
+  for (const { email, role } of logins) {
+    console.log(`  ${role.padEnd(28)} ${email}`);
+  }
+  console.log('');
 }
 
 main()

@@ -349,7 +349,10 @@
     "signingIn": "Iniciando sesión...",
     "signInFailed": "Inicio de Sesión Fallido",
     "magicLinkInvalid": "Enlace mágico inválido o faltante. Intente iniciar sesión con su contraseña.",
-    "magicLinkFailed": "No se pudo iniciar sesión con el enlace mágico. Intente de nuevo."
+    "magicLinkFailed": "No se pudo iniciar sesión con el enlace mágico. Intente de nuevo.",
+    "defaultAccounts": "Cuentas de Prueba",
+    "defaultAccountsHint": "Toque una cuenta para autocompletar",
+    "passwordDefault": "Contraseña: password123"
   },
   "dashboard": {
     "welcome": "Bienvenido",

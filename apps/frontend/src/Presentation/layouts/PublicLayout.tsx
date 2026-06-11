@@ -4,8 +4,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LoginSchema, type LoginInput } from '@rent-car/common';
 import { useAuth } from '../../Infrastructure/auth.context.js';
+import { useQuickRegister } from '../../Infrastructure/hooks/useQuickRegister.js';
 import { useTranslation } from 'react-i18next';
-import { Languages, Sun, Moon, LogOut, Compass, LogIn, AlertCircle } from 'lucide-react';
+import { Languages, Sun, Moon, LogOut, Compass, LogIn, AlertCircle, Users } from 'lucide-react';
 import { FormModal } from '../components/ui/FormModal.js';
 import { Button } from '../components/ui/Button.js';
 import { Input } from '../components/ui/Input.js';
@@ -52,6 +53,14 @@ export const PublicLayout: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
 
+  // Register mode state
+  const [registerMode, setRegisterMode] = useState(false);
+  const [regFirstName, setRegFirstName] = useState('');
+  const [regLastName, setRegLastName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regError, setRegError] = useState<string | null>(null);
+  const quickRegisterMutation = useQuickRegister();
+
   const {
     register: loginRegister,
     handleSubmit: handleLoginSubmit,
@@ -60,6 +69,14 @@ export const PublicLayout: React.FC = () => {
     resolver: zodResolver(LoginSchema),
     defaultValues: { email: '', password: '' },
   });
+
+  const DEFAULT_ACCOUNTS = [
+    { email: 'admin@fleetvault.com', role: 'ADMINISTRATOR', label: 'Admin' },
+    { email: 'agent@fleetvault.com', role: 'AGENT', label: 'Agente' },
+    { email: 'inspector@fleetvault.com', role: 'INSPECTOR', label: 'Inspector' },
+    { email: 'juan@fleetvault.com', role: 'CUSTOMER', label: 'Cliente Individual' },
+    { email: 'empresa@fleetvault.com', role: 'CUSTOMER', label: 'Cliente Corporativo' },
+  ];
 
   const onLogin = async (data: LoginInput) => {
     setLoginError(null);
@@ -75,6 +92,31 @@ export const PublicLayout: React.FC = () => {
       setLoginError(err.message || 'Invalid email or password');
     } finally {
       setLoginLoading(false);
+    }
+  };
+
+  const onQuickRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegError(null);
+    try {
+      const res = await quickRegisterMutation.mutateAsync({
+        email: regEmail,
+        firstName: regFirstName,
+        lastName: regLastName,
+      });
+      if ('exists' in res) {
+        setRegError(t('auth.accountExists'));
+        return;
+      }
+      await login(res.accessToken, res.user, res.refreshToken);
+      setShowLoginModal(false);
+      setRegisterMode(false);
+      setRegFirstName('');
+      setRegLastName('');
+      setRegEmail('');
+      navigate('/', { replace: true });
+    } catch (err: any) {
+      setRegError(err.message || t('common.operationFailed'));
     }
   };
 
@@ -190,50 +232,131 @@ export const PublicLayout: React.FC = () => {
         FleetVault Enterprise · Neo-Minimalist Liquid Glass System
       </footer>
 
-      {/* Login Modal */}
+      {/* Login / Register Modal */}
       {showLoginModal && (
-        <FormModal isOpen={showLoginModal} onClose={() => { setShowLoginModal(false); setLoginError(null); }} title={t('auth.signIn')}>
-          <p className="text-xs text-fg-secondary mb-4">{t('auth.enterCredentials')}</p>
-          <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-6">
+        <FormModal isOpen={showLoginModal} onClose={() => { setShowLoginModal(false); setLoginError(null); setRegisterMode(false); setRegError(null); }} title={registerMode ? t('auth.createAccount') : t('auth.signIn')}>
+          {registerMode ? (
+            <form onSubmit={onQuickRegister} className="space-y-6">
+              <span className="text-xs font-bold text-accent-primary uppercase tracking-widest block">{t('auth.quickSignup')}</span>
+              <p className="text-xs text-fg-secondary">{t('auth.quickSignupSubtitle')}</p>
 
-            {loginError && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-500 flex items-center gap-2">
-                <AlertCircle size={16} className="shrink-0" />
-                <span>{loginError}</span>
+              {regError && (
+                <div className="p-3 rounded-xl bg-accent-error/15 border border-accent-error/20 text-accent-error text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {regError}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <FormField label={t('auth.firstName')} required>
+                  <Input type="text" placeholder={t('auth.firstName')} value={regFirstName} onChange={(e) => setRegFirstName(e.target.value)} required />
+                </FormField>
+                <FormField label={t('auth.lastName')} required>
+                  <Input type="text" placeholder={t('auth.lastName')} value={regLastName} onChange={(e) => setRegLastName(e.target.value)} required />
+                </FormField>
+                <FormField label={t('auth.emailAddress')} required>
+                  <Input type="email" placeholder={t('auth.emailAddress')} value={regEmail} onChange={(e) => setRegEmail(e.target.value)} required />
+                </FormField>
               </div>
-            )}
 
-            <div className="space-y-4">
-              <FormField label={t('auth.emailAddress')} required error={loginErrors.email?.message}>
-                <Input
-                  type="email"
-                  placeholder="name@example.com"
-                  {...loginRegister('email')}
-                />
-              </FormField>
+              <div className="flex items-center justify-between pt-2">
+                <button type="button" onClick={() => { setRegisterMode(false); setRegError(null); }} className="text-xs text-accent-primary hover:underline cursor-pointer">
+                  {t('auth.signIn')}
+                </button>
+                <div className="flex gap-2">
+                  <Button variant="secondary" type="button" onClick={() => { setShowLoginModal(false); setRegisterMode(false); setRegError(null); }}>
+                    {t('common.cancel')}
+                  </Button>
+                  <Button type="submit" isLoading={quickRegisterMutation.isPending}>
+                    {t('auth.continue')}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-6">
+              <p className="text-xs text-fg-secondary mb-4">{t('auth.enterCredentials')}</p>
 
-              <FormField label={t('auth.password')} required error={loginErrors.password?.message}>
-                <Input
-                  type="password"
-                  placeholder="••••••••"
-                  {...loginRegister('password')}
-                />
-              </FormField>
-            </div>
+              {loginError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-500 flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0" />
+                  <span>{loginError}</span>
+                </div>
+              )}
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                variant="secondary"
-                type="button"
-                onClick={() => { setShowLoginModal(false); setLoginError(null); }}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button type="submit" isLoading={loginLoading}>
-                {t('auth.continue')}
-              </Button>
-            </div>
-          </form>
+              <div className="rounded-xl border border-border-surface/40 bg-bg-card/50 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-fg-secondary">
+                  <Users size={14} />
+                  <span className="text-xs font-semibold tracking-wide">{t('auth.defaultAccounts')}</span>
+                </div>
+                <div className="text-[11px] text-fg-tertiary">{t('auth.defaultAccountsHint')} — {t('auth.passwordDefault')}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {DEFAULT_ACCOUNTS.map((acc) => (
+                    <button
+                      key={acc.email}
+                      type="button"
+                      onClick={() => {
+                        const emailInput = document.querySelector<HTMLInputElement>('#modal-email');
+                        const pwInput = document.querySelector<HTMLInputElement>('#modal-password');
+                        if (emailInput) {
+                          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+                          setter?.call(emailInput, acc.email);
+                          emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        if (pwInput) {
+                          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+                          setter?.call(pwInput, 'password123');
+                          pwInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        setLoginError(null);
+                      }}
+                      className="px-2.5 py-1 rounded-lg border border-border-surface/30 bg-bg-inset/50 text-[11px] text-fg-secondary hover:bg-bg-inset hover:text-fg-main transition-all active:scale-95"
+                    >
+                      {acc.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <FormField label={t('auth.emailAddress')} required error={loginErrors.email?.message}>
+                  <Input
+                    id="modal-email"
+                    type="email"
+                    placeholder="name@example.com"
+                    {...loginRegister('email')}
+                  />
+                </FormField>
+
+                <FormField label={t('auth.password')} required error={loginErrors.password?.message}>
+                  <Input
+                    id="modal-password"
+                    type="password"
+                    placeholder="••••••••"
+                    {...loginRegister('password')}
+                  />
+                </FormField>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <button type="button" onClick={() => { setRegisterMode(true); setLoginError(null); }} className="text-xs text-accent-primary hover:underline cursor-pointer">
+                  {t('auth.createAccount')}
+                </button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    onClick={() => { setShowLoginModal(false); setLoginError(null); }}
+                  >
+                    {t('common.cancel')}
+                  </Button>
+                  <Button type="submit" isLoading={loginLoading}>
+                    {t('auth.continue')}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          )}
         </FormModal>
       )}
     </div>

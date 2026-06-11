@@ -18,8 +18,6 @@ import {
   Languages,
   ClipboardCheck,
   DollarSign,
-  Map,
-  Globe,
   BarChart3,
   TrendingUp,
   Coins,
@@ -65,8 +63,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
       links: [
         { to: '/admin/reservations', labelKey: 'nav.reservations', icon: Calendar },
         { to: '/admin/inspections', labelKey: 'nav.inspections', icon: ClipboardCheck },
-        { to: '/admin/gps/map', labelKey: 'nav.gpsMap', icon: Map },
-        { to: '/admin/gps/geofences', labelKey: 'nav.geofenceConfig', icon: Globe },
+        // { to: '/admin/gps/map', labelKey: 'nav.gpsMap', icon: Map },
+        // { to: '/admin/gps/geofences', labelKey: 'nav.geofenceConfig', icon: Globe },
       ]
     },
     {
@@ -171,10 +169,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
                         key={link.to}
                         to={link.to}
                         className={({ isActive }) =>
-                          `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                            isActive
-                              ? 'bg-accent-primary/10 border border-accent-primary/25 text-accent-primary shadow-sm'
-                              : 'text-fg-secondary hover:bg-bg-inset border border-transparent hover:text-fg-main'
+                          `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${isActive
+                            ? 'bg-accent-primary/10 border border-accent-primary/25 text-accent-primary shadow-sm'
+                            : 'text-fg-secondary hover:bg-bg-inset border border-transparent hover:text-fg-main'
                           }`
                         }
                       >
@@ -195,10 +192,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
                     key={link.to}
                     to={link.to}
                     className={({ isActive }) =>
-                      `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                        isActive
-                          ? 'bg-accent-primary/10 border border-accent-primary/25 text-accent-primary shadow-sm'
-                          : 'text-fg-secondary hover:bg-bg-inset border border-transparent hover:text-fg-main'
+                      `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${isActive
+                        ? 'bg-accent-primary/10 border border-accent-primary/25 text-accent-primary shadow-sm'
+                        : 'text-fg-secondary hover:bg-bg-inset border border-transparent hover:text-fg-main'
                       }`
                     }
                   >
